@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shomriddhi FDR Module - Architecture & Workflow Explanation</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; padding: 40px; color: #333; max-width: 800px; margin: 0 auto; }
+        h1, h2, h3 { color: #2c3e50; }
+        h1 { border-bottom: 2px solid #27ae60; padding-bottom: 10px; }
+        h2 { margin-top: 30px; background: #eafaf1; padding: 10px; border-left: 5px solid #27ae60; }
+        pre { background: #f8f9fa; border: 1px solid #e9ecef; padding: 15px; border-radius: 5px; overflow-x: auto; font-size: 14px; }
+        code { font-family: 'Courier New', Courier, monospace; color: #e83e8c; }
+        pre code { color: #212529; }
+        table { border-collapse: collapse; width: 100%; margin-top: 10px; }
+        th { background: #27ae60; color: white; padding: 10px; text-align: left; }
+        td { padding: 8px 10px; border: 1px solid #ddd; }
+        tr:nth-child(even) { background: #f9f9f9; }
+        .note { background: #eafaf1; padding: 15px; border-radius: 5px; margin-top: 20px; border-left: 4px solid #27ae60; }
+        .warning { background: #fef9e7; padding: 15px; border-radius: 5px; margin-top: 20px; border-left: 4px solid #f39c12; }
+        ul { margin-top: 5px; }
+    </style>
+</head>
+<body>
+
+    <h1>Shomriddhi FDR Module — Architecture &amp; Workflow Explanation</h1>
+
+    <p>FDR (Fixed Deposit Receipt) হলো একটি মেয়াদী আমানত স্কিম। গ্রাহক একবারে একটি বড় অঙ্কের টাকা নির্দিষ্ট মেয়াদের জন্য জমা রাখেন, এবং মুনাফা নিয়মিত বিরতিতে (মাসিক/ত্রৈমাসিক ইত্যাদি) অথবা মেয়াদ শেষে একবারে পান। এই মডিউলটি সেই পুরো চক্রটিকে ডিজিটালভাবে ম্যানেজ করে।</p>
+
+    <h2>১. মডিউলের স্থাপত্য (Service Pattern)</h2>
+
+    <h3>সহজ বাংলা উদাহরণ:</h3>
+    <p>ধরুন, একটি ব্যাংকে একজন কাস্টমার ম্যানেজার (<strong>Controller</strong>) আছেন। তিনি গ্রাহকের ডকুমেন্ট গ্রহণ করেন কিন্তু নিজে অ্যাকাউন্টিং বই মিলান না। সেই কাজ করেন পেছনে বসা একজন বিশেষজ্ঞ অ্যাকাউন্ট্যান্ট (<strong>FdrAccountService</strong>)।</p>
+
+    <p><strong>স্টেপ ১: Controller (ম্যানেজারের কাজ)</strong><br>
+    HTTP রিকোয়েস্ট ধরে, ভ্যালিডেশন করে, Service-কে কাজ দেয়। নিজে কোনো হিসাব করে না।</p>
+
+    <p><strong>স্টেপ ২: FdrAccountService (অ্যাকাউন্ট্যান্টের কাজ)</strong><br>
+    <code>approve()</code> এবং <code>encash()</code> মেথডের মাধ্যমে সমস্ত জটিল ব্যবসায়িক লজিক ও ডাবল-এন্ট্রি অ্যাকাউন্টিং হ্যান্ডেল করে।</p>
+
+    <p><strong>স্টেপ ৩: ProcessFdrInterestPayout (নাইট ক্রন জব)</strong><br>
+    রাত ১:৩০ মিনিটে স্বয়ংক্রিয়ভাবে চলে। মুনাফা হিসাব করে, Savings-এ ট্রান্সফার করে, Journal Voucher পোস্ট করে।</p>
+
+    <h2>২. ডাবল-এন্ট্রি অ্যাকাউন্টিং (Double-Entry Accounting)</h2>
+
+    <p>প্রতিটি আর্থিক লেনদেনে সিস্টেম স্বয়ংক্রিয়ভাবে ব্যালেন্সড ভাউচার তৈরি করে।</p>
+
+    <table>
+        <thead>
+            <tr><th>ঘটনা</th><th>Debit (ডেবিট)</th><th>Credit (ক্রেডিট)</th><th>ভাউচার টাইপ</th></tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>FDR অনুমোদন (Approval)</td>
+                <td>Cash / Bank Account</td>
+                <td>Customer FDR Liability Head</td>
+                <td>Collection Voucher</td>
+            </tr>
+            <tr>
+                <td>মাসিক মুনাফা (Cron Job)</td>
+                <td>FDR Interest Expense</td>
+                <td>Customer Savings Head</td>
+                <td>Journal Voucher</td>
+            </tr>
+            <tr>
+                <td>এনক্যাশমেন্ট — Principal</td>
+                <td>Customer FDR Liability Head</td>
+                <td>Cash / Bank Account</td>
+                <td>Payment Voucher</td>
+            </tr>
+            <tr>
+                <td>এনক্যাশমেন্ট — Interest</td>
+                <td>FDR Interest Expense</td>
+                <td>Cash / Bank Account</td>
+                <td>Payment Voucher</td>
+            </tr>
+            <tr>
+                <td>এনক্যাশমেন্ট — Penalty</td>
+                <td>Customer FDR Liability Head</td>
+                <td>FDR Penalty Income</td>
+                <td>Payment Voucher</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <p>প্রতিটি অপারেশন <code>DB::beginTransaction()</code> এর ভেতরে হয়। কোনো কারণে এরর আসলে <code>DB::rollBack()</code> সম্পূর্ণ লেনদেন বাতিল করে দেয়।</p>
+
+    <h2>৩. Maker-Checker Approval Process</h2>
+
+    <p>আর্থিক জালিয়াতি বন্ধ করতে FDR মডিউলে দুই ধাপে লেনদেন সম্পন্ন হয়।</p>
+    <ul>
+        <li><strong>Maker (মাঠকর্মী):</strong> অ্যাকাউন্ট তৈরি করে স্ট্যাটাস <strong>Pending</strong> রাখে। এই পর্যায়ে কোনো GL এন্ট্রি হয় না।</li>
+        <li><strong>Checker (অ্যাডমিন):</strong> Payment Mode সিলেক্ট করে "Approve" ক্লিক করলে <code>FdrAccountService::approve()</code> চালু হয় এবং Collection Voucher তৈরি হয়।</li>
+    </ul>
+
+    <h2>৪. অটোমেটেড সুদ বিতরণ (Cron Job Logic)</h2>
+
+    <p><code>ProcessFdrInterestPayout</code> কমান্ডটি প্রতিদিন রাত ১:৩০ মিনিটে সার্ভারে নিজে থেকেই চলে।</p>
+    <ul>
+        <li><strong>ধাপ ১:</strong> <code>Active</code> অ্যাকাউন্ট স্ক্যান করে যাদের <code>next_interest_date &lt;= today</code> এবং <code>frequency != 'At Maturity'</code>।</li>
+        <li><strong>ধাপ ২:</strong> প্রতিটি অ্যাকাউন্টের জন্য মুনাফা হিসাব করে।</li>
+        <li><strong>ধাপ ৩:</strong> গ্রাহকের Shomriddhi Savings ব্যালেন্সে যোগ করে।</li>
+        <li><strong>ধাপ ৪:</strong> Journal Voucher পোস্ট করে GL-এ।</li>
+        <li><strong>ধাপ ৫:</strong> <code>next_interest_date</code> পরবর্তী সাইকেলে আপডেট করে।</li>
+        <li><strong>ধাপ ৬ (Maturity চেক):</strong> <code>next_interest_date</code> > <code>maturity_date</code> হলে —
+            <ul>
+                <li><code>auto_renew = true</code> → নতুন মেয়াদে অটো-রিনিউ।</li>
+                <li><code>auto_renew = false</code> → স্ট্যাটাস <code>Matured</code>, সুদ বন্ধ।</li>
+            </ul>
+        </li>
+    </ul>
+
+    <h2>৫. এনক্যাশমেন্ট ইঞ্জিন</h2>
+
+    <p>"Encash" বাটনে ক্লিক করলে সিস্টেম <code>encashData</code> AJAX এন্ডপয়েন্টে কল করে এবং Read-Only হিসাব দেখায়।</p>
+    <ul>
+        <li><strong>মেয়াদান্তে (Maturity):</strong> Principal + Full Interest</li>
+        <li><strong>প্রথম ৬ মাসের আগে (Pre-Mature):</strong> শুধু Principal, সুদ নেই।</li>
+        <li><strong>৬ মাসের পরে (Pre-Mature):</strong> Principal + হ্রাসকৃত সুদ − Penalty</li>
+    </ul>
+
+    <div class="warning">
+        <strong>⚠️ গুরুত্বপূর্ণ:</strong> ইউজার শুধু Payment Mode সিলেক্ট করতে পারবেন। টাকার পরিমাণ ম্যানুয়ালি বদলানোর কোনো সুযোগ নেই। এটি অপারেটর-লেভেল জালিয়াতি প্রতিরোধ করে।
+    </div>
+
+    <h2>৬. গুরুত্বপূর্ণ সিদ্ধান্তসমূহ</h2>
+
+    <table>
+        <thead>
+            <tr><th>সিদ্ধান্ত</th><th>কারণ</th></tr>
+        </thead>
+        <tbody>
+            <tr><td>FDR খুলতে Active Savings বাধ্যতামূলক</td><td>মুনাফার টাকা Savings-এ ট্রান্সফারের জন্য</td></tr>
+            <tr><td>Approved অ্যাকাউন্টের Frequency পরিবর্তন নিষিদ্ধ</td><td>ব্যাংকিং স্ট্যান্ডার্ড — শর্ত পরিবর্তনে নতুন FDR করতে হয়</td></tr>
+            <tr><td>মুনাফা Savings-এ ট্রান্সফার</td><td>ক্যাশ হ্যান্ডলিং ঝামেলা কমায়, অডিট ট্রেইল পরিষ্কার রাখে</td></tr>
+            <tr><td>Encashment UI Read-Only</td><td>অপারেটর-লেভেল ম্যানিপুলেশন প্রতিরোধ করে</td></tr>
+        </tbody>
+    </table>
+
+    <div class="note">
+        <strong>সারাংশ:</strong> FDR মডিউলটি একটি সম্পূর্ণ স্বয়ংক্রিয়, ব্যাংকিং-গ্রেড আমানত ব্যবস্থাপনা সিস্টেম। অ্যাকাউন্ট খোলা থেকে শুরু করে প্রতি মাসে মুনাফা বিতরণ, মেয়াদান্তে স্বয়ংক্রিয় ম্যাচুরড মার্কিং এবং এনক্যাশমেন্ট পর্যন্ত সমস্ত প্রক্রিয়া সিস্টেম নিজে নিজেই সম্পন্ন করে।
+    </div>
+
+    <div class="note" style="margin-top: 10px;">
+        <strong>💡 PDF তৈরি করার নির্দেশিকা:</strong> এই HTML ফাইলটি আপনার ব্রাউজারে (Chrome/Edge) ওপেন করুন। এরপর কিবোর্ড থেকে <code>Ctrl + P</code> (Print) চাপুন এবং "Save as PDF" অপশনটি সিলেক্ট করে ফাইলটি PDF হিসেবে সেভ করে নিন।
+    </div>
+
+</body>
+</html>

@@ -1,0 +1,54 @@
+[
+    {"id": 1,  "reserved_id": null, "account_group_id": 7,  "name": "Cash in Hand", "code": "1001", "nature": "Debit", "is_system": true, "payment_mode": 2},
+    {"id": 2,  "reserved_id": 26,   "account_group_id": 8,  "name": "MFI Loan Portfolio", "code": "1003", "nature": "Debit", "is_control_account": true},
+    {"id": 3,  "reserved_id": 1,    "account_group_id": 9,  "name": "Raw Material Stock", "code": "1004", "nature": "Debit", "is_system": false, "is_control_account": true},
+    {"id": 4,  "reserved_id": 3,    "account_group_id": 9,  "name": "Work-in-Progress (WIP)", "code": "1005", "nature": "Debit", "is_system": true, "is_control_account": true},
+    {"id": 5,  "reserved_id": 2,    "account_group_id": 9,  "name": "Finished Goods Stock", "code": "1006", "nature": "Debit", "is_system": false, "is_control_account": true}, 
+    {"id": 6,  "reserved_id": 14,   "account_group_id": 10, "name": "Advance to Supplier", "code": "1007", "nature": "Debit", "is_system": false},
+    {"id": 9,  "reserved_id": 40,   "account_group_id": 11, "name": "Accumulated Depreciation", "code": "1010", "nature": "Credit", "is_system": true},
+    
+    {"id": 10, "reserved_id": 27,   "account_group_id": 15, "name": "MFI Member Savings Account", "code": "2002", "nature": "Credit", "is_control_account": true},
+    {"id": 11, "reserved_id": 15,   "account_group_id": 16, "name": "Customer Advance Received", "code": "2003", "nature": "Credit", "is_system": true},
+    {"id": 12, "reserved_id": 12,   "account_group_id": 17, "name": "VAT Payable", "code": "2004", "nature": "Credit", "is_system": true},
+    {"id": 13, "reserved_id": 13,   "account_group_id": 16, "name": "TDS Payable", "code": "2005", "nature": "Credit", "is_system": true},
+    
+    {"id": 14, "reserved_id": null, "account_group_id": 18, "name": "Long Term Loan", "code": "2006", "nature": "Credit", "is_system": false},
+    {"id": 15, "reserved_id": null, "account_group_id": 19, "name": "Owner's Capital", "code": "3001", "nature": "Credit", "is_system": true},
+    {"id": 16, "reserved_id": null, "account_group_id": 20, "name": "Retained Earnings", "code": "3002", "nature": "Credit", "is_system": true},
+    {"id": 17, "reserved_id": 20,   "account_group_id": 20, "name": "Opening Balance Equity", "code": "3003", "nature": "Credit", "is_system": true, "is_control_account": true},
+    
+    {"id": 18, "reserved_id": 9,    "account_group_id": 22, "name": "Sales Revenue", "code": "4001", "nature": "Credit", "is_system": false},
+    {"id": 19, "reserved_id": 28,   "account_group_id": 22, "name": "MFI Service Charge Income", "code": "4002", "nature": "Credit", "is_system": false},
+    {"id": 20, "reserved_id": 18,   "account_group_id": 22, "name": "Sales Return", "code": "4003", "nature": "Debit", "is_system": true, "is_control_account": true},
+    {"id": 21, "reserved_id": 31,   "account_group_id": 23, "name": "Other Income", "code": "4004", "nature": "Credit", "is_system": false},
+    {"id": 43, "reserved_id": 41,   "account_group_id": 23, "name": "Gain on Asset Sale", "code": "4008", "nature": "Credit", "is_system": true},
+    {"id": 22, "reserved_id": 6,    "account_group_id": 22, "name": "Absent Late Other Deduction", "code": "4005", "nature": "Credit", "is_system": true},
+    {"id": 23, "reserved_id": 10,   "account_group_id": 22, "name": "Sales Discount", "code": "4006", "nature": "Debit", "is_system": true},
+    {"id": 36, "reserved_id": 21,   "account_group_id": 22, "name": "Service Revenue", "code": "4007", "nature": "Credit", "is_system": false},
+    
+    {"id": 24, "reserved_id": 11,   "account_group_id": 24, "name": "Cost of Goods Sold", "code": "5001", "nature": "Debit", "is_system": true},
+    {"id": 25, "reserved_id": 19,   "account_group_id": 24, "name": "Purchase Return", "code": "5002", "nature": "Credit", "is_system": true, "is_control_account": true},
+    {"id": 26, "reserved_id": 17,   "account_group_id": 24, "name": "Purchase Discount", "code": "5003", "nature": "Credit", "is_system": true},
+    {"id": 34, "reserved_id": null, "account_group_id": 24, "name": "Inventory Adjustment", "code": "5011", "nature": "Debit", "is_system": true, "is_control_account": true},
+    
+    {"id": 27, "reserved_id": 7,    "account_group_id": 25, "name": "Salary Expense", "code": "5004", "nature": "Debit", "is_system": false},
+    {"id": 28, "reserved_id": 34,   "account_group_id": 25, "name": "Office Rent", "code": "5005", "nature": "Debit", "is_system": false},
+    {"id": 29, "reserved_id": null, "account_group_id": 25, "name": "Marketing Expense", "code": "5006", "nature": "Debit", "is_system": false},
+    {"id": 31, "reserved_id": 8,    "account_group_id": 25, "name": "Sales Commission Expense", "code": "5008", "nature": "Debit", "is_system": true},
+    {"id": 33, "reserved_id": 39,   "account_group_id": 25, "name": "Depreciation Expense", "code": "5010", "nature": "Debit", "is_system": true},
+    {"id": 39, "reserved_id": 35,   "account_group_id": 25, "name": "Electricity Bill", "code": "5013", "nature": "Debit", "is_system": false},
+    
+    {"id": 30, "reserved_id": 29,   "account_group_id": 26, "name": "MFI Savings Interest Paid", "code": "5007", "nature": "Debit", "is_system": false},
+    {"id": 35, "reserved_id": null, "account_group_id": 26, "name": "Bank Charges", "code": "5012", "nature": "Debit", "is_system": true},
+    
+    {"id": 32, "reserved_id": 16,   "account_group_id": 27, "name": "VAT Expense", "code": "5009", "nature": "Debit", "is_system": true},
+    
+    {"id": 37, "reserved_id": 32,   "account_group_id": 16, "name": "Card Commission Payable", "code": "2007", "nature": "Credit", "is_system": true},
+    
+    {"id": 38, "reserved_id": 33,   "account_group_id": 10, "name": "Employee Advance", "code": "1011", "nature": "Debit", "is_system": true},
+    {"id": 40, "reserved_id": 36,   "account_group_id": 25, "name": "Incentive Expense", "code": "5014", "nature": "Debit", "is_system": true},
+    {"id": 41, "reserved_id": 37,   "account_group_id": 16, "name": "Incentive Payable", "code": "2008", "nature": "Credit", "is_system": true},
+    {"id": 42, "reserved_id": 38,   "account_group_id": 26, "name": "Shomriddhi Interest Expense", "code": "5015", "nature": "Debit", "is_system": true},
+    {"id": 44, "reserved_id": 42,   "account_group_id": 25, "name": "Loss on Asset Sale", "code": "5016", "nature": "Debit", "is_system": true},
+    {"id": 45, "reserved_id": 43,   "account_group_id": 25, "name": "Loss on Scrap", "code": "5017", "nature": "Debit", "is_system": true}
+]

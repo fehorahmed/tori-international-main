@@ -1,0 +1,35 @@
+[
+    {"id": 1, "reserved_id": 1, "account_group_id": null, "name": "Assets", "is_leaf": 0, "comment": "Resources owned by the business"},
+    {"id": 2, "reserved_id": 2, "account_group_id": null, "name": "Liabilities", "is_leaf": 0, "comment": "Obligations of the business"},
+    {"id": 3, "reserved_id": 3, "account_group_id": null, "name": "Equity", "is_leaf": 0, "comment": "Owner's claim on assets"},
+    {"id": 4, "reserved_id": 4, "account_group_id": null, "name": "Income", "is_leaf": 0, "comment": "Revenue from operations and other sources"},
+    {"id": 5, "reserved_id": 5, "account_group_id": null, "name": "Expenses", "is_leaf": 0, "comment": "Costs incurred to earn revenue"},
+
+    {"id": 6, "reserved_id": 6, "account_group_id": 1, "name": "Current Assets", "is_leaf": 0, "comment": "Short-term assets"},
+    {"id": 7, "reserved_id": 7, "account_group_id": 6, "name": "Cash & Bank", "is_leaf": 1, "comment": "Liquid cash and bank balances"},
+    {"id": 8, "reserved_id": 8, "account_group_id": 6, "name": "Accounts Receivable", "is_leaf": 1, "comment": "Money owed by customers"},
+    {"id": 9, "reserved_id": 9, "account_group_id": 6, "name": "Inventory", "is_leaf": 1, "comment": "Value of stock-in-hand"},
+    {"id": 10, "reserved_id": 10, "account_group_id": 6, "name": "Advances & Prepayments", "is_leaf": 1, "comment": "Advance payments"},
+    
+    {"id": 11, "reserved_id": 11, "account_group_id": 1, "name": "Non-current Assets", "is_leaf": 1, "comment": "Non-Current/Fixed assets"},
+
+    {"id": 13, "reserved_id": 13, "account_group_id": 2, "name": "Current Liabilities", "is_leaf": 0, "comment": "Short-term obligations"},
+    {"id": 14, "reserved_id": 14, "account_group_id": 13, "name": "Accounts Payable", "is_leaf": 1, "comment": "Money owed to suppliers"},
+    {"id": 15, "reserved_id": 15, "account_group_id": 13, "name": "Short-term Loans", "is_leaf": 1, "comment": "Bank OD and short-term debts"},
+    {"id": 16, "reserved_id": 16, "account_group_id": 13, "name": "Accrued Expenses", "is_leaf": 1, "comment": "Outstanding bills"},
+    {"id": 17, "reserved_id": 17, "account_group_id": 13, "name": "VAT Payable", "is_leaf": 1, "comment": "VAT collected to be paid"}, 
+    
+    {"id": 18, "reserved_id": 18, "account_group_id": 2, "name": "Non-Current Liabilities", "is_leaf": 1, "comment": "Long-term/Non-Current loans and debts"},
+
+    {"id": 19, "reserved_id": 19, "account_group_id": 3, "name": "Capital", "is_leaf": 1, "comment": "Owner's investment"},
+    {"id": 20, "reserved_id": 20, "account_group_id": 3, "name": "Retained Earnings", "is_leaf": 1, "comment": "Accumulated profit/loss"},
+    {"id": 21, "reserved_id": 21, "account_group_id": 3, "name": "Drawings", "is_leaf": 1, "comment": "Owner's withdrawals"},
+
+    {"id": 22, "reserved_id": 22, "account_group_id": 4, "name": "Operating Revenue", "is_leaf": 1, "comment": "Direct income"},
+    {"id": 23, "reserved_id": 23, "account_group_id": 4, "name": "Other Income", "is_leaf": 1, "comment": "Non-operating income"},
+
+    {"id": 24, "reserved_id": 24, "account_group_id": 5, "name": "Cost of Goods Sold", "is_leaf": 1, "comment": "Direct costs"},
+    {"id": 25, "reserved_id": 25, "account_group_id": 5, "name": "Operating Expenses", "is_leaf": 1, "comment": "Indirect costs"},
+    {"id": 26, "reserved_id": 26, "account_group_id": 5, "name": "Financial Expenses", "is_leaf": 1, "comment": "Bank interest"},
+    {"id": 27, "reserved_id": 27, "account_group_id": 5, "name": "Tax Expenses", "is_leaf": 1, "comment": "Business tax"}
+]

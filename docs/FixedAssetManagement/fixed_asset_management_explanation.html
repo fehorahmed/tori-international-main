@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fixed Asset Lifecycle</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; padding: 40px; color: #333; }
+        .container { max-width: 1000px; margin: auto; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
+        h1 { text-align: center; color: #2c3e50; margin-bottom: 40px; }
+        .flow-container { display: flex; flex-direction: column; gap: 30px; }
+        .step { display: flex; align-items: flex-start; gap: 20px; background: #fff; padding: 25px; border-radius: 8px; border-left: 5px solid #3498db; box-shadow: 0 4px 6px rgba(0,0,0,0.02); border: 1px solid #eee; position: relative; }
+        .step-number { background: #3498db; color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.2rem; flex-shrink: 0; }
+        .step-content h3 { margin: 0 0 10px 0; color: #2c3e50; }
+        .step-content p { margin: 0 0 15px 0; color: #555; line-height: 1.6; }
+        .accounting-box { background: #f8f9fa; border: 1px dashed #bdc3c7; padding: 15px; border-radius: 6px; font-family: monospace; font-size: 0.95rem; color: #2c3e50; }
+        .accounting-box .dr { color: #e74c3c; font-weight: bold; }
+        .accounting-box .cr { color: #27ae60; font-weight: bold; padding-left: 20px; }
+        .arrow-down { text-align: center; color: #bdc3c7; font-size: 24px; margin: -15px 0; }
+        .badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; color: white; margin-left: 10px; }
+        .badge-cat { background: #9b59b6; }
+        .badge-asset { background: #34495e; }
+        .badge-dep { background: #f39c12; }
+        .badge-disp { background: #e74c3c; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Fixed Asset Financial Lifecycle</h1>
+
+    <div class="flow-container">
+        
+        <!-- Step 1 -->
+        <div class="step" style="border-left-color: #9b59b6;">
+            <div class="step-number" style="background: #9b59b6;">1</div>
+            <div class="step-content">
+                <h3>Category Creation <span class="badge badge-cat">Setup</span></h3>
+                <p>User creates a new Asset Category (e.g., "IT Equipment"). The system defines the depreciation rules (SLM/WDV).</p>
+                <div class="accounting-box">
+                    System Auto-Generates Ledger:<br>
+                    <strong>Chart of Accounts &rarr; Fixed Assets &rarr; IT Equipment</strong>
+                </div>
+            </div>
+        </div>
+
+        <div class="arrow-down">&#8595;</div>
+
+        <!-- Step 2 -->
+        <div class="step" style="border-left-color: #34495e;">
+            <div class="step-number" style="background: #34495e;">2</div>
+            <div class="step-content">
+                <h3>Asset Acquisition <span class="badge badge-asset">Purchase</span></h3>
+                <p>A new laptop is purchased for ৳100,000. It is assigned to the "IT Equipment" category.</p>
+                <div class="accounting-box">
+                    <span class="dr">Dr. IT Equipment Ledger</span> ৳100,000<br>
+                    <span class="cr">Cr. Cash/Bank Account</span> ৳100,000
+                </div>
+            </div>
+        </div>
+
+        <div class="arrow-down">&#8595;</div>
+
+        <!-- Step 3 -->
+        <div class="step" style="border-left-color: #f39c12;">
+            <div class="step-number" style="background: #f39c12;">3</div>
+            <div class="step-content">
+                <h3>Monthly Depreciation <span class="badge badge-dep">Recurring</span></h3>
+                <p>At the end of the month, the accountant runs Depreciation. The laptop loses ৳2,000 in value.</p>
+                <div class="accounting-box">
+                    <span class="dr">Dr. Depreciation Expense</span> ৳2,000<br>
+                    <span class="cr">Cr. Accumulated Depreciation</span> ৳2,000
+                </div>
+            </div>
+        </div>
+
+        <div class="arrow-down">&#8595;</div>
+
+        <!-- Step 4 -->
+        <div class="step" style="border-left-color: #e74c3c;">
+            <div class="step-number" style="background: #e74c3c;">4</div>
+            <div class="step-content">
+                <h3>Asset Disposal (Sale/Scrap) <span class="badge badge-disp">Exit</span></h3>
+                <p>Years later, the laptop is sold for ৳40,000. Its current Book Value is ৳30,000 (Accumulated Dep: ৳70,000).</p>
+                <div class="accounting-box">
+                    <span class="dr">Dr. Cash/Bank</span> ৳40,000<br>
+                    <span class="dr">Dr. Accumulated Depreciation</span> ৳70,000<br>
+                    <span class="cr">Cr. IT Equipment Ledger</span> ৳100,000<br>
+                    <span class="cr">Cr. Gain on Asset Sale</span> ৳10,000
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+</body>
+</html>

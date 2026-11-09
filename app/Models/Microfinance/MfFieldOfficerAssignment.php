@@ -1,0 +1,45 @@
+<?php
+
+namespace App\Models\Microfinance;
+
+use App\Models\BranchManagement\SisterConcern;
+use App\Models\Hrm\Employee;
+use App\Models\Supplier;
+use App\Models\User;
+use Illuminate\Database\Eloquent\Model;
+use App\Traits\Auditable;
+
+class MfFieldOfficerAssignment extends Model
+{
+    use Auditable;
+
+    protected $table = 'mf_field_officer_assignments';
+
+    protected $guarded = [];
+
+    protected $casts = [
+        'from_date' => 'date',
+        'to_date' => 'date',
+        'status' => 'integer',
+    ];
+
+    public function somiti()
+    {
+        return $this->belongsTo(MfSomiti::class, 'somiti_id');
+    }
+
+    public function fieldOfficer()
+    {
+        return $this->belongsTo(Employee::class, 'field_officer_id')->fieldOfficers();
+    }
+
+    public function assignedBy()
+    {
+        return $this->belongsTo(User::class, 'assigned_by');
+    }
+
+    public function sisterConcern()
+    {
+        return $this->belongsTo(SisterConcern::class, 'sister_concern_id');
+    }
+}

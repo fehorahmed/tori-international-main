@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SMS Management - Design Patterns Explanation</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; padding: 40px; color: #333; max-width: 800px; margin: 0 auto; }
+        h1, h2, h3 { color: #2c3e50; }
+        h1 { border-bottom: 2px solid #3498db; padding-bottom: 10px; }
+        h2 { margin-top: 30px; background: #ecf0f1; padding: 10px; border-left: 5px solid #3498db; }
+        pre { background: #f8f9fa; border: 1px solid #e9ecef; padding: 15px; border-radius: 5px; overflow-x: auto; font-size: 14px; }
+        code { font-family: 'Courier New', Courier, monospace; color: #e83e8c; }
+        pre code { color: #212529; }
+        .note { background: #e8f4f8; padding: 15px; border-radius: 5px; margin-top: 20px; }
+    </style>
+</head>
+<body>
+
+    <h1>SMS Management Module - Design Patterns Explanation</h1>
+
+    <p>সফটওয়্যার ডেভেলপমেন্টে যখন প্রজেক্ট বড় হতে থাকে, তখন কোডগুলো একে অপরের সাথে খুব বেশি জড়িয়ে যায় (Tight Coupling)। ফলে এক জায়গায় পরিবর্তন করলে অন্য জায়গায় এরর দেখা দেয়। এই সমস্যা সমাধানের জন্য আমরা <strong>Observer Pattern</strong> এবং <strong>Strategy Pattern</strong> ব্যবহার করছি।</p>
+
+    <h2>১. Observer Pattern (বা Event-Driven Architecture)</h2>
+
+    <h3>সহজ বাংলা উদাহরণ:</h3>
+    <p>ধরে নিন, একটি অফিসে বস যখন নতুন কোনো রুলস জারি করেন, তখন তিনি প্রতিটি কর্মচারীর ডেস্কে গিয়ে আলাদাভাবে রুলসটি বলে আসেন না। বরং তিনি নোটিশ বোর্ডে একটি "নোটিশ" ঝুলিয়ে দেন (Event Fire)। আর যেসব কর্মচারীর দায়িত্ব ওই নোটিশটি চেক করা, তারা নিজেরাই সেটি দেখে নিজেদের কাজ করেন (Event Listen)।</p>
+
+    <h3>আমাদের সিস্টেমে কীভাবে কাজ করবে (৭টি ধাপে)?</h3>
+
+    <p><strong>স্টেপ ১: The Trigger (Event Fire)</strong><br>
+    ধরে নিন, একজন কাস্টমার প্রোডাক্ট কিনেছে এবং <code>SalesController</code>-এ ইনভয়েস সেভ হয়েছে। 
+    সাধারণ সিস্টেমে এখানে <code>SmsService::send(...)</code> কল করা হতো। কিন্তু Advanced সিস্টেমে <code>SalesController</code> শুধু একটি সিস্টেম এনাউন্সমেন্ট (Event Fire) করবে:</p>
+<pre><code>$sale = SaleOrder::create([...]);
+event(new SaleInvoiceCreated($sale)); // "একটি সেল সম্পন্ন হয়েছে!"
+</code></pre>
+    <p>কন্ট্রোলারের কাজ এখানেই শেষ! সে জানেই না যে SMS বলে কোনো মডিউল আদৌ সিস্টেমে আছে কি না。</p>
+
+    <p><strong>স্টেপ ২: The Listener (ইভেন্ট ক্যাচ করা)</strong><br>
+    আমাদের SMS মডিউলে একজন <strong>Listener</strong> (ধরে নিন, <code>SendSaleInvoiceSmsListener</code>) বসে থাকবে। সে সারাক্ষণ অপেক্ষা করবে কখন <code>SaleInvoiceCreated</code> ফায়ার হয়। ইভেন্ট ফায়ার হওয়ামাত্রই সে ওই <code>$sale</code> এর ডাটাগুলো ক্যাচ করে ফেলবে।</p>
+
+    <p><strong>স্টেপ ৩: Toggle Check & Template Fetching</strong><br>
+    এবার লিসেনারটি আমাদের ডাটাবেসের <code>sms_templates</code> টেবিলে খুঁজবে যে, <code>SaleInvoiceCreated</code> নামে কোনো টেমপ্লেট আছে কি না।<br>
+    * <strong>যদি টেমপ্লেট না থাকে:</strong> সে চুপ করে বসে থাকবে, কোনো মেসেজ যাবে না。<br>
+    * <strong>যদি <code>is_active</code> ফলস (Off) থাকে:</strong> অর্থাৎ, অ্যাডমিন প্যানেল থেকে আপনি এই ইভেন্টের SMS অফ করে রেখেছেন, তখন সে মেসেজ পাঠানো ক্যানসেল করে দেবে।<br>
+    * <strong>যদি <code>is_active</code> ট্রু (On) থাকে:</strong> সে টেমপ্লেটের বডি (যেমন: <code>"Dear {{name}}, Your bill is {{amount}}"</code>) ডাটাবেস থেকে তুলে আনবে।</p>
+
+    <p><strong>স্টেপ ৪: Variable Parsing (ডাইনামিক টেক্সট বসানো)</strong><br>
+    লিসেনার তখন ইভেন্ট থেকে পাওয়া <code>$sale</code> ডাটা দিয়ে মেসেজটিকে পার্স করবে। সে <code>{{name}}</code> সরিয়ে সেখানে কাস্টমারের আসল নাম, এবং <code>{{amount}}</code> সরিয়ে সেখানে অরিজিনাল টাকার পরিমাণ বসিয়ে একদম ফাইনাল মেসেজ রেডি করে ফেলবে।</p>
+
+    <p><strong>স্টেপ ৫: Queue Job (ব্যাকগ্রাউন্ড প্রসেস)</strong><br>
+    মেসেজ পাঠানোর API কল করতে ১ থেকে ৩ সেকেন্ড সময় লাগে। এই সময় ইউজারের পিসি যেন লোডিং না দেখায়, তাই লিসেনার মেসেজটিকে সাথে সাথে <strong>Laravel Queue Job</strong> (<code>SendSmsJob</code>)-এ পাঠিয়ে দেবে। এতে ইউজারের কাজ কোনো বাধা ছাড়াই চলতে থাকবে এবং ব্যাকগ্রাউন্ডে মেসেজ পাঠানোর প্রসেস শুরু হবে।</p>
+
+    <h2>২. Strategy Pattern (Gateway Management)</h2>
+
+    <p><strong>স্টেপ ৬: Strategy Pattern (API কল করা)</strong><br>
+    Queue থেকে যখন Job টি প্রসেস হবে, তখন সেটি <code>SmsService</code>-এর কাছে যাবে। 
+    <code>SmsService</code> ডাটাবেসের <code>sms_gateways</code> টেবিল চেক করে দেখবে বর্তমানে কোন API প্রোভাইডার <strong>Active</strong> আছে (যেমন: SSL Wireless)। 
+    সে তখন অটোমেটিক <code>SslWirelessStrategy</code> ক্লাসকে কল করে ওই কোম্পানির API দিয়ে মেসেজটি সেন্ড করে দেবে।</p>
+
+    <p><strong>স্টেপ ৭: Logging & Fallback</strong><br>
+    মেসেজটি কি সাকসেসফুলি ডেলিভার হয়েছে, নাকি ব্যালেন্স শেষ থাকার কারণে ফেইল করেছে—API থেকে পাওয়া সেই রেসপন্সটি <code>SmsService</code> সাথে সাথে <code>sms_logs</code> টেবিলে সেভ করে রাখবে। যাতে আপনি অ্যাডমিন প্যানেল থেকে রিপোর্ট দেখতে পারেন।<br>
+    (এমনকি এখানে আমরা Fallback লজিকও রাখতে পারি, অর্থাৎ SSL ফেইল করলে সে নিজে থেকে Twilio দিয়ে পাঠিয়ে দেওয়ার চেষ্টা করবে)।</p>
+
+    <div class="note">
+        <strong>সামারি:</strong> পুরো প্রসেসটিতে <code>Sales</code> বা অন্য কোনো মডিউলে হাত না দিয়েই আমরা SMS কন্ট্রোল, পার্সিং, এপিআই স্যুইচিং এবং লগিং করে ফেললাম। এটিই হলো একটি ট্রু এন্টারপ্রাইজ গ্রেড "Advanced System"-এর বিউটি!
+    </div>
+
+    <div class="note" style="margin-top: 10px;">
+        <strong>💡 PDF তৈরি করার নির্দেশিকা:</strong> এই HTML ফাইলটি আপনার ব্রাউজারে (Chrome/Edge) ওপেন করুন। এরপর কিবোর্ড থেকে <code>Ctrl + P</code> (Print) চাপুন এবং "Save as PDF" অপশনটি সিলেক্ট করে ফাইলটি PDF হিসেবে সেভ করে নিন।
+    </div>
+
+</body>
+</html>
