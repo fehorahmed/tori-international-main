@@ -10,6 +10,31 @@ class ShomriddhiAccount extends Model
 {
     use SoftDeletes;
 
+    protected static function booted(): void
+    {
+        static::updating(function (self $account) {
+            if ($account->isDirty('status') && $account->status !== 'Active' && \App\Models\MembershipCashout::held($account->id) > 0) {
+                \App\Services\Membership\CashoutService::fail('Close cash-out requests before closing this savings account.');
+            }
+            if ($account->isDirty('principal_balance')) {
+                $current = static::whereKey($account->id)->lockForUpdate()->firstOrFail();
+                if (\App\Services\Membership\CashoutService::minor($current->principal_balance)
+                    !== \App\Services\Membership\CashoutService::minor($account->getRawOriginal('principal_balance'))) {
+                    \App\Services\Membership\CashoutService::fail('Savings balance changed. Refresh and retry.', 'সঞ্চয় ব্যালেন্স পরিবর্তন হয়েছে। রিফ্রেশ করে আবার চেষ্টা করুন।');
+                }
+                $balance = \App\Services\Membership\CashoutService::minor($account->principal_balance);
+                if ($balance < \App\Models\MembershipCashout::held($account->id)) {
+                    \App\Services\Membership\CashoutService::fail('This savings balance is reserved for a cash-out request.', 'এই সঞ্চয়ের টাকা ক্যাশ আউট অনুরোধের জন্য সংরক্ষিত আছে।');
+                }
+            }
+        });
+        static::deleting(function (self $account) {
+            if (\App\Models\MembershipCashout::held($account->id) > 0) {
+                \App\Services\Membership\CashoutService::fail('Close cash-out requests before deleting this savings account.');
+            }
+        });
+    }
+
     protected $fillable = [
         'account_number',
         'customer_id',

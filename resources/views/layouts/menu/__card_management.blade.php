@@ -1,6 +1,6 @@
 @can('card_management')
-<li class="nav-item {{ request()->is('admin/card-management/member*') || request()->is('admin/card-management/employee*') ? 'menu-open' : '' }}">
-    <a href="#" class="nav-link {{ request()->is('admin/card-management/member*') || request()->is('admin/card-management/employee*') ? 'active' : '' }}">
+<li class="nav-item {{ request()->is('admin/card-management/*') ? 'menu-open' : '' }}">
+    <a href="#" class="nav-link {{ request()->is('admin/card-management/*') ? 'active' : '' }}">
         <i class="nav-icon fas fa-address-card"></i>
         <p>
             Card Management
@@ -8,7 +8,16 @@
         </p>
     </a>
     <ul class="nav nav-treeview">
-        @can('member_card')
+
+@if(auth()->user()->role === 'Admin' || auth()->user()->can('shomriddhi_advance_transaction_approve'))
+<li class="nav-item">
+    <a href="{{ route('card-management.cashout.index') }}" class="nav-link {{ request()->routeIs('card-management.cashout.index') ? 'active' : '' }}">
+        <i class="nav-icon fas fa-money-bill-wave"></i><p>Membership Cash-out</p>
+    </a>
+</li>
+@endif
+
+@can('member_card')
         <li class="nav-item">
             <a href="{{ route('card-management.member.index') }}" class="nav-link {{ request()->is('admin/card-management/member') || request()->is('admin/card-management/member/create') ? 'active' : '' }}">
                 <i class="far fa-circle nav-icon text-info"></i>
@@ -52,6 +61,13 @@
                 <p>Card Settings</p>
             </a>
         </li>
+@if(auth()->user()->role === 'Admin')
+<li class="nav-item">
+    <a href="{{ route('card-management.cashout.settings') }}" class="nav-link {{ request()->routeIs('card-management.cashout.settings*') ? 'active' : '' }}">
+        <i class="nav-icon fas fa-cogs"></i><p>Cash-out Settings</p>
+    </a>
+</li>
+@endif
     </ul>
 </li>
 

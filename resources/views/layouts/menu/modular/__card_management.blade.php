@@ -9,6 +9,15 @@
     </a>
 </li>
 
+
+@if(auth()->user()->role === 'Admin' || auth()->user()->can('shomriddhi_advance_transaction_approve'))
+<li class="nav-item">
+    <a href="{{ route('card-management.cashout.index') }}" class="nav-link {{ request()->routeIs('card-management.cashout.index') ? 'active' : '' }}">
+        <i class="nav-icon fas fa-money-bill-wave"></i><p>Membership Cash-out</p>
+    </a>
+</li>
+@endif
+
 @can('member_card')
 <li class="nav-item">
     <a href="{{ route('card-management.member.index') }}" class="nav-link {{ request()->is('admin/card-management/member') || request()->is('admin/card-management/member/create') ? 'active' : '' }}">
@@ -58,6 +67,13 @@
         <p>Card Settings</p>
     </a>
 </li>
+@if(auth()->user()->role === 'Admin')
+<li class="nav-item">
+    <a href="{{ route('card-management.cashout.settings') }}" class="nav-link {{ request()->routeIs('card-management.cashout.settings*') ? 'active' : '' }}">
+        <i class="nav-icon fas fa-cogs"></i><p>Cash-out Settings</p>
+    </a>
+</li>
+@endif
 
 @canany(['member_card_report', 'employee_card_report'])
 <li class="nav-header text-uppercase font-weight-bold text-muted" style="font-size: 0.75rem;">Card Reports</li>

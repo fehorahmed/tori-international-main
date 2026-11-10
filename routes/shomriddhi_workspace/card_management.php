@@ -8,6 +8,15 @@ use App\Http\Controllers\CardManagement\CardSettingController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('card-management')->name('card-management.')->group(function () {
+    Route::prefix('cashout')->name('cashout.')->controller(\App\Http\Controllers\CardManagement\CashoutController::class)->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::get('settings', 'settingsPage')->name('settings');
+        Route::post('settings', 'settings')->name('settings.update');
+        Route::post('booth', 'booth')->name('booth');
+        Route::get('qr', 'qr')->name('qr');
+        Route::post('{cashout}/{action}', 'change')->name('change');
+    });
+
     Route::get('kyc', [\App\Http\Controllers\CardManagement\KycReviewController::class, 'index'])->name('kyc.index');
     Route::get('kyc/{kyc}/documents/{kind}', [\App\Http\Controllers\CardManagement\KycReviewController::class, 'document'])->name('kyc.document');
     Route::post('kyc/{kyc}/review', [\App\Http\Controllers\CardManagement\KycReviewController::class, 'review'])->name('kyc.review');

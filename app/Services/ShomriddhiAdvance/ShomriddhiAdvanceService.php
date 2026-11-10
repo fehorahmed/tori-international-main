@@ -42,12 +42,28 @@ class ShomriddhiAdvanceService
         DB::beginTransaction();
         try {
             // Find the ShomriddhiAccount
-            $account = ShomriddhiAccount::where('customer_id', $advance->customer_id)->first();
+            $account = ShomriddhiAccount::where('customer_id', $advance->customer_id)->lockForUpdate()->first();
             if (!$account) {
+                DB::rollBack();
                 return ['success' => false, 'message' => 'Shomriddhi Account profile not found for this customer.'];
+            }
+            $advance = ShomriddhiTransaction::whereKey($advance->id)->lockForUpdate()->firstOrFail();
+            if ($advance->status !== 'Pending') {
+                DB::rollBack();
+                return ['success' => false, 'message' => 'Transaction is no longer pending.'];
+            }
+            if ($advance->type === 'withdraw' && \App\Models\MembershipCashout::held($account->id) > 0
+                && \App\Services\Membership\CashoutService::minor($advance->amount) > \App\Services\Membership\CashoutService::available($account)) {
+                DB::rollBack();
+                return ['success' => false, 'message' => 'Insufficient available balance: cash-out funds are reserved.'];
             }
 
             $date = Carbon::parse(auth()->user()->business_date)->format('Y-m-d');
+            $paymentHead = AccountHead::whereKey($paymentAccountHeadId)->lockForUpdate()->firstOrFail();
+            if ($paymentHead->status != 1 || ($paymentHead->sister_concern_id && $paymentHead->sister_concern_id != auth()->user()->activeConcernId())) {
+                DB::rollBack();
+                return ['success' => false, 'message' => 'Payment account is inactive or belongs to another branch.'];
+            }
 
             // Apply Withdrawal / Deposit Rules on the Account Balance
             if ($advance->type === 'withdraw') {
@@ -77,6 +93,10 @@ class ShomriddhiAdvanceService
             }
 
             // Proceed with GL Voucher Creation
+            if ($advance->type === 'withdraw' && !$paymentHead->isSufficient($advance->amount, auth()->user()->activeConcernId())) {
+                DB::rollBack();
+                return ['success' => false, 'message' => 'Insufficient cash/bank balance after reserved cash-out payments.'];
+            }
             [$vType, $label] = $this->resolveVoucherType($advance->type);
 
             $scId      = auth()->user()->activeConcernId();
@@ -188,9 +208,14 @@ class ShomriddhiAdvanceService
      */
     public function deleteTransaction(ShomriddhiTransaction $advance): array
     {
+        if (\App\Models\MembershipCashout::where(function ($q) use ($advance) {
+            $q->where('voucher_id', $advance->voucher_id)->orWhere('fee_voucher_id', $advance->voucher_id)->orWhere('source_voucher_id', $advance->voucher_id);
+        })->when(!$advance->voucher_id, fn ($q) => $q->whereRaw('1 = 0'))->exists()) {
+            return ['success' => false, 'message' => 'Cash-out entries cannot be deleted through ordinary withdrawals.'];
+        }
         DB::beginTransaction();
         try {
-            $account = ShomriddhiAccount::where('customer_id', $advance->customer_id)->first();
+            $account = ShomriddhiAccount::where('customer_id', $advance->customer_id)->lockForUpdate()->first();
             if ($account) {
                 // Reverse the balance
                 if ($advance->type === 'deposit') {

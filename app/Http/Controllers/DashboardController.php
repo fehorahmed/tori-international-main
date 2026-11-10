@@ -392,6 +392,7 @@ class DashboardController extends Controller
             ['title' => 'Product Utilizes', 'route' => 'product-utilizes.index', 'permission' => 'product_utilize', 'icon' => 'fas fa-tasks', 'category' => 'Navigation'],
             
             // Card Management
+            ['title' => 'Membership Cash-out Counter', 'route' => 'card-management.cashout.index', 'permission' => 'shomriddhi_advance_transaction_approve', 'icon' => 'fas fa-money-bill-wave', 'category' => 'Card Management'],
             ['title' => 'Card Management Dashboard', 'route' => 'card-management.dashboard', 'permission' => 'card_management', 'icon' => 'fas fa-tachometer-alt', 'category' => 'Card Management'],
             ['title' => 'Member Card Management', 'route' => 'card-management.member.index', 'permission' => 'dashboard', 'icon' => 'fas fa-id-card', 'category' => 'Card Management'],
             ['title' => 'Member Card Print Logs', 'route' => 'card-management.member.logs', 'permission' => 'dashboard', 'icon' => 'fas fa-history', 'category' => 'Card Management'],

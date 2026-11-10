@@ -71,6 +71,7 @@ class Voucher extends Model
 
     public function is_locked()
     {
+        if ($this->isMembershipCashout()) return true;
         return 
             !empty($this->sale_order_id) || 
             !empty($this->purchase_order_id) || 
@@ -84,5 +85,10 @@ class Voucher extends Model
             $this->purchaseReturn()->exists() ||
             $this->shomriddhiTransaction()->exists() ||
             $this->employeeAdvance()->exists();
+    }
+
+    public function isMembershipCashout(): bool
+    {
+        return \App\Models\MembershipCashout::where('voucher_id', $this->id)->orWhere('fee_voucher_id', $this->id)->orWhere('source_voucher_id', $this->id)->exists();
     }
 }

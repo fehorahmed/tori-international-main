@@ -35,6 +35,8 @@ class PaymentPurpose
     public static $DPS_ENCASHMENT = 23;              // মেয়াদান্তে সম্পূর্ণ পেমেন্ট
     public static $DPS_PREMATURE_ENCASHMENT = 24;    // সময়ের আগে উত্তোলন
     public static $SUPPLIER_RECEIPT = 25;            // Supplier Receipt (Refund/Advance return)
+    public static $MEMBERSHIP_CASHOUT = 26;
+    public static $MEMBERSHIP_CASHOUT_CHARGE = 27;
 
     public static function names()
     {
@@ -67,6 +69,8 @@ class PaymentPurpose
             self::$DPS_ENCASHMENT => 'DPS Encashment',
             self::$DPS_PREMATURE_ENCASHMENT => 'DPS Premature Encashment',
             self::$SUPPLIER_RECEIPT => 'Supplier Receipt',
+            self::$MEMBERSHIP_CASHOUT => 'Membership Cash-out',
+            self::$MEMBERSHIP_CASHOUT_CHARGE => 'Membership Cash-out Charge',
             
             'other_receipts' => 'Other Receipts',
             'other_payments' => 'Other Payments',

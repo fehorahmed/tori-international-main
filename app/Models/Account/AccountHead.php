@@ -59,7 +59,12 @@ class AccountHead extends Model
     {
         // For Cash (2) and Bank (1), Mobile Banking (3) we check for sufficient balance.
         if (in_array($this->payment_mode, [1, 2, 3])) {
-            return $this->getCurrentBalance($sisterConcernId) >= $amount;
+            $reserved = 0;
+            if ($this->payment_mode == 2) {
+                $reserved = \App\Models\MembershipCashout::where('cash_head_id', $this->id)->where('status', 'Accepted')
+                    ->when($sisterConcernId, fn ($q) => $q->where('branch_id', $sisterConcernId))->sum('amount');
+            }
+            return $this->getCurrentBalance($sisterConcernId) - $reserved >= $amount;
         }
         return true;
     }

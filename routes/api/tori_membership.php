@@ -41,6 +41,11 @@ Route::prefix('v1')->group(function () {
         Route::get('dashboard', [\App\Http\Controllers\API\Membership\DashboardController::class, 'index']);
         Route::get('profile', [\App\Http\Controllers\API\Membership\ProfileController::class, 'getProfile']);
         Route::get('card', [\App\Http\Controllers\API\Membership\CardController::class, 'show']);
+        Route::get('cashout', [\App\Http\Controllers\API\Membership\CashoutController::class, 'index']);
+        Route::post('cashout/quote', [\App\Http\Controllers\API\Membership\CashoutController::class, 'quote'])->middleware('throttle:20,1');
+        Route::post('cashouts', [\App\Http\Controllers\API\Membership\CashoutController::class, 'store'])->middleware('throttle:10,1');
+        Route::get('cashouts/{cashout}', [\App\Http\Controllers\API\Membership\CashoutController::class, 'show']);
+        Route::post('cashouts/{cashout}/cancel', [\App\Http\Controllers\API\Membership\CashoutController::class, 'cancel']);
         Route::put('profile', [\App\Http\Controllers\API\Membership\ProfileController::class, 'update']);
         Route::post('kyc', [\App\Http\Controllers\API\Membership\KycController::class, 'store'])->middleware('throttle:6,1');
         Route::get('kyc/{kyc}/documents/{kind}', [\App\Http\Controllers\API\Membership\KycController::class, 'document']);

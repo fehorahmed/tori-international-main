@@ -6,6 +6,7 @@
     "license": "MIT",
     "require": {
         "php": "^8.3",
+        "bacon/bacon-qr-code": "^3.0",
         "google/auth": "^1.50",
         "intervention/image": "3.0",
         "laravel/breeze": "^2.1",
