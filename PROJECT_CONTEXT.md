@@ -80,6 +80,8 @@ Shared endpoints: [routes/common.php](routes/common.php). Settings and dashboard
 
 ### Mobile auth
 
+Membership profile/KYC now supports profile editing, private selfie/NID submissions and manual ERP review. Read [profile/KYC implementation](docs/Membership/profile-kyc.md) for routes, the additive migration, branch/permission rules and targeted tests. The older mobile summary below describes authentication; the membership route file also includes profile update and KYC document routes.
+
 Employee `/api/auth/login` accepts login/password/device name and issues a User Sanctum token; logout and monitoring use `auth:sanctum`.
 
 Membership flow: mobile OTP → OTP verification → short-lived verification token → six-digit PIN set/login → Supplier Sanctum token. Biometric login/toggle also exists. Guest auth endpoints have `throttle:10,1`. See [membership AuthController](app/Http/Controllers/API/Membership/AuthController.php), [CustomerDevice](app/Models/CustomerDevice.php), [CustomerOtpLog](app/Models/CustomerOtpLog.php). Preserve token-owner distinctions in protected handlers.

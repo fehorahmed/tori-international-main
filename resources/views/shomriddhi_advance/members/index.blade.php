@@ -1,6 +1,9 @@
 @extends('layouts.app')
 @section('title','Members')
 @section('content')
+    @can('customer_edit')
+        <a class="btn btn-primary mb-3" href="{{ route('card-management.kyc.index') }}">Membership KYC Review</a>
+    @endcan
     <div class="row">
         <div class="col-12">
             <div class="card card-outline card-default">

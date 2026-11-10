@@ -45,14 +45,14 @@ class AuthController extends Controller
         if (!$customer) {
             return response()->json([
                 'success' => false,
-                'message' => 'এই মোবাইল নম্বরে কোনো অ্যাকাউন্ট পাওয়া যায়নি। অনুগ্রহ করে নিকটস্থ শাখায় যোগাযোগ করুন।'
+                'message' => $this->message('No account was found for this mobile number. Please contact your nearest branch.', 'এই মোবাইল নম্বরে কোনো অ্যাকাউন্ট পাওয়া যায়নি। অনুগ্রহ করে নিকটস্থ শাখায় যোগাযোগ করুন।')
             ], 404);
         }
 
         if ($customer->status != 1) {
             return response()->json([
                 'success' => false,
-                'message' => 'আপনার অ্যাকাউন্টটি নিষ্ক্রিয় করা আছে। অনুগ্রহ করে অ্যাডমিনের সাথে যোগাযোগ করুন।'
+                'message' => $this->message('Your account is inactive. Please contact the administrator.', 'আপনার অ্যাকাউন্টটি নিষ্ক্রিয় করা আছে। অনুগ্রহ করে অ্যাডমিনের সাথে যোগাযোগ করুন।')
             ], 403);
         }
 
@@ -92,7 +92,7 @@ class AuthController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'আপনার মোবাইল নম্বরে একটি ৬ ডিজিটের ওটিপি পাঠানো হয়েছে।',
+            'message' => $this->message('A 6-digit OTP has been sent to your mobile number.', 'আপনার মোবাইল নম্বরে একটি ৬ ডিজিটের ওটিপি পাঠানো হয়েছে।'),
             'data' => [
                 'mobile_no' => $mobileNo,
                 'otp_expires_in_seconds' => 180,
@@ -129,7 +129,7 @@ class AuthController extends Controller
         if (!$cachedData) {
             return response()->json([
                 'success' => false,
-                'message' => 'ওটিপির মেয়াদ শেষ হয়ে গেছে। অনুগ্রহ করে পুনরায় ওটিপি পাঠান।'
+                'message' => $this->message('Your OTP has expired. Please request a new code.', 'ওটিপির মেয়াদ শেষ হয়ে গেছে। অনুগ্রহ করে পুনরায় ওটিপি পাঠান।')
             ], 422);
         }
 
@@ -138,7 +138,7 @@ class AuthController extends Controller
             Cache::forget($otpCacheKey);
             return response()->json([
                 'success' => false,
-                'message' => 'অতিরিক্ত ভুল ওটিপি দেওয়ার কারণে সেশনটি বাতিল করা হয়েছে। নতুন করে চেষ্টা করুন।'
+                'message' => $this->message('Too many incorrect OTP attempts. Please start again.', 'অতিরিক্ত ভুল ওটিপি দেওয়ার কারণে সেশনটি বাতিল করা হয়েছে। নতুন করে চেষ্টা করুন।')
             ], 429);
         }
 
@@ -148,7 +148,7 @@ class AuthController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => 'ভুল ওটিপি দিয়েছেন। আবার চেষ্টা করুন।'
+                'message' => $this->message('Incorrect OTP. Please try again.', 'ভুল ওটিপি দিয়েছেন। আবার চেষ্টা করুন।')
             ], 422);
         }
 
@@ -166,7 +166,7 @@ class AuthController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'ওটিপি সফলভাবে যাচাই করা হয়েছে।',
+            'message' => $this->message('OTP verified successfully.', 'ওটিপি সফলভাবে যাচাই করা হয়েছে।'),
             'data' => [
                 'mobile_no' => $mobileNo,
                 'has_pin' => !empty($customer->pin),
@@ -192,7 +192,7 @@ class AuthController extends Controller
         if (!$tokenData) {
             return response()->json([
                 'success' => false,
-                'message' => 'ভেরিফিকেশন টোকেনটির মেয়াদ শেষ হয়ে গেছে। অনুগ্রহ করে আবার ওটিপি ভেরিফাই করুন।'
+                'message' => $this->message('Your verification token has expired. Please verify your OTP again.', 'ভেরিফিকেশন টোকেনটির মেয়াদ শেষ হয়ে গেছে। অনুগ্রহ করে আবার ওটিপি ভেরিফাই করুন।')
             ], 401);
         }
 
@@ -200,7 +200,7 @@ class AuthController extends Controller
         if (!$customer || empty($customer->pin) || !Hash::check($request->pin, $customer->pin)) {
             return response()->json([
                 'success' => false,
-                'message' => 'ভুল পিন দিয়েছেন।'
+                'message' => $this->message('Incorrect PIN.', 'ভুল পিন দিয়েছেন।')
             ], 401);
         }
 
@@ -226,7 +226,7 @@ class AuthController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'লগইন সফল হয়েছে।',
+            'message' => $this->message('Login successful.', 'লগইন সফল হয়েছে।'),
             'data' => [
                 'token' => $token,
                 'customer' => $this->formatCustomerProfile($customer)
@@ -250,7 +250,7 @@ class AuthController extends Controller
         if (!$tokenData) {
             return response()->json([
                 'success' => false,
-                'message' => 'ভেরিফিকেশন টোকেনটির মেয়াদ শেষ হয়ে গেছে।'
+                'message' => $this->message('Your verification token has expired.', 'ভেরিফিকেশন টোকেনটির মেয়াদ শেষ হয়ে গেছে।')
             ], 401);
         }
 
@@ -258,7 +258,7 @@ class AuthController extends Controller
         if (!$customer) {
             return response()->json([
                 'success' => false,
-                'message' => 'কাস্টমার খুঁজে পাওয়া যায়নি।'
+                'message' => $this->message('Customer not found.', 'কাস্টমার খুঁজে পাওয়া যায়নি।')
             ], 404);
         }
 
@@ -273,7 +273,7 @@ class AuthController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'আপনার ৬ ডিজিটের পিন সফলভাবে সংরক্ষিত হয়েছে।',
+            'message' => $this->message('Your 6-digit PIN has been saved successfully.', 'আপনার ৬ ডিজিটের পিন সফলভাবে সংরক্ষিত হয়েছে।'),
             'data' => [
                 'token' => $token,
                 'customer' => $this->formatCustomerProfile($customer)
@@ -308,14 +308,14 @@ class AuthController extends Controller
         if (!$customer || !$customer->is_biometric_enabled || empty($customer->biometric_token)) {
             return response()->json([
                 'success' => false,
-                'message' => 'বায়োমেট্রিক লগইন সক্রিয় নেই।'
+                'message' => $this->message('Biometric login is not enabled.', 'বায়োমেট্রিক লগইন সক্রিয় নেই।')
             ], 403);
         }
 
         if (!Hash::check($request->biometric_token, $customer->biometric_token)) {
             return response()->json([
                 'success' => false,
-                'message' => 'বায়োমেট্রিক অথেন্টিকেশন ব্যর্থ হয়েছে।'
+                'message' => $this->message('Biometric authentication failed.', 'বায়োমেট্রিক অথেন্টিকেশন ব্যর্থ হয়েছে।')
             ], 401);
         }
 
@@ -324,7 +324,7 @@ class AuthController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'বায়োমেট্রিক লগইন সফল হয়েছে।',
+            'message' => $this->message('Biometric login successful.', 'বায়োমেট্রিক লগইন সফল হয়েছে।'),
             'data' => [
                 'token' => $token,
                 'customer' => $this->formatCustomerProfile($customer)
@@ -357,7 +357,7 @@ class AuthController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => $request->enable ? 'বায়োমেট্রিক লগইন চালু করা হয়েছে।' : 'বায়োমেট্রিক লগইন বন্ধ করা হয়েছে।'
+            'message' => $request->enable ? $this->message('Biometric login has been enabled.', 'বায়োমেট্রিক লগইন চালু করা হয়েছে।') : $this->message('Biometric login has been disabled.', 'বায়োমেট্রিক লগইন বন্ধ করা হয়েছে।')
         ]);
     }
 
@@ -371,8 +371,17 @@ class AuthController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'লগআউট সফল হয়েছে।'
+            'message' => $this->message('Logout successful.', 'লগআউট সফল হয়েছে।')
         ]);
+    }
+
+    /** Honor the app language; retain Bengali for existing clients without a header. */
+    private function message(string $english, string $bengali): string
+    {
+        return request()->hasHeader('Accept-Language')
+            && request()->getPreferredLanguage(['bn', 'en']) === 'en'
+            ? $english
+            : $bengali;
     }
 
     /**

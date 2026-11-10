@@ -8,6 +8,9 @@ use App\Http\Controllers\CardManagement\CardSettingController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('card-management')->name('card-management.')->group(function () {
+    Route::get('kyc', [\App\Http\Controllers\CardManagement\KycReviewController::class, 'index'])->name('kyc.index');
+    Route::get('kyc/{kyc}/documents/{kind}', [\App\Http\Controllers\CardManagement\KycReviewController::class, 'document'])->name('kyc.document');
+    Route::post('kyc/{kyc}/review', [\App\Http\Controllers\CardManagement\KycReviewController::class, 'review'])->name('kyc.review');
     // Collection Group
     Route::prefix('collection')->name('collection.')->group(function () {
         Route::get('/', [\App\Http\Controllers\CardManagement\CardCollectionController::class, 'index'])->name('index');

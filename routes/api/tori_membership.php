@@ -40,6 +40,10 @@ Route::prefix('v1')->group(function () {
         // Dashboard & Profile
         Route::get('dashboard', [\App\Http\Controllers\API\Membership\DashboardController::class, 'index']);
         Route::get('profile', [\App\Http\Controllers\API\Membership\ProfileController::class, 'getProfile']);
+        Route::get('card', [\App\Http\Controllers\API\Membership\CardController::class, 'show']);
+        Route::put('profile', [\App\Http\Controllers\API\Membership\ProfileController::class, 'update']);
+        Route::post('kyc', [\App\Http\Controllers\API\Membership\KycController::class, 'store'])->middleware('throttle:6,1');
+        Route::get('kyc/{kyc}/documents/{kind}', [\App\Http\Controllers\API\Membership\KycController::class, 'document']);
     });
 });
 
