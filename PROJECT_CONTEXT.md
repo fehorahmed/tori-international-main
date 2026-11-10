@@ -80,6 +80,8 @@ Shared endpoints: [routes/common.php](routes/common.php). Settings and dashboard
 
 ### Mobile auth
 
+Membership login now remembers verified installations: OTP is required for new/unrecognized devices, with subsequent phone/PIN login using a hashed server-side device credential. PIN recovery still requires OTP. Read [device login](docs/Membership/device-login.md) for the additive migration, cache binding and compatibility details.
+
 Membership profile/KYC now supports profile editing, private selfie/NID submissions and manual ERP review. Read [profile/KYC implementation](docs/Membership/profile-kyc.md) for routes, the additive migration, branch/permission rules and targeted tests. The older mobile summary below describes authentication; the membership route file also includes profile update and KYC document routes.
 
 Employee `/api/auth/login` accepts login/password/device name and issues a User Sanctum token; logout and monitoring use `auth:sanctum`.
