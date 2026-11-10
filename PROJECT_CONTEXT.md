@@ -237,3 +237,5 @@ Source observations, not fixes performed in this task:
 - [SMS](docs/SmsManagement/sms_management.md)
 
 Module documentation folders also contain explanation documents. Compare those with current source before relying on table names or implementation details.
+
+Member Send Money uses current Shomriddhi savings with atomic sender/recipient journal postings, inter-branch settlement, PIN confirmation and durable idempotent retry. Admin history/settings live under Card Management. Starts disabled; see [Send Money](docs/Membership/send-money.md).

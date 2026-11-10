@@ -38,6 +38,9 @@ class PaymentPurpose
     public static $MEMBERSHIP_CASHOUT = 26;
     public static $MEMBERSHIP_CASHOUT_CHARGE = 27;
 
+    public static $MEMBERSHIP_TRANSFER = 28;
+    public static $MEMBERSHIP_TRANSFER_CHARGE = 29;
+
     public static function names()
     {
         return [
@@ -69,6 +72,8 @@ class PaymentPurpose
             self::$DPS_ENCASHMENT => 'DPS Encashment',
             self::$DPS_PREMATURE_ENCASHMENT => 'DPS Premature Encashment',
             self::$SUPPLIER_RECEIPT => 'Supplier Receipt',
+            self::$MEMBERSHIP_TRANSFER => 'Membership Send Money',
+            self::$MEMBERSHIP_TRANSFER_CHARGE => 'Membership Send Money Charge',
             self::$MEMBERSHIP_CASHOUT => 'Membership Cash-out',
             self::$MEMBERSHIP_CASHOUT_CHARGE => 'Membership Cash-out Charge',
             

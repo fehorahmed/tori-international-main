@@ -208,6 +208,10 @@ class ShomriddhiAdvanceService
      */
     public function deleteTransaction(ShomriddhiTransaction $advance): array
     {
+        if ($advance->voucher_id && \App\Models\Account\Voucher::find($advance->voucher_id)?->isMembershipTransfer()) {
+            return ['success' => false, 'message' => 'Send Money entries cannot be deleted through ordinary withdrawals.'];
+        }
+
         if (\App\Models\MembershipCashout::where(function ($q) use ($advance) {
             $q->where('voucher_id', $advance->voucher_id)->orWhere('fee_voucher_id', $advance->voucher_id)->orWhere('source_voucher_id', $advance->voucher_id);
         })->when(!$advance->voucher_id, fn ($q) => $q->whereRaw('1 = 0'))->exists()) {

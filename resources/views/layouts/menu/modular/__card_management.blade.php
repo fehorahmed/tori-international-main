@@ -18,6 +18,9 @@
 </li>
 @endif
 
+@if(auth()->user()->role === 'Admin' || auth()->user()->can('shomriddhi_advance_transaction_approve'))
+<li class="nav-item"><a href="{{ route('card-management.transfers.index') }}" class="nav-link {{ request()->routeIs('card-management.transfers.index') ? 'active' : '' }}"><i class="nav-icon fas fa-exchange-alt"></i><p>Member Send Money</p></a></li>
+@endif
 @can('member_card')
 <li class="nav-item">
     <a href="{{ route('card-management.member.index') }}" class="nav-link {{ request()->is('admin/card-management/member') || request()->is('admin/card-management/member/create') ? 'active' : '' }}">
@@ -74,6 +77,10 @@
     </a>
 </li>
 @endif
+@if(auth()->user()->role === 'Admin')
+<li class="nav-item"><a href="{{ route('card-management.transfers.settings') }}" class="nav-link {{ request()->routeIs('card-management.transfers.settings*') ? 'active' : '' }}"><i class="nav-icon fas fa-cogs"></i><p>Send Money Settings</p></a></li>
+@endif
+
 
 @canany(['member_card_report', 'employee_card_report'])
 <li class="nav-header text-uppercase font-weight-bold text-muted" style="font-size: 0.75rem;">Card Reports</li>

@@ -8,6 +8,12 @@ use App\Http\Controllers\CardManagement\CardSettingController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('card-management')->name('card-management.')->group(function () {
+    Route::prefix('transfers')->name('transfers.')->controller(\App\Http\Controllers\CardManagement\TransferController::class)->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::get('settings', 'settings')->name('settings');
+        Route::post('settings', 'update')->name('settings.update');
+    });
+
     Route::prefix('cashout')->name('cashout.')->controller(\App\Http\Controllers\CardManagement\CashoutController::class)->group(function () {
         Route::get('/', 'index')->name('index');
         Route::get('settings', 'settingsPage')->name('settings');

@@ -41,6 +41,9 @@ Route::prefix('v1')->group(function () {
         Route::get('dashboard', [\App\Http\Controllers\API\Membership\DashboardController::class, 'index']);
         Route::get('profile', [\App\Http\Controllers\API\Membership\ProfileController::class, 'getProfile']);
         Route::get('card', [\App\Http\Controllers\API\Membership\CardController::class, 'show']);
+        Route::get('transfers', [\App\Http\Controllers\API\Membership\TransferController::class, 'index']);
+        Route::post('transfers/quote', [\App\Http\Controllers\API\Membership\TransferController::class, 'quote'])->middleware('throttle:20,1');
+        Route::post('transfers', [\App\Http\Controllers\API\Membership\TransferController::class, 'store'])->middleware('throttle:10,1');
         Route::get('cashout', [\App\Http\Controllers\API\Membership\CashoutController::class, 'index']);
         Route::post('cashout/quote', [\App\Http\Controllers\API\Membership\CashoutController::class, 'quote'])->middleware('throttle:20,1');
         Route::post('cashouts', [\App\Http\Controllers\API\Membership\CashoutController::class, 'store'])->middleware('throttle:10,1');
