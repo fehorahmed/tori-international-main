@@ -13,7 +13,7 @@ class DashboardController extends Controller
 {
     public function index(Request $request)
     {
-        $customer = $request->user();
+        $customer = KycController::customer($request);
 
         // 1. Shomriddhi / Savings Account
         $savingsAccount = ShomriddhiAccount::where('customer_id', $customer->id)
@@ -82,6 +82,7 @@ class DashboardController extends Controller
                     'active_fdr_count' => $fdrAccounts->count(),
                     'active_loans_count' => $activeLoans->count(),
                 ],
+                'recent_transactions' => app(\App\Services\Membership\RecentTransactionService::class)->forCustomer($customer),
                 'upcoming_loan_emi' => $upcomingEmi,
             ]
         ]);

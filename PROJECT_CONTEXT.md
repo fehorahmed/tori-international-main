@@ -239,3 +239,5 @@ Source observations, not fixes performed in this task:
 Module documentation folders also contain explanation documents. Compare those with current source before relying on table names or implementation details.
 
 Member Send Money uses current Shomriddhi savings with atomic sender/recipient journal postings, inter-branch settlement, PIN confirmation and durable idempotent retry. Admin history/settings live under Card Management. Starts disabled; see [Send Money](docs/Membership/send-money.md).
+
+Home recent transactions now come from authenticated dashboard recent_transactions: approved Shomriddhi savings activity grouped by Send Money/cash-out reference including charges once; latest 50, no seeded history. Home shows 3, View All shows the loaded history with date/search filters and receipt details.

@@ -17,6 +17,7 @@ use App\Models\ShomriddhiAdvance\ShomriddhiTransaction;
 use App\Models\Supplier;
 use App\Models\User;
 use App\Services\Membership\CashoutService;
+use App\Services\Membership\RecentTransactionService;
 use App\Services\Membership\TransferService;
 use App\Services\ShomriddhiAdvance\ShomriddhiAdvanceService;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
@@ -267,5 +268,39 @@ class MembershipTransferTest extends TestCase
         $controller->update(Request::create('/', 'POST', ['enabled' => 1, 'maximum_amount' => '3000.00', 'charge_type' => 'fixed', 'charge_rate' => '0.00']));
         $this->assertSame($this->operator->id, MembershipTransferSetting::current()->posting_user_id);
         $this->assertSame('3000.00', MembershipTransferSetting::current()->maximum_amount);
+    }
+
+    public function test_recent_transactions_group_fees_and_are_member_scoped(): void
+    {
+        $q = $this->transferQuote();
+        $t = $this->transfer->send($this->customer, $q['quote'], '763921', (string) Str::uuid());
+        $service = app(RecentTransactionService::class);
+        $sent = $service->forCustomer($this->customer);
+        $received = $service->forCustomer($this->recipient);
+        $this->assertCount(1, $sent);
+        $this->assertCount(1, $received);
+        $this->assertSame($t->reference, $sent[0]['reference']);
+        $this->assertSame('1010.00', $sent[0]['amount']);
+        $this->assertSame('10.00', $sent[0]['fee']);
+        $this->assertFalse($sent[0]['is_credit']);
+        $this->assertSame('1000.00', $received[0]['amount']);
+        $this->assertSame('0.00', $received[0]['fee']);
+        $this->assertTrue($received[0]['is_credit']);
+        Sanctum::actingAs($this->customer);
+        $this->getJson('/api/membership/v1/dashboard')->assertOk()->assertJsonCount(1, 'data.recent_transactions')->assertJsonPath('data.recent_transactions.0.reference', $t->reference);
+    }
+
+    public function test_recent_cashout_shows_completed_total_once_and_hides_pending(): void
+    {
+        $c = $this->requestCash();
+        $service = app(RecentTransactionService::class);
+        $this->assertCount(0, $service->forCustomer($this->customer));
+        $this->service->change($c, 'accept', $this->operator);
+        $this->service->change($c, 'complete', $this->operator);
+        $rows = $service->forCustomer($this->customer);
+        $this->assertCount(1, $rows);
+        $this->assertSame($c->reference, $rows[0]['reference']);
+        $this->assertSame('1010.00', $rows[0]['amount']);
+        $this->assertSame('1000.00',$rows[0]['net_amount']);
     }
 }
