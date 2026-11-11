@@ -2,8 +2,8 @@
 @section('title', 'Member Send Money')
 @section('content')
 <div class="container-fluid">
-<h3>Member Send Money — {{ auth()->user()->active_sister_concern?->name }}</h3>
-@if(auth()->user()->role === 'Admin')<a class="btn btn-outline-secondary mb-3" href="{{ route('card-management.transfers.settings') }}">Send Money Settings</a>@endif
+@php($branch = auth()->user()->active_sister_concern)
+    <h3>{{ $branch?->code ?: $branch?->id }} — {{ $branch?->name }}</h3>
 <p>Completed transfers involving this branch. Transfers are posted automatically after member PIN confirmation.</p>
 <div class="table-responsive"><table class="table table-bordered"><thead><tr><th>Reference / Date</th><th>Sender</th><th>Recipient</th><th>Amount</th><th>Charge</th><th>Total debit</th></tr></thead><tbody>
 @forelse($transfers as $transfer)

@@ -72,15 +72,11 @@
 </li>
 @if(auth()->user()->role === 'Admin')
 <li class="nav-item">
-    <a href="{{ route('card-management.cashout.settings') }}" class="nav-link {{ request()->routeIs('card-management.cashout.settings*') ? 'active' : '' }}">
-        <i class="nav-icon fas fa-cogs"></i><p>Cash-out Settings</p>
+    <a href="{{ route('card-management.transaction-settings.index') }}" class="nav-link {{ request()->routeIs('card-management.transaction-settings.*') ? 'active' : '' }}">
+        <i class="nav-icon fas fa-cogs"></i><p>Transaction Settings</p>
     </a>
 </li>
 @endif
-@if(auth()->user()->role === 'Admin')
-<li class="nav-item"><a href="{{ route('card-management.transfers.settings') }}" class="nav-link {{ request()->routeIs('card-management.transfers.settings*') ? 'active' : '' }}"><i class="nav-icon fas fa-cogs"></i><p>Send Money Settings</p></a></li>
-@endif
-
 
 @canany(['member_card_report', 'employee_card_report'])
 <li class="nav-header text-uppercase font-weight-bold text-muted" style="font-size: 0.75rem;">Card Reports</li>

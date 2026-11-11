@@ -392,6 +392,7 @@ class DashboardController extends Controller
             ['title' => 'Product Utilizes', 'route' => 'product-utilizes.index', 'permission' => 'product_utilize', 'icon' => 'fas fa-tasks', 'category' => 'Navigation'],
             
             // Card Management
+            ['title' => 'Transaction Settings', 'adminOnly' => true, 'route' => 'card-management.transaction-settings.index', 'permission' => 'card_management', 'icon' => 'fas fa-cogs', 'category' => 'Card Management'],
             ['title' => 'Member Send Money', 'route' => 'card-management.transfers.index', 'permission' => 'shomriddhi_advance_transaction_approve', 'icon' => 'fas fa-exchange-alt', 'category' => 'Card Management'],
             ['title' => 'Membership Cash-out Counter', 'route' => 'card-management.cashout.index', 'permission' => 'shomriddhi_advance_transaction_approve', 'icon' => 'fas fa-money-bill-wave', 'category' => 'Card Management'],
             ['title' => 'Card Management Dashboard', 'route' => 'card-management.dashboard', 'permission' => 'card_management', 'icon' => 'fas fa-tachometer-alt', 'category' => 'Card Management'],
@@ -601,7 +602,7 @@ class DashboardController extends Controller
         foreach ($pages as $page) {
             if ($q === '' || stripos($page['title'], $q) !== false) {
                 // Check permissions dynamically
-                if (auth()->user()->can($page['permission'])) {
+                if (auth()->user()->can($page['permission']) && (empty($page['adminOnly']) || auth()->user()->role === 'Admin')) {
                     $results[] = [
                         'title' => $page['title'],
                         'url' => route($page['route'], $page['params'] ?? []),

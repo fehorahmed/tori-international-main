@@ -7,7 +7,7 @@
     <a class="btn btn-primary" href="{{ route('card-management.transfers.index') }}">Member Send Money</a>
     @endif
     @if(auth()->user()->role === 'Admin')
-    <a class="btn btn-outline-secondary" href="{{ route('card-management.transfers.settings') }}">Send Money Settings</a>
+    <a class="btn btn-outline-secondary" href="{{ route('card-management.transaction-settings.index') }}">Transaction Settings</a>
     @endif
 </div>
 
@@ -15,9 +15,6 @@
 <div class="mb-3">
     @if(auth()->user()->role === 'Admin' || auth()->user()->can('shomriddhi_advance_transaction_approve'))
     <a class="btn btn-primary" href="{{ route('card-management.cashout.index') }}">Membership Cash-out</a>
-    @endif
-    @if(auth()->user()->role === 'Admin')
-    <a class="btn btn-outline-secondary" href="{{ route('card-management.cashout.settings') }}">Cash-out Settings</a>
     @endif
 </div>
 

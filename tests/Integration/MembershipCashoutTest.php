@@ -3,6 +3,7 @@
 namespace Tests\Integration;
 
 use App\Http\Controllers\CardManagement\CashoutController;
+use App\Http\Controllers\CardManagement\TransactionSettingController;
 use App\Models\Account\AccountGroup;
 use App\Models\Account\AccountHead;
 use App\Models\Account\Transaction;
@@ -10,7 +11,7 @@ use App\Models\Account\Voucher;
 use App\Models\BranchManagement\SisterConcern;
 use App\Models\MembershipCashout;
 use App\Models\MembershipCashoutBooth;
-use App\Models\MembershipCashoutSetting;
+use App\Models\MembershipTransactionSetting;
 use App\Models\ShomriddhiAdvance\ShomriddhiAccount;
 use App\Models\ShomriddhiAdvance\ShomriddhiTransaction;
 use App\Models\Supplier;
@@ -65,7 +66,7 @@ class MembershipCashoutTest extends TestCase
         $this->savings = $this->fixtureHead('Savings', 'Credit', 28, ['supplier_id' => $this->customer->id, 'head_type' => 'savings']);
         $this->income = $this->fixtureHead('Fee income', 'Credit', 23);
         $this->fund($this->branch->id, $this->cash->id, $this->savings->id);
-        MembershipCashoutSetting::updateOrCreate(['id' => 1], ['enabled' => true, 'maximum_amount' => '5000.00',
+        MembershipTransactionSetting::writeGroup('cashout', ['enabled' => true, 'maximum_amount' => '5000.00',
             'charge_type' => 'fixed', 'charge_rate' => '10.00', 'hold_minutes' => 10, 'income_head_id' => $this->income->id]);
         $booth = MembershipCashoutBooth::updateOrCreate(['branch_id' => $this->branch->id],
             ['qr_token' => Str::random(48), 'cash_head_id' => $this->cash->id, 'enabled' => true]);
@@ -104,9 +105,9 @@ class MembershipCashoutTest extends TestCase
     public function test_admin_cashout_routes_belong_to_card_management(): void
     {
         $this->assertSame('/admin/card-management/cashout', route('card-management.cashout.index', [], false));
-        $this->assertSame('/admin/card-management/cashout/settings', route('card-management.cashout.settings', [], false));
+        $this->assertSame('/admin/card-management/transaction-settings', route('card-management.transaction-settings.index', [], false));
         $controller = new CashoutController;
-        $this->assertSame('card_management.cashout.settings', $controller->settingsPage()->name());
+        $this->assertSame('card_management.transaction_settings.index', app(TransactionSettingController::class)->index()->name());
         $this->assertSame('card_management.cashout.index', $controller->index()->name());
     }
 
@@ -139,7 +140,7 @@ class MembershipCashoutTest extends TestCase
 
     public function test_percentage_rounding_limit_and_insufficient_total_balance(): void
     {
-        MembershipCashoutSetting::find(1)->update(['charge_type' => 'percentage', 'charge_rate' => '1.85']);
+        MembershipTransactionSetting::writeGroup('cashout', ['charge_type' => 'percentage', 'charge_rate' => '1.85']);
         $quote = $this->service->quote($this->customer, $this->code, '1000.50');
         $this->assertSame('18.51', $quote['fee']);
         $this->assertSame('1019.01', $quote['total']);
@@ -151,7 +152,7 @@ class MembershipCashoutTest extends TestCase
                 $this->assertNotEmpty($e->errors());
             }
         }
-        MembershipCashoutSetting::find(1)->update(['maximum_amount' => '10000.00']);
+        MembershipTransactionSetting::writeGroup('cashout', ['maximum_amount' => '10000.00']);
         $this->expectException(ValidationException::class);
         $this->service->quote($this->customer, $this->code, '10000.00');
     }
@@ -283,7 +284,7 @@ class MembershipCashoutTest extends TestCase
     public function test_changed_settings_require_a_fresh_quote_and_wrong_branch_cannot_accept(): void
     {
         $quote = $this->service->quote($this->customer, $this->code, '1000.00');
-        MembershipCashoutSetting::find(1)->update(['charge_rate' => '20.00']);
+        MembershipTransactionSetting::writeGroup('cashout', ['charge_rate' => '20.00']);
         try {
             $this->service->request($this->customer, $quote['quote'], '763921', (string) Str::uuid());
             $this->fail('Stale price accepted.');
@@ -306,11 +307,11 @@ class MembershipCashoutTest extends TestCase
         $controller = app(CashoutController::class);
         $svg = $controller->qr();
         $this->assertStringContainsString('<svg', $svg->getContent());
-        $controller->settings(Request::create('/', 'POST', [
+        app(TransactionSettingController::class)->update(Request::create('/', 'POST', [
             'enabled' => '1', 'maximum_amount' => '5000.00', 'charge_type' => 'percentage',
             'charge_rate' => '1.85', 'hold_minutes' => 10, 'income_head_id' => $this->income->id,
-        ]));
-        $this->assertSame('percentage', MembershipCashoutSetting::find(1)->charge_type);
+        ]), 'cashout');
+        $this->assertSame('percentage', membership_transaction_setting('cashout.charge_type'));
         $this->assertSame('18.50', $this->service->quote($this->customer, $this->code, '1000.00')['fee']);
     }
 

@@ -475,3 +475,15 @@ if (!function_exists('renderZoomGalleryImage')) {
         return $preview_html;
     }
 }
+
+/** Read a typed value, e.g. membership_transaction_setting('cashout.maximum_amount'). */
+function membership_transaction_setting(string $key, mixed $default = null): mixed
+{
+    return \App\Models\MembershipTransactionSetting::read($key, $default);
+}
+
+/** Read a complete group in one query, keeping financial quote snapshots consistent. */
+function membership_transaction_settings(string $group): object
+{
+    return \App\Models\MembershipTransactionSetting::group($group);
+}

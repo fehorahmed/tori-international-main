@@ -2,6 +2,7 @@
 
 namespace Tests\Integration;
 
+use App\Http\Controllers\CardManagement\TransactionSettingController;
 use App\Http\Controllers\CardManagement\TransferController;
 use App\Models\Account\AccountGroup;
 use App\Models\Account\AccountHead;
@@ -10,8 +11,7 @@ use App\Models\Account\Voucher;
 use App\Models\BranchManagement\SisterConcern;
 use App\Models\MembershipCashout;
 use App\Models\MembershipCashoutBooth;
-use App\Models\MembershipCashoutSetting;
-use App\Models\MembershipTransferSetting;
+use App\Models\MembershipTransactionSetting;
 use App\Models\ShomriddhiAdvance\ShomriddhiAccount;
 use App\Models\ShomriddhiAdvance\ShomriddhiTransaction;
 use App\Models\Supplier;
@@ -75,7 +75,7 @@ class MembershipTransferTest extends TestCase
         $this->savings = $this->fixtureHead('Savings', 'Credit', 28, ['supplier_id' => $this->customer->id, 'head_type' => 'savings']);
         $this->income = $this->fixtureHead('Fee income', 'Credit', 23);
         $this->fund($this->branch->id, $this->cash->id, $this->savings->id);
-        MembershipCashoutSetting::updateOrCreate(['id' => 1], ['enabled' => true, 'maximum_amount' => '5000.00',
+        MembershipTransactionSetting::writeGroup('cashout', ['enabled' => true, 'maximum_amount' => '5000.00',
             'charge_type' => 'fixed', 'charge_rate' => '10.00', 'hold_minutes' => 10, 'income_head_id' => $this->income->id]);
         $booth = MembershipCashoutBooth::updateOrCreate(['branch_id' => $this->branch->id],
             ['qr_token' => Str::random(48), 'cash_head_id' => $this->cash->id, 'enabled' => true]);
@@ -84,7 +84,7 @@ class MembershipTransferTest extends TestCase
         $this->recipient = Supplier::create(['type' => 'Customer', 'name' => 'Transfer receiver', 'member_no' => 'SM-'.Str::random(12), 'mobile_no' => '017'.random_int(10000000, 99999999), 'status' => 1, 'origin_sister_concern_id' => $this->branch->id]);
         $this->recipientAccount = ShomriddhiAccount::create(['customer_id' => $this->recipient->id, 'origin_sister_concern_id' => $this->branch->id, 'principal_balance' => '0.00', 'status' => 'Active']);
         $this->recipientHead = $this->fixtureHead('Recipient savings', 'Credit', 28, ['supplier_id' => $this->recipient->id, 'head_type' => 'savings']);
-        MembershipTransferSetting::updateOrCreate(['id' => 1], ['enabled' => true, 'maximum_amount' => '5000.00', 'charge_type' => 'fixed', 'charge_rate' => '10.00', 'income_head_id' => $this->income->id, 'posting_user_id' => $this->operator->id]);
+        MembershipTransactionSetting::writeGroup('transfer', ['enabled' => true, 'maximum_amount' => '5000.00', 'charge_type' => 'fixed', 'charge_rate' => '10.00', 'income_head_id' => $this->income->id, 'posting_user_id' => $this->operator->id]);
         $this->transfer = app(TransferService::class);
 
     }
@@ -201,7 +201,7 @@ class MembershipTransferTest extends TestCase
 
     public function test_percentage_charge_and_limit(): void
     {
-        MembershipTransferSetting::whereKey(1)->update(['charge_type' => 'percentage', 'charge_rate' => '1.25']);
+        MembershipTransactionSetting::writeGroup('transfer', ['charge_type' => 'percentage', 'charge_rate' => '1.25']);
         $q = $this->transferQuote('100.40');
         $this->assertSame('1.26', $q['fee']);
         $this->expectException(ValidationException::class);
@@ -242,7 +242,7 @@ class MembershipTransferTest extends TestCase
     public function test_changed_charge_requires_fresh_review(): void
     {
         $q = $this->transferQuote();
-        MembershipTransferSetting::whereKey(1)->update(['charge_rate' => '20.00']);
+        MembershipTransactionSetting::writeGroup('transfer', ['charge_rate' => '20.00']);
         $this->expectException(ValidationException::class);
         $this->transfer->send($this->customer, $q['quote'], '763921', (string) Str::uuid());
     }
@@ -264,10 +264,10 @@ class MembershipTransferTest extends TestCase
         $t = $this->transfer->send($this->customer, $q['quote'], '763921', (string) Str::uuid());
         $controller = new TransferController;
         $this->assertSame($t->id, $controller->index()->getData()['transfers']->first()->id);
-        $this->assertSame('card_management.transfers.settings', $controller->settings()->name());
-        $controller->update(Request::create('/', 'POST', ['enabled' => 1, 'maximum_amount' => '3000.00', 'charge_type' => 'fixed', 'charge_rate' => '0.00']));
-        $this->assertSame($this->operator->id, MembershipTransferSetting::current()->posting_user_id);
-        $this->assertSame('3000.00', MembershipTransferSetting::current()->maximum_amount);
+        $this->assertSame('card_management.transaction_settings.index', app(TransactionSettingController::class)->index()->name());
+        app(TransactionSettingController::class)->update(Request::create('/', 'POST', ['enabled' => 1, 'maximum_amount' => '3000.00', 'charge_type' => 'fixed', 'charge_rate' => '0.00']), 'transfer');
+        $this->assertSame($this->operator->id, membership_transaction_setting('transfer.posting_user_id'));
+        $this->assertSame('3000.00', membership_transaction_setting('transfer.maximum_amount'));
     }
 
     public function test_recent_transactions_group_fees_and_are_member_scoped(): void
@@ -301,6 +301,6 @@ class MembershipTransferTest extends TestCase
         $this->assertCount(1, $rows);
         $this->assertSame($c->reference, $rows[0]['reference']);
         $this->assertSame('1010.00', $rows[0]['amount']);
-        $this->assertSame('1000.00',$rows[0]['net_amount']);
+        $this->assertSame('1000.00', $rows[0]['net_amount']);
     }
 }

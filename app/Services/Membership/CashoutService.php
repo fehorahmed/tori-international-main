@@ -10,7 +10,6 @@ use App\Models\Account\Voucher;
 use App\Models\BranchManagement\SisterConcern;
 use App\Models\MembershipCashout;
 use App\Models\MembershipCashoutBooth;
-use App\Models\MembershipCashoutSetting;
 use App\Models\ShomriddhiAdvance\ShomriddhiAccount;
 use App\Models\ShomriddhiAdvance\ShomriddhiTransaction;
 use App\Models\Supplier;
@@ -67,9 +66,9 @@ class CashoutService
         return $account;
     }
 
-    private function config(): MembershipCashoutSetting
+    private function config(): object
     {
-        $setting = MembershipCashoutSetting::current();
+        $setting = membership_transaction_settings('cashout');
         if (! $setting->enabled) {
             self::fail('Cash-out is currently unavailable.', 'ক্যাশ আউট বর্তমানে বন্ধ আছে।');
         }
@@ -77,7 +76,7 @@ class CashoutService
         return $setting;
     }
 
-    private function version(MembershipCashoutSetting $setting): string
+    private function version(object $setting): string
     {
         return hash('sha256', json_encode([$setting->maximum_amount, $setting->charge_type,
             $setting->charge_rate, $setting->hold_minutes, $setting->income_head_id]));

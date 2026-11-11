@@ -4,7 +4,6 @@ namespace App\Http\Controllers\API\Membership;
 
 use App\Http\Controllers\Controller;
 use App\Models\MembershipTransfer;
-use App\Models\MembershipTransferSetting;
 use App\Models\ShomriddhiAdvance\ShomriddhiAccount;
 use App\Services\Membership\CashoutService;
 use App\Services\Membership\TransferService;
@@ -15,7 +14,7 @@ class TransferController extends Controller
     public function index(Request $r)
     {
         $c = KycController::customer($r);
-        $s = MembershipTransferSetting::current();
+        $s = membership_transaction_settings('transfer');
         $a = ShomriddhiAccount::where('customer_id', $c->id)->where('status', 'Active')->first();
 
         return response()->json(['success' => true, 'data' => ['customer_id' => $c->id, 'enabled' => $s->enabled, 'maximum_amount' => $s->maximum_amount, 'charge_type' => $s->charge_type, 'charge_rate' => $s->charge_rate, 'available_balance' => CashoutService::money($a ? CashoutService::available($a) : 0), 'transfers' => MembershipTransfer::with(['sender', 'recipient'])->where(fn ($q) => $q->where('sender_id', $c->id)->orWhere('recipient_id', $c->id))->latest('id')->limit(30)->get()->map(fn ($t) => self::data($t, $c->id))]]);

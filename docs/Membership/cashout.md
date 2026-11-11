@@ -4,7 +4,7 @@ Cash-out uses the member's existing **Shomriddhi savings principal**. Settings s
 
 ## Setup
 
-ERP: **Card Management → Membership Cash-out**, `/admin/card-management/cashout`. Global limits and charges: **Card Management → Cash-out Settings**, `/admin/card-management/cashout/settings`.
+ERP: **Card Management → Membership Cash-out**, `/admin/card-management/cashout`. Global limits and charges: **Card Management → Transaction Settings**, `/admin/card-management/transaction-settings#cashout`.
 
 1. Admin saves the global maximum per transaction, charge mode/rate, pending expiry (1–60 minutes), and an active global revenue ledger for charge income. Enable cash-out. No production limit or fee is guessed; the feature starts disabled.
 2. At each active branch, an operator selects the branch/global cash ledger and enables its counter. Print the locally generated QR. Replacing a QR invalidates the old code for new requests.
@@ -30,7 +30,7 @@ PIN validation and request creation are throttled. The client saves a request UU
 
 | Table | Writes and purpose |
 | --- | --- |
-| `membership_cashout_settings` | Singleton global enable flag, per-request maximum, fixed/percentage charge/rate, expiry and charge income head. |
+| `membership_transaction_settings` (`cashout.*`) | Singleton global enable flag, per-request maximum, fixed/percentage charge/rate, expiry and charge income head. |
 | `membership_cashout_booths` | One QR identifier and payout cash head per branch; enable/rotation settings. |
 | `membership_cashouts` | Member/account/payout branch, immutable amount/fee/total and charge snapshot, idempotency/quote hashes, status/expiry, operator IDs/timestamps, reasons, links to all vouchers and settlement. Pending/accepted rows are the source of savings holds. |
 | `shomriddhi_accounts` | Principal decreases exactly once by `cash + charge` at successful completion. Holds do not decrease principal. Accrued interest is not automatically capitalized or paid by this flow. |

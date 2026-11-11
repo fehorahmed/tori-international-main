@@ -80,7 +80,7 @@ Shared endpoints: [routes/common.php](routes/common.php). Settings and dashboard
 
 ### Mobile auth
 
-Cash-out counter and its dedicated settings page are under Card Management (`card-management.cashout.*`). QR cash-out now uses existing Shomriddhi savings with expiry-aware holds, configurable fixed/percentage charges, branch counter approval/payment and balanced cash/charge/inter-branch postings. See [cash-out implementation and database map](docs/Membership/cashout.md), including the additive migrations and discovered obsolete MySQL trigger repair. Configure limits, fees, income ledger and branch cash counter before enabling; no live fee/limit is guessed.
+Cash-out counter is under Card Management (`card-management.cashout.*`); global policy now lives in the consolidated Transaction Settings page (`card-management.transaction-settings.*`). QR cash-out now uses existing Shomriddhi savings with expiry-aware holds, configurable fixed/percentage charges, branch counter approval/payment and balanced cash/charge/inter-branch postings. See [cash-out implementation and database map](docs/Membership/cashout.md), including the additive migrations and discovered obsolete MySQL trigger repair. Configure limits, fees, income ledger and branch cash counter before enabling; no live fee/limit is guessed.
 
 Membership login now remembers verified installations: OTP is required for new/unrecognized devices, with subsequent phone/PIN login using a hashed server-side device credential. PIN recovery still requires OTP. Read [device login](docs/Membership/device-login.md) for the additive migration, cache binding and compatibility details.
 
@@ -241,3 +241,5 @@ Module documentation folders also contain explanation documents. Compare those w
 Member Send Money uses current Shomriddhi savings with atomic sender/recipient journal postings, inter-branch settlement, PIN confirmation and durable idempotent retry. Admin history/settings live under Card Management. Starts disabled; see [Send Money](docs/Membership/send-money.md).
 
 Home recent transactions now come from authenticated dashboard recent_transactions: approved Shomriddhi savings activity grouped by Send Money/cash-out reference including charges once; latest 50, no seeded history. Home shows 3, View All shows the loaded history with date/search filters and receipt details.
+
+Membership transaction settings are consolidated in `membership_transaction_settings` as typed JSON key/value rows (`cashout.*`, `transfer.*`, reserved disabled `cashin.enabled`). Use `membership_transaction_setting(key, default)` for a value and `membership_transaction_settings(group)` for a consistent one-query snapshot; no legacy settings models/tables or stale global cache. Admin UI: Card Management → Transaction Settings. Migration 2026_11_11_090000 copies old singleton values before dropping their tables and reconstructs them on rollback.

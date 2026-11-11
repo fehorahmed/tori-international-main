@@ -4,13 +4,13 @@ Source and destination: each member must have exactly one Active Shomriddhi savi
 
 ## Administration
 
-Card Management → Member Send Money shows completed transfers involving the active branch. Card Management → Send Money Settings (Admin only) controls enabled state, maximum net amount, fixed/percentage charge, and a global revenue ledger for charges. Charge zero means free transfers. Initially disabled; configure and enable explicitly.
+Card Management → Member Send Money shows completed transfers involving the active branch. Card Management → Transaction Settings (Admin only) controls enabled state, maximum net amount, fixed/percentage charge, and a global revenue ledger for charges. Charge zero means free transfers. Initially disabled; configure and enable explicitly.
 
 Automatic accounting uses the admin who last saves these settings as its authorized posting user because existing voucher and Shomriddhi audit columns require an ERP user. Every transfer separately records the authenticated sending member, recipient, both savings account IDs and request key. This does not log the member in as the admin.
 
 ## Database and accounting
 
-- `membership_transfer_settings`: singleton configuration and posting user.
+- `membership_transaction_settings` (`transfer.*`): singleton configuration and posting user.
 - `membership_transfers`: immutable completed transfer audit, reference, sender/recipient account IDs, amount, fee, total debit, signed quote hash, idempotency key and linked vouchers/settlement.
 - `shomriddhi_accounts`: sender principal minus amount+charge; recipient principal plus amount, inside one database transaction.
 - `vouchers` / `transactions`: same branch Journal DR sender savings / CR recipient savings. Charge Journal DR sender savings / CR charge revenue. Purposes 28 and 29.

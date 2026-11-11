@@ -8,7 +8,6 @@ use App\Models\Account\Transaction;
 use App\Models\Account\Voucher;
 use App\Models\BranchManagement\SisterConcern;
 use App\Models\MembershipTransfer;
-use App\Models\MembershipTransferSetting;
 use App\Models\ShomriddhiAdvance\ShomriddhiAccount;
 use App\Models\ShomriddhiAdvance\ShomriddhiTransaction;
 use App\Models\Supplier;
@@ -35,9 +34,9 @@ class TransferService
         return $rows->first();
     }
 
-    private function config(): MembershipTransferSetting
+    private function config(): object
     {
-        $s = MembershipTransferSetting::current();
+        $s = membership_transaction_settings('transfer');
         if (! $s->enabled || ! $s->posting_user_id) {
             $this->fail('Send Money is currently unavailable.', 'সেন্ড মানি বর্তমানে বন্ধ আছে।');
         }

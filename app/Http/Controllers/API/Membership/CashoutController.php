@@ -4,7 +4,6 @@ namespace App\Http\Controllers\API\Membership;
 
 use App\Http\Controllers\Controller;
 use App\Models\MembershipCashout;
-use App\Models\MembershipCashoutSetting;
 use App\Models\ShomriddhiAdvance\ShomriddhiAccount;
 use App\Services\Membership\CashoutService;
 use Illuminate\Http\Request;
@@ -14,7 +13,7 @@ class CashoutController extends Controller
     public function index(Request $request)
     {
         $customer = KycController::customer($request);
-        $setting = MembershipCashoutSetting::current();
+        $setting = membership_transaction_settings('cashout');
         $account = ShomriddhiAccount::where('customer_id', $customer->id)->where('status', 'Active')->first();
 
         return response()->json(['success' => true, 'data' => [

@@ -2,16 +2,10 @@
 @section('title', 'Membership Cash-out Counter')
 @section('content')
 <div class="container-fluid">
-    <h3>Membership Cash-out — {{ auth()->user()->active_sister_concern?->name }}</h3>
+    @php($branch = auth()->user()->active_sister_concern)
+    <h3>{{ $branch?->code ?: $branch?->id }} — {{ $branch?->name }}</h3>
     @if(session('success'))<div class="alert alert-success">{{ session('success') }}</div>@endif
     @if($errors->any())<div class="alert alert-danger">{{ $errors->first() }}</div>@endif
-    <div class="mb-3">
-        <a class="btn btn-outline-primary" href="{{ route('card-management.dashboard') }}">Card Management</a>
-        <a class="btn btn-outline-primary" href="{{ route('card-management.cashout.index') }}">Cash-out Counter</a>
-        @if(auth()->user()->role === 'Admin')
-        <a class="btn btn-outline-secondary" href="{{ route('card-management.cashout.settings') }}">Cash-out Settings</a>
-        @endif
-    </div>
     <div class="card"><div class="card-header">This branch counter</div><div class="card-body">
         <form method="POST" action="{{ route('card-management.cashout.booth') }}">@csrf
             <label>Cash ledger for payouts</label><select name="cash_head_id" class="form-control" required>@foreach($cashHeads as $head)<option value="{{ $head->id }}" @selected($head->id == $booth?->cash_head_id)>{{ $head->name }}</option>@endforeach</select>

@@ -8,16 +8,17 @@ use App\Http\Controllers\CardManagement\CardSettingController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('card-management')->name('card-management.')->group(function () {
+    Route::prefix('transaction-settings')->name('transaction-settings.')->controller(\App\Http\Controllers\CardManagement\TransactionSettingController::class)->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::post('{group}', 'update')->whereIn('group', ['cashout', 'transfer'])->name('update');
+    });
+
     Route::prefix('transfers')->name('transfers.')->controller(\App\Http\Controllers\CardManagement\TransferController::class)->group(function () {
         Route::get('/', 'index')->name('index');
-        Route::get('settings', 'settings')->name('settings');
-        Route::post('settings', 'update')->name('settings.update');
     });
 
     Route::prefix('cashout')->name('cashout.')->controller(\App\Http\Controllers\CardManagement\CashoutController::class)->group(function () {
         Route::get('/', 'index')->name('index');
-        Route::get('settings', 'settingsPage')->name('settings');
-        Route::post('settings', 'settings')->name('settings.update');
         Route::post('booth', 'booth')->name('booth');
         Route::get('qr', 'qr')->name('qr');
         Route::post('{cashout}/{action}', 'change')->name('change');
