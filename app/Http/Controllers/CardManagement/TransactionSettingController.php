@@ -25,7 +25,8 @@ class TransactionSettingController extends Controller
     {
         abort_unless(auth()->user()->role === 'Admin', 403);
         abort_unless(in_array($group, ['cashout', 'transfer'], true), 404);
-        $rules = ['maximum_amount' => 'required|numeric|decimal:0,2|min:1|max:10000000',
+        $rules = ['minimum_amount' => 'required|numeric|decimal:0,2|min:0.01|max:10000000|lte:maximum_amount',
+            'maximum_amount' => 'required|numeric|decimal:0,2|min:0.01|max:10000000',
             'charge_type' => 'required|in:fixed,percentage', 'charge_rate' => 'required|numeric|decimal:0,2|min:0|max:10000000',
             'income_head_id' => 'nullable|integer', 'enabled' => 'sometimes|boolean'];
         if ($group === 'cashout') {

@@ -18,7 +18,7 @@ class CashoutController extends Controller
 
         return response()->json(['success' => true, 'data' => [
             'customer_id' => $customer->id,
-            'enabled' => (bool) $setting->enabled, 'maximum_amount' => $setting->maximum_amount ?? '0.00',
+            'enabled' => (bool) $setting->enabled, 'minimum_amount' => $setting->minimum_amount, 'maximum_amount' => $setting->maximum_amount ?? '0.00',
             'charge_type' => $setting->charge_type ?? 'fixed', 'charge_rate' => $setting->charge_rate ?? '0.00',
             'balance' => $account?->principal_balance ?? '0.00',
             'held_balance' => CashoutService::money($account ? MembershipCashout::held($account->id) : 0),
@@ -40,7 +40,7 @@ class CashoutController extends Controller
     public function quote(Request $request, CashoutService $service)
     {
         $customer = KycController::customer($request);
-        $request->validate(['qr_code' => 'required|string|max:256', 'amount' => 'required|numeric|decimal:0,2|min:1|max:10000000']);
+        $request->validate(['qr_code' => 'required|string|max:256', 'amount' => 'required|numeric|decimal:0,2|min:0.01|max:10000000']);
 
         return response()->json(['success' => true, 'data' => $service->quote($customer, $request->qr_code, (string) $request->amount)]);
     }

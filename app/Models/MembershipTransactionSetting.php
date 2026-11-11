@@ -15,10 +15,10 @@ class MembershipTransactionSetting extends Model
     public static function defaults(): array
     {
         return [
-            'cashout.enabled' => false, 'cashout.maximum_amount' => '0.00',
+            'cashout.enabled' => false, 'cashout.minimum_amount' => '1.00', 'cashout.maximum_amount' => '0.00',
             'cashout.charge_type' => 'fixed', 'cashout.charge_rate' => '0.00',
             'cashout.hold_minutes' => 10, 'cashout.income_head_id' => null,
-            'transfer.enabled' => false, 'transfer.maximum_amount' => '0.00',
+            'transfer.enabled' => false, 'transfer.minimum_amount' => '1.00', 'transfer.maximum_amount' => '0.00',
             'transfer.charge_type' => 'fixed', 'transfer.charge_rate' => '0.00',
             'transfer.income_head_id' => null, 'transfer.posting_user_id' => null,
             // Reserved until the Cash In workflow is implemented.
@@ -58,7 +58,7 @@ class MembershipTransactionSetting extends Model
                 }
                 if ($field === 'enabled') {
                     $value = (bool) $value;
-                } elseif (in_array($field, ['maximum_amount', 'charge_rate'], true)) {
+                } elseif (in_array($field, ['minimum_amount', 'maximum_amount', 'charge_rate'], true)) {
                     $value = number_format((float) $value, 2, '.', '');
                 } elseif (in_array($field, ['hold_minutes', 'income_head_id', 'posting_user_id'], true)) {
                     $value = $value === null || $value === '' ? null : (int) $value;

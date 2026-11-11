@@ -17,7 +17,7 @@ class TransferController extends Controller
         $s = membership_transaction_settings('transfer');
         $a = ShomriddhiAccount::where('customer_id', $c->id)->where('status', 'Active')->first();
 
-        return response()->json(['success' => true, 'data' => ['customer_id' => $c->id, 'enabled' => $s->enabled, 'maximum_amount' => $s->maximum_amount, 'charge_type' => $s->charge_type, 'charge_rate' => $s->charge_rate, 'available_balance' => CashoutService::money($a ? CashoutService::available($a) : 0), 'transfers' => MembershipTransfer::with(['sender', 'recipient'])->where(fn ($q) => $q->where('sender_id', $c->id)->orWhere('recipient_id', $c->id))->latest('id')->limit(30)->get()->map(fn ($t) => self::data($t, $c->id))]]);
+        return response()->json(['success' => true, 'data' => ['customer_id' => $c->id, 'enabled' => $s->enabled, 'minimum_amount' => $s->minimum_amount, 'maximum_amount' => $s->maximum_amount, 'charge_type' => $s->charge_type, 'charge_rate' => $s->charge_rate, 'available_balance' => CashoutService::money($a ? CashoutService::available($a) : 0), 'transfers' => MembershipTransfer::with(['sender', 'recipient'])->where(fn ($q) => $q->where('sender_id', $c->id)->orWhere('recipient_id', $c->id))->latest('id')->limit(30)->get()->map(fn ($t) => self::data($t, $c->id))]]);
     }
 
     public static function data(MembershipTransfer $t, int $viewer): array
@@ -30,7 +30,7 @@ class TransferController extends Controller
     public function quote(Request $r, TransferService $s)
     {
         $c = KycController::customer($r);
-        $r->validate(['recipient' => 'required|string|max:64', 'amount' => 'required|numeric|decimal:0,2|min:1|max:10000000']);
+        $r->validate(['recipient' => 'required|string|max:64', 'amount' => 'required|numeric|decimal:0,2|min:0.01|max:10000000']);
 
         return response()->json(['success' => true, 'data' => $s->quote($c, $r->recipient, (string) $r->amount)]);
     }

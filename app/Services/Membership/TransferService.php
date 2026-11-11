@@ -46,7 +46,7 @@ class TransferService
 
     private function version($s): string
     {
-        return hash('sha256', json_encode([$s->enabled, $s->maximum_amount, $s->charge_type, $s->charge_rate, $s->income_head_id, $s->posting_user_id]));
+        return hash('sha256', json_encode([$s->enabled, $s->minimum_amount, $s->maximum_amount, $s->charge_type, $s->charge_rate, $s->income_head_id, $s->posting_user_id]));
     }
 
     public function quote(Supplier $sender, string $identifier, string $amount): array
@@ -76,8 +76,8 @@ class TransferService
         $source = $this->account($sender->id);
         $target = $this->account($recipient->id);
         $net = CashoutService::minor($amount);
-        if ($net < 100 || $net > CashoutService::minor($s->maximum_amount)) {
-            $this->fail('Amount is outside the per-transfer limit.', 'পরিমাণ প্রতি ট্রান্সফারের সীমার বাইরে।');
+        if ($net < max(1, CashoutService::minor($s->minimum_amount)) || $net > CashoutService::minor($s->maximum_amount)) {
+            $this->fail('Amount is outside the configured minimum and maximum per transfer.', 'পরিমাণ প্রতি ট্রান্সফারের নির্ধারিত সর্বনিম্ন ও সর্বোচ্চ সীমার বাইরে।');
         }
         $fee = $s->charge_type === 'percentage' ? intdiv($net * CashoutService::minor($s->charge_rate) + 5000, 10000) : CashoutService::minor($s->charge_rate);
         if ($net + $fee > CashoutService::available($source)) {
@@ -85,7 +85,7 @@ class TransferService
         }
         $payload = ['sender' => $sender->id, 'recipient' => $recipient->id, 'source' => $source->id, 'target' => $target->id, 'amount' => $net, 'fee' => $fee, 'version' => $this->version($s), 'expires' => now()->addMinutes(2)->timestamp, 'nonce' => Str::random(24)];
 
-        return ['quote' => Crypt::encryptString(json_encode($payload)), 'recipient_name' => $recipient->name, 'recipient_member_no' => $recipient->member_no, 'amount' => CashoutService::money($net), 'fee' => CashoutService::money($fee), 'total' => CashoutService::money($net + $fee)];
+        return ['quote' => Crypt::encryptString(json_encode($payload)), 'recipient_name' => $recipient->name, 'recipient_member_no' => $recipient->member_no, 'minimum_amount' => $s->minimum_amount, 'maximum_amount' => $s->maximum_amount, 'amount' => CashoutService::money($net), 'fee' => CashoutService::money($fee), 'total' => CashoutService::money($net + $fee)];
     }
 
     public function send(Supplier $sender, string $quote, string $pin, string $key): MembershipTransfer

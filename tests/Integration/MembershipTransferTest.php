@@ -75,7 +75,7 @@ class MembershipTransferTest extends TestCase
         $this->savings = $this->fixtureHead('Savings', 'Credit', 28, ['supplier_id' => $this->customer->id, 'head_type' => 'savings']);
         $this->income = $this->fixtureHead('Fee income', 'Credit', 23);
         $this->fund($this->branch->id, $this->cash->id, $this->savings->id);
-        MembershipTransactionSetting::writeGroup('cashout', ['enabled' => true, 'maximum_amount' => '5000.00',
+        MembershipTransactionSetting::writeGroup('cashout', ['enabled' => true, 'minimum_amount' => '1.00', 'maximum_amount' => '5000.00',
             'charge_type' => 'fixed', 'charge_rate' => '10.00', 'hold_minutes' => 10, 'income_head_id' => $this->income->id]);
         $booth = MembershipCashoutBooth::updateOrCreate(['branch_id' => $this->branch->id],
             ['qr_token' => Str::random(48), 'cash_head_id' => $this->cash->id, 'enabled' => true]);
@@ -84,7 +84,7 @@ class MembershipTransferTest extends TestCase
         $this->recipient = Supplier::create(['type' => 'Customer', 'name' => 'Transfer receiver', 'member_no' => 'SM-'.Str::random(12), 'mobile_no' => '017'.random_int(10000000, 99999999), 'status' => 1, 'origin_sister_concern_id' => $this->branch->id]);
         $this->recipientAccount = ShomriddhiAccount::create(['customer_id' => $this->recipient->id, 'origin_sister_concern_id' => $this->branch->id, 'principal_balance' => '0.00', 'status' => 'Active']);
         $this->recipientHead = $this->fixtureHead('Recipient savings', 'Credit', 28, ['supplier_id' => $this->recipient->id, 'head_type' => 'savings']);
-        MembershipTransactionSetting::writeGroup('transfer', ['enabled' => true, 'maximum_amount' => '5000.00', 'charge_type' => 'fixed', 'charge_rate' => '10.00', 'income_head_id' => $this->income->id, 'posting_user_id' => $this->operator->id]);
+        MembershipTransactionSetting::writeGroup('transfer', ['enabled' => true, 'minimum_amount' => '1.00', 'maximum_amount' => '5000.00', 'charge_type' => 'fixed', 'charge_rate' => '10.00', 'income_head_id' => $this->income->id, 'posting_user_id' => $this->operator->id]);
         $this->transfer = app(TransferService::class);
 
     }
@@ -265,7 +265,7 @@ class MembershipTransferTest extends TestCase
         $controller = new TransferController;
         $this->assertSame($t->id, $controller->index()->getData()['transfers']->first()->id);
         $this->assertSame('card_management.transaction_settings.index', app(TransactionSettingController::class)->index()->name());
-        app(TransactionSettingController::class)->update(Request::create('/', 'POST', ['enabled' => 1, 'maximum_amount' => '3000.00', 'charge_type' => 'fixed', 'charge_rate' => '0.00']), 'transfer');
+        app(TransactionSettingController::class)->update(Request::create('/', 'POST', ['enabled' => 1, 'minimum_amount' => '1.00', 'maximum_amount' => '3000.00', 'charge_type' => 'fixed', 'charge_rate' => '0.00']), 'transfer');
         $this->assertSame($this->operator->id, membership_transaction_setting('transfer.posting_user_id'));
         $this->assertSame('3000.00', membership_transaction_setting('transfer.maximum_amount'));
     }
@@ -302,5 +302,29 @@ class MembershipTransferTest extends TestCase
         $this->assertSame($c->reference, $rows[0]['reference']);
         $this->assertSame('1010.00', $rows[0]['amount']);
         $this->assertSame('1000.00', $rows[0]['net_amount']);
+    }
+
+    public function test_transfer_minimum_allows_boundary_and_supports_sub_taka_settings(): void
+    {
+        MembershipTransactionSetting::writeGroup('transfer', ['minimum_amount' => '0.50', 'charge_rate' => '0.00']);
+        try {
+            $this->transferQuote('0.49');
+            $this->fail('Below minimum must fail');
+        } catch (ValidationException) {
+            $this->assertTrue(true);
+        }
+        Sanctum::actingAs($this->customer);
+        $quote = $this->postJson('/api/membership/v1/transfers/quote', ['recipient' => $this->recipient->member_no, 'amount' => '0.50'])->assertOk()->assertJsonPath('data.minimum_amount', '0.50')->json('data');
+        $row = $this->transfer->send($this->customer, $quote['quote'], '763921', (string) Str::uuid());
+        $this->assertSame('0.50', $row->amount);
+        $this->getJson('/api/membership/v1/transfers')->assertOk()->assertJsonPath('data.minimum_amount', '0.50');
+    }
+
+    public function test_transfer_minimum_change_invalidates_old_quote(): void
+    {
+        $quote = $this->transferQuote('100.00');
+        MembershipTransactionSetting::writeGroup('transfer', ['minimum_amount' => '200.00']);
+        $this->expectException(ValidationException::class);
+        $this->transfer->send($this->customer, $quote['quote'], '763921', (string) Str::uuid());
     }
 }

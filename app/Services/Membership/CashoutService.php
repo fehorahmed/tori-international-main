@@ -78,7 +78,7 @@ class CashoutService
 
     private function version(object $setting): string
     {
-        return hash('sha256', json_encode([$setting->maximum_amount, $setting->charge_type,
+        return hash('sha256', json_encode([$setting->minimum_amount, $setting->maximum_amount, $setting->charge_type,
             $setting->charge_rate, $setting->hold_minutes, $setting->income_head_id]));
     }
 
@@ -99,8 +99,8 @@ class CashoutService
         $booth = $this->booth($code);
         $account = $this->account($customer);
         $net = self::minor($amount);
-        if ($net < 100 || $net > self::minor($setting->maximum_amount)) {
-            self::fail('Amount exceeds the per-transaction limit or is below Tk 1.', 'পরিমাণ প্রতি লেনদেনের সীমার বাইরে অথবা ১ টাকার কম।');
+        if ($net < max(1, self::minor($setting->minimum_amount)) || $net > self::minor($setting->maximum_amount)) {
+            self::fail('Amount is outside the configured minimum and maximum per transaction.', 'পরিমাণ প্রতি লেনদেনের নির্ধারিত সর্বনিম্ন ও সর্বোচ্চ সীমার বাইরে।');
         }
         $fee = $setting->charge_type === 'percentage'
             ? intdiv($net * self::minor($setting->charge_rate) + 5000, 10000)
@@ -115,7 +115,7 @@ class CashoutService
 
         return ['quote' => Crypt::encryptString(json_encode($quote)), 'branch' => $booth->branch->name,
             'amount' => $quote['amount'], 'fee' => $quote['fee'], 'total' => $quote['total'],
-            'available_balance' => self::money(self::available($account)), 'maximum_amount' => $setting->maximum_amount];
+            'available_balance' => self::money(self::available($account)), 'minimum_amount' => $setting->minimum_amount, 'maximum_amount' => $setting->maximum_amount];
     }
 
     public function request(Supplier $customer, string $token, string $pin, string $key): MembershipCashout

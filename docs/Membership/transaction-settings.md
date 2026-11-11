@@ -19,10 +19,12 @@ The single-key helper queries the authoritative table. The group helper reads al
 
 Keys:
 
-- `cashout.enabled`, `cashout.maximum_amount`, `cashout.charge_type`, `cashout.charge_rate`, `cashout.hold_minutes`, `cashout.income_head_id`
-- `transfer.enabled`, `transfer.maximum_amount`, `transfer.charge_type`, `transfer.charge_rate`, `transfer.income_head_id`, `transfer.posting_user_id`
+- `cashout.enabled`, `cashout.minimum_amount`, `cashout.maximum_amount`, `cashout.charge_type`, `cashout.charge_rate`, `cashout.hold_minutes`, `cashout.income_head_id`
+- `transfer.enabled`, `transfer.minimum_amount`, `transfer.maximum_amount`, `transfer.charge_type`, `transfer.charge_rate`, `transfer.income_head_id`, `transfer.posting_user_id`
 - `cashin.enabled` (false; reserved)
 
 Migration `2026_11_11_090000_consolidate_membership_transaction_settings` copies the old singleton values (including enabled, fee policy, income heads and transfer posting user) before dropping both legacy settings tables. On rollback it reconstructs the old schemas using the current key-value settings. Fresh installs start disabled with zero limits/charges. Existing cash-out requests retain their stored amounts; new quotes use the current helper settings and configuration version. No member balances, transaction rows, vouchers or branch QR/counter configuration are changed.
 
 Member API paths and response fields are unchanged, so Flutter continues to receive the same limit/charge fields. Financial integration tests use the key-value helper/store directly and continue checking fees, limits, idempotency, accounting and quote-version changes.
+
+Minimum amounts default to Tk 1.00 to preserve the previous floor. Migration 2026_11_11_100000 inserts only missing minimum keys. Admin can configure a positive amount down to Tk 0.01; minimum cannot exceed maximum. Limits apply to the transaction amount before charges, inclusively. Minimum is included in quote-version checks, API configuration/quote responses, and Flutter range guidance/validation.

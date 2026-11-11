@@ -66,7 +66,7 @@ class MembershipCashoutTest extends TestCase
         $this->savings = $this->fixtureHead('Savings', 'Credit', 28, ['supplier_id' => $this->customer->id, 'head_type' => 'savings']);
         $this->income = $this->fixtureHead('Fee income', 'Credit', 23);
         $this->fund($this->branch->id, $this->cash->id, $this->savings->id);
-        MembershipTransactionSetting::writeGroup('cashout', ['enabled' => true, 'maximum_amount' => '5000.00',
+        MembershipTransactionSetting::writeGroup('cashout', ['enabled' => true, 'minimum_amount' => '1.00', 'maximum_amount' => '5000.00',
             'charge_type' => 'fixed', 'charge_rate' => '10.00', 'hold_minutes' => 10, 'income_head_id' => $this->income->id]);
         $booth = MembershipCashoutBooth::updateOrCreate(['branch_id' => $this->branch->id],
             ['qr_token' => Str::random(48), 'cash_head_id' => $this->cash->id, 'enabled' => true]);
@@ -152,7 +152,7 @@ class MembershipCashoutTest extends TestCase
                 $this->assertNotEmpty($e->errors());
             }
         }
-        MembershipTransactionSetting::writeGroup('cashout', ['maximum_amount' => '10000.00']);
+        MembershipTransactionSetting::writeGroup('cashout', ['minimum_amount' => '1.00', 'maximum_amount' => '10000.00']);
         $this->expectException(ValidationException::class);
         $this->service->quote($this->customer, $this->code, '10000.00');
     }
@@ -308,7 +308,7 @@ class MembershipCashoutTest extends TestCase
         $svg = $controller->qr();
         $this->assertStringContainsString('<svg', $svg->getContent());
         app(TransactionSettingController::class)->update(Request::create('/', 'POST', [
-            'enabled' => '1', 'maximum_amount' => '5000.00', 'charge_type' => 'percentage',
+            'enabled' => '1', 'minimum_amount' => '1.00', 'maximum_amount' => '5000.00', 'charge_type' => 'percentage',
             'charge_rate' => '1.85', 'hold_minutes' => 10, 'income_head_id' => $this->income->id,
         ]), 'cashout');
         $this->assertSame('percentage', membership_transaction_setting('cashout.charge_type'));
@@ -344,5 +344,30 @@ class MembershipCashoutTest extends TestCase
         $this->assertSame(1000000, CashoutService::minor($this->account->fresh()->principal_balance));
         $this->assertSame(1000000, CashoutService::minor($this->savings->getCurrentBalance()));
         $this->assertSame(1000000, CashoutService::minor($this->cash->getCurrentBalance($this->branch->id)));
+    }
+
+    public function test_configured_minimum_rejects_lower_amount_and_accepts_exact_boundary(): void
+    {
+        MembershipTransactionSetting::writeGroup('cashout', ['minimum_amount' => '100.50']);
+        try {
+            $this->service->quote($this->customer, $this->code, '100.49');
+            $this->fail('Below minimum must fail');
+        } catch (ValidationException) {
+            $this->assertTrue(true);
+        }
+        $quote = $this->service->quote($this->customer, $this->code, '100.50');
+        $this->assertSame('100.50', $quote['minimum_amount']);
+        $cashout = $this->service->request($this->customer, $quote['quote'], '763921', (string) Str::uuid());
+        $this->assertSame('100.50', $cashout->amount);
+        Sanctum::actingAs($this->customer);
+        $this->getJson('/api/membership/v1/cashout')->assertOk()->assertJsonPath('data.minimum_amount', '100.50');
+    }
+
+    public function test_cashout_minimum_change_requires_fresh_quote(): void
+    {
+        $quote = $this->service->quote($this->customer, $this->code, '100.00');
+        MembershipTransactionSetting::writeGroup('cashout', ['minimum_amount' => '200.00']);
+        $this->expectException(ValidationException::class);
+        $this->service->request($this->customer, $quote['quote'], '763921', (string) Str::uuid());
     }
 }

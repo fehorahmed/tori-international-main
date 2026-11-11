@@ -15,7 +15,8 @@
                 <input type="hidden" name="_group" value="{{ $group }}">
                 <label><input type="checkbox" name="enabled" value="1" @checked(old('_group') === $group ? old('enabled', false) : $setting->enabled)> Enable {{ $title }}</label>
                 <div class="row">
-                    <div class="col-md-3 form-group"><label>Maximum amount per transaction (Tk)</label><input class="form-control" name="maximum_amount" type="number" min="1" max="10000000" step="0.01" required value="{{ $value('maximum_amount') }}"></div>
+                    <div class="col-md-3 form-group"><label>Minimum amount per transaction (Tk)</label><input class="form-control" name="minimum_amount" type="number" min="0.01" max="10000000" step="0.01" required value="{{ $value('minimum_amount') }}"></div>
+                    <div class="col-md-3 form-group"><label>Maximum amount per transaction (Tk)</label><input class="form-control" name="maximum_amount" type="number" min="0.01" max="10000000" step="0.01" required value="{{ $value('maximum_amount') }}"></div>
                     <div class="col-md-2 form-group"><label>Charge type</label><select class="form-control" name="charge_type"><option value="fixed" @selected($value('charge_type') === 'fixed')>Fixed Tk</option><option value="percentage" @selected($value('charge_type') === 'percentage')>Percentage (%)</option></select></div>
                     <div class="col-md-2 form-group"><label>Charge rate</label><input class="form-control" type="number" name="charge_rate" min="0" max="10000000" step="0.01" required value="{{ $value('charge_rate') }}"></div>
                     @if($group === 'cashout')<div class="col-md-2 form-group"><label>Pending expiry (minutes)</label><input class="form-control" type="number" name="hold_minutes" min="1" max="60" value="{{ $value('hold_minutes') }}" required></div>@endif
