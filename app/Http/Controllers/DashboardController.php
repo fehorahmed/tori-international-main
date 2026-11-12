@@ -391,6 +391,8 @@ class DashboardController extends Controller
             ['title' => 'Location History', 'route' => 'tracking.location_history', 'permission' => 'location_history', 'icon' => 'fas fa-history', 'category' => 'Navigation'],
             ['title' => 'Product Utilizes', 'route' => 'product-utilizes.index', 'permission' => 'product_utilize', 'icon' => 'fas fa-tasks', 'category' => 'Navigation'],
             
+            ['title' => 'Product Packages', 'route' => 'product-packages.index', 'permission' => 'ecommerce_product', 'icon' => 'fas fa-box-open', 'category' => 'Ecommerce'],
+            ['title' => 'Package Orders', 'route' => 'package-orders.index', 'permission' => 'ecommerce_order', 'icon' => 'fas fa-boxes', 'category' => 'Ecommerce'],
             // Card Management
             ['title' => 'Transaction Settings', 'adminOnly' => true, 'route' => 'card-management.transaction-settings.index', 'permission' => 'card_management', 'icon' => 'fas fa-cogs', 'category' => 'Card Management'],
             ['title' => 'Member Send Money', 'route' => 'card-management.transfers.index', 'permission' => 'shomriddhi_advance_transaction_approve', 'icon' => 'fas fa-exchange-alt', 'category' => 'Card Management'],

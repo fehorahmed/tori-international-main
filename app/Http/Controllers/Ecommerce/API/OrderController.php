@@ -27,6 +27,11 @@ class OrderController extends Controller
     }
     public function store(Request $request)
     {
+        if (Product::where('catalog_type', 'package')->whereIn('id', collect($request->input('items', []))->pluck('product_id'))->exists()) {
+            abort_unless(auth()->guard('customer')->check(), 401, 'Sign in to order a package.');
+            return app(PackageCheckoutController::class)->store($request, app(\App\Services\Packages\PackageOrderService::class));
+        }
+
         // dd($request->all());
         $validated = $request->validate([
             'billing.name'   => 'required|string|max:255',
@@ -235,6 +240,11 @@ class OrderController extends Controller
     }
     public function buyNow(Request $request)
     {
+        if (Product::where('catalog_type', 'package')->whereIn('id', collect($request->input('items', []))->pluck('product_id'))->exists()) {
+            abort_unless(auth()->guard('customer')->check(), 401, 'Sign in to order a package.');
+            return app(PackageCheckoutController::class)->store($request, app(\App\Services\Packages\PackageOrderService::class));
+        }
+
         // dd($request->all());
         $validated = $request->validate([
             'billing.name'   => 'required|string|max:255',
@@ -473,16 +483,27 @@ class OrderController extends Controller
     }
     public function buyNowShow($order_no,$mobile)
     {
+        $packageCheckout = \App\Models\Ecommerce\PackageOrderCheckout::whereHas('saleOrder', fn($q) => $q->where('order_no', $order_no))->first();
+        if ($packageCheckout) { abort_unless(auth()->guard('customer')->id() == $packageCheckout->customer_id && $packageCheckout->billing['phone'] === $mobile, 403); return response()->json(app(\App\Services\Packages\PackageOrderService::class)->data($packageCheckout)); }
         $order = SaleOrder::with('products')->where('order_no', $order_no)->where('type',SaleType::$ECOMMERCE)->where('billing_mobile_no',$mobile)->first();
         return response()->json($order);
     }
     public function show($order_no)
     {
+        $packageCheckout = \App\Models\Ecommerce\PackageOrderCheckout::whereHas('saleOrder', fn($q) => $q->where('order_no', $order_no))->first();
+        if ($packageCheckout) { abort_unless(auth()->guard('customer')->id() == $packageCheckout->customer_id, 403); return response()->json(app(\App\Services\Packages\PackageOrderService::class)->data($packageCheckout)); }
         $order = SaleOrder::with('products')->where('order_no', $order_no)->where('type',SaleType::$ECOMMERCE)->where('customer_id',auth()->guard('customer')->user()->id)->first();
         return response()->json($order);
     }
     public function downloadReceipt($order_no, $mobile)
     {
+        $packageCheckout = \App\Models\Ecommerce\PackageOrderCheckout::whereHas('saleOrder', fn($q) => $q->where('order_no', $order_no))->first();
+        if ($packageCheckout) {
+            abort_unless(auth()->guard('customer')->id() == $packageCheckout->customer_id && $packageCheckout->billing['phone'] === $mobile, 403);
+            $order = app(\App\Services\Packages\PackageOrderService::class)->data($packageCheckout);
+            return response()->view('ecommerce.packages.receipt', compact('order'));
+        }
+
         // Fetch the order (guest or logged-in user)
         $order = SaleOrder::with('products')
             ->where('order_no', $order_no)

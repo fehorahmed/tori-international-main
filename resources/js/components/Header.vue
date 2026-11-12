@@ -116,6 +116,7 @@
                             <ul class="main-menu navbar">
                                 <li><router-link class="text-[15px] text-[#555] font-semibold font-poppins" :to="{ name: 'home' }" :class="{ active: $route.name === 'home' }">Home</router-link></li>
                                 <li><router-link class="text-[15px] text-[#555] font-semibold font-poppins" :to="{ name: 'products' }" :class="{ active: $route.name === 'products' }">Products</router-link></li>
+                                <li><router-link class="text-[15px] text-[#555] font-semibold font-poppins" :to="{ name: 'packages' }" :class="{ active: $route.name === 'packages' }">Packages</router-link></li>
                                 <!-- <li><router-link class="text-[15px] text-[#555] font-semibold font-poppins" :to="{ name: 'blog' }" :class="{ active: $route.name === 'blog' }">blog</router-link></li> -->
                                 <li><router-link class="text-[15px] text-[#555] font-semibold font-poppins" :to="{ name: 'gallery' }" :class="{ active: $route.name === 'gallery' }">gallery</router-link></li>
                                 <!-- <li><router-link class="text-[15px] text-[#555] font-semibold font-poppins" :to="{ name: 'about' }" :class="{ active: $route.name === 'about' }">about us</router-link></li> -->
@@ -128,6 +129,10 @@
             </div> 
 
         </header>
+        <nav class="d-lg-none flex gap-4 bg-white px-4 py-3" aria-label="Catalog">
+            <router-link :to="{ name: 'products' }" :class="{ active: $route.name === 'products' }">Products</router-link>
+            <router-link :to="{ name: 'packages' }" :class="{ active: $route.name === 'packages' }">Packages</router-link>
+        </nav>
         <div id="sp_vertical_menu" class="container custom_container menu_slider d-xl-none d-lg-none d-md-block my-0">
             <div class="row">
                 <div class="col-lg-3 vertical_menu">

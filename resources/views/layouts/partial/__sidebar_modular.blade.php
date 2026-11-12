@@ -52,7 +52,7 @@
             'dealer-sales.', 'pos', 'report.sale', 'report.customer_due', 'report.customer', 'service.', 'tasks.',
             'report.invoice_profit_loss', 'report.product_profit_loss'
         ],
-        'ecommerce' => [
+        'ecommerce' => ['product-packages.', 'package-orders.',
             'ecom_', 'filters.'
         ],
         'stock_transfer' => [

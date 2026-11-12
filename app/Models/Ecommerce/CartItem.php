@@ -19,8 +19,13 @@ class CartItem extends Model
         'old_price',
         'price',
         'discount',
-        'discount_percent',
     ];
+
+    protected $appends = ['discount_percent'];
+    public function getDiscountPercentAttribute(): float
+    {
+        return (float) $this->old_price > 0 ? round((float) $this->discount / (float) $this->old_price * 100, 2) : 0;
+    }
 
     public function cart()
     {
@@ -30,7 +35,7 @@ class CartItem extends Model
     // Link to the Product
     public function product()
     {
-        return $this->belongsTo(Product::class)->select('id','name','image');
+        return $this->belongsTo(Product::class)->select('id','name','image','catalog_type','package_warehouse_id','status');
     }
 }
 

@@ -48,12 +48,19 @@ class CartService
     {
         $cart = $this->getCart();
         $product = Product::findOrFail($productId);
-        // dd($cart);
+        if ($product->isPackage()) {
+            if ($product->status != 1 || !$product->is_show) \App\Services\Packages\ProductPackageService::fail('This package is unavailable.');
+            $existing = (int) $cart->items()->where('product_id', $productId)->value('quantity');
+            if ($existing + $quantity > app(\App\Services\Packages\ProductPackageService::class)->availability($product)) \App\Services\Packages\ProductPackageService::fail('Not enough package stock.');
+            $discount = 0;
+        }
+
         $item = CartItem::firstOrCreate(
             ['cart_id' => $cart->id, 'product_id' => $productId],
-            ['old_price' => $product->old_selling_price, 'price' => $product->selling_price, 'discount' => $discount, 'discount_percent'=>$product->discount_percent]
+            ['quantity' => 0, 'old_price' => $product->old_selling_price, 'price' => $product->selling_price, 'discount' => $discount]
         );
 
+        if ($product->isPackage()) $item->fill(['old_price' => $product->selling_price, 'price' => $product->selling_price, 'discount' => 0]);
         $item->quantity += $quantity;
         $item->save();
 
@@ -67,6 +74,8 @@ class CartService
     /** Update quantity */
     public function update($productId, $quantity)
     {
+        $product = Product::findOrFail($productId);
+        if ($product->isPackage() && $quantity > app(\App\Services\Packages\ProductPackageService::class)->availability($product)) \App\Services\Packages\ProductPackageService::fail('Not enough package stock.');
         $item = $this->getCart()->items()->where('product_id', $productId)->first();
         if ($item) {
             $item->quantity = $quantity;

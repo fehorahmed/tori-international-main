@@ -14,9 +14,9 @@
                 </li>
                 <li class="d-inline-block hr_ font-weight-bolder">
                   <router-link
-                    :to="{ name: 'products' }"
-                    :class="{ active: $route.name === 'products' }"
-                  >products</router-link>
+                    :to="{ name: catalogRoute }"
+                    :class="{ active: true }"
+                  >{{ catalogTitle }}</router-link>
                 </li>
               </ul>
             </div>
@@ -180,7 +180,7 @@
 
             <div class="text-center mt-6">
               <button v-if="!allLoaded && !productLoading" @click="loadMore" class="px-6 py-2 rounded-lg bg-primary_color text-white font-medium shadow-md hover:bg-[#528c27] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1 transition duration-200 ease-in-out">Load More</button>
-              <span v-else-if="allLoaded" class="text-gray-500">No more products</span>
+              <span v-else-if="allLoaded" class="text-gray-500">No more {{ catalogTitle.toLowerCase() }}</span>
             </div>
           </div>
         </div>
@@ -201,7 +201,7 @@ import ProductCardSkelton from '../components/ProductCardSkelton.vue';
 
 export default {
   name: "ShopPage",
-  props: ['slug'],
+  props: { slug: String, catalogType: { type: String, default: 'single' } },
   data() {
     return {
       breadcrumbTitle: "All Products",
@@ -213,11 +213,16 @@ export default {
       selectedFilters: [],
       page: 1,
       allLoaded: false,
-      productList: []
+      productList: [],
+      requestVersion: 0,
+      loadingList: false
     };
   },
   computed:{
-    ...mapGetters('product', ['productLoading','brands','filters', 'filterLoading']),
+    ...mapGetters('product', ['brands','filters', 'filterLoading']),
+    productLoading() { return this.loadingList; },
+    catalogTitle() { return this.catalogType === 'package' ? 'Packages' : 'Products'; },
+    catalogRoute() { return this.catalogType === 'package' ? 'packages' : 'products'; },
     products() {
       return this.productList;
     }
@@ -229,6 +234,9 @@ export default {
         this.applyFiltersFromQuery();
         this.fetchFiltersBySlug(this.slug);
       }
+    },
+    catalogType() {
+      this.fetchProductsBySlug(this.slug);
     },
     slug(newSlug) {
       this.resetAll();
@@ -264,8 +272,8 @@ export default {
 
     updateMeta(slug) {
       document.title = slug
-        ? `${this.breadcrumbTitle} | Products | Ecommerce`
-        : `Products | Ecommerce`;
+        ? `${this.breadcrumbTitle} | ${this.catalogTitle} | Ecommerce`
+        : `${this.catalogTitle} | Ecommerce`;
       const metaDescription = document.querySelector('meta[name="description"]');
       if (metaDescription) {
         metaDescription.setAttribute(
@@ -289,7 +297,7 @@ export default {
         ...(this.selectedFilters.length && { filters: this.selectedFilters.join(',') })
       };
 
-      this.$router.push({ name: 'products', params: { slug: this.slug }, query });
+      this.$router.push({ name: this.catalogRoute, params: { slug: this.slug }, query });
     },
     // Updates the query params in URL
     updateFilters() {
@@ -300,7 +308,7 @@ export default {
         ...(this.selectedFilters.length && { filters: this.selectedFilters.join(',') })
       };
 
-      this.$router.push({ name: 'products', params: { slug: this.slug }, query });
+      this.$router.push({ name: this.catalogRoute, params: { slug: this.slug }, query });
     },
 
     applyFiltersFromQuery() {
@@ -314,6 +322,8 @@ export default {
     },
 
     resetAll() {
+      this.requestVersion += 1;
+      this.loadingList = false;
       this.page = 1;
       this.allLoaded = false;
       this.productList = [];
@@ -322,7 +332,10 @@ export default {
     async loadProducts() {
       if (this.allLoaded || this.productLoading) return;
 
+      const version = this.requestVersion;
+      this.loadingList = true;
       const params = {
+        catalog_type: this.catalogType,
         slug: this.slug,
         brands: this.selectedBrands,
         filters: this.selectedFilters,
@@ -334,6 +347,8 @@ export default {
       };
       // console.log('Selected Brands:', this.selectedBrands);
       const newProducts = await this.fetchProductData(params);
+      if (version !== this.requestVersion) return;
+      this.loadingList = false;
 
       if (newProducts && newProducts.length) {
         this.productList = [...this.productList, ...newProducts];

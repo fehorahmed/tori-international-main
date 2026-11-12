@@ -321,9 +321,9 @@ class FrontendController extends Controller
         ]);
     }
     public function getTopNicheProducts(){
-        $top_sale_products = Product::select('id','name','slug','image','youtube_video_link','selling_price','old_selling_price','discount','discount_percent','status','total_review','rating','is_new_arrival','is_show','sort')->where('is_show',1)->where('status',1)->where('is_best_selling',1)->orderBy('sort','asc')->take(5)->get();
-        $top_rating_products = Product::select('id','name','slug','image','youtube_video_link','selling_price','old_selling_price','discount','discount_percent','status','total_review','rating','is_trending','is_show','sort')->where('is_show',1)->where('status',1)->orderBy('rating','desc')->take(5)->get();
-        $top_discount_products = Product::select('id','name','slug','image','youtube_video_link','selling_price','old_selling_price','discount','discount_percent','status','total_review','rating','is_featured','is_show','sort')->where('is_show',1)->where('status',1)->orderBy('discount_percent','desc')->take(5)->get();
+        $top_sale_products = Product::select('id','name','slug','image','youtube_video_link','catalog_type','package_warehouse_id','selling_price','old_selling_price','discount','discount_percent','status','total_review','rating','is_new_arrival','is_show','sort')->where('is_show',1)->where('status',1)->where('is_best_selling',1)->orderBy('sort','asc')->take(5)->get();
+        $top_rating_products = Product::select('id','name','slug','image','youtube_video_link','catalog_type','package_warehouse_id','selling_price','old_selling_price','discount','discount_percent','status','total_review','rating','is_trending','is_show','sort')->where('is_show',1)->where('status',1)->orderBy('rating','desc')->take(5)->get();
+        $top_discount_products = Product::select('id','name','slug','image','youtube_video_link','catalog_type','package_warehouse_id','selling_price','old_selling_price','discount','discount_percent','status','total_review','rating','is_featured','is_show','sort')->where('is_show',1)->where('status',1)->orderBy('discount_percent','desc')->take(5)->get();
 
         return response()->json([
             'top_sale_products' => $top_sale_products,
@@ -336,7 +336,7 @@ class FrontendController extends Controller
         $limit = $request->input('limit', 10); // default 10
         $offset = $request->input('offset', 0);
         
-        $products = Product::select('id','name','slug','image','youtube_video_link','selling_price','old_selling_price','discount','discount_percent','status','total_review','rating','is_new_arrival','sort')
+        $products = Product::select('id','name','slug','image','youtube_video_link','catalog_type','package_warehouse_id','selling_price','old_selling_price','discount','discount_percent','status','total_review','rating','is_new_arrival','sort')
             ->where('status',1)
             ->where('is_new_arrival',1)
             ->orderBy('sort','asc')
@@ -354,10 +354,10 @@ class FrontendController extends Controller
     }
     public function getHomeData(){
         $banners = Banner::select('type','sort','image','status')->where('type', 1)->where('status', 1)->orderBy('sort')->get();
-        $new_products = Product::select('id','name','slug','image','youtube_video_link','selling_price','old_selling_price','discount','discount_percent','status','total_review','rating','is_new_arrival','sort')->where('status',1)->where('is_new_arrival',1)->orderBy('sort','asc')->get();
-        $trending_products = Product::select('id','name','slug','image','youtube_video_link','selling_price','old_selling_price','discount','discount_percent','status','total_review','rating','is_trending','sort')->where('status',1)->where('is_trending',1)->orderBy('sort','asc')->get();
-        $featured_products = Product::select('id','name','slug','image','youtube_video_link','selling_price','old_selling_price','discount','discount_percent','status','total_review','rating','is_featured','sort')->where('status',1)->where('is_featured',1)->orderBy('sort','asc')->get();
-        $used_products = Product::select('id','name','slug','image','youtube_video_link','selling_price','old_selling_price','discount','discount_percent','status','total_review','rating','is_used','sort')->where('status',1)->where('is_used',1)->orderBy('sort','asc')->get();
+        $new_products = Product::select('id','name','slug','image','youtube_video_link','catalog_type','package_warehouse_id','selling_price','old_selling_price','discount','discount_percent','status','total_review','rating','is_new_arrival','sort')->where('status',1)->where('is_new_arrival',1)->orderBy('sort','asc')->get();
+        $trending_products = Product::select('id','name','slug','image','youtube_video_link','catalog_type','package_warehouse_id','selling_price','old_selling_price','discount','discount_percent','status','total_review','rating','is_trending','sort')->where('status',1)->where('is_trending',1)->orderBy('sort','asc')->get();
+        $featured_products = Product::select('id','name','slug','image','youtube_video_link','catalog_type','package_warehouse_id','selling_price','old_selling_price','discount','discount_percent','status','total_review','rating','is_featured','sort')->where('status',1)->where('is_featured',1)->orderBy('sort','asc')->get();
+        $used_products = Product::select('id','name','slug','image','youtube_video_link','catalog_type','package_warehouse_id','selling_price','old_selling_price','discount','discount_percent','status','total_review','rating','is_used','sort')->where('status',1)->where('is_used',1)->orderBy('sort','asc')->get();
 
         $setting = Setting::first();
 
@@ -372,7 +372,7 @@ class FrontendController extends Controller
     }
     // public function getProductData(){
     //     dd(request()->all());
-    //     $products = Product::select('id','name','slug','image','youtube_video_link','selling_price','old_selling_price','discount','discount_percent','status','total_review','is_new_arrival','sort')->where('status',1)->orderBy('sort','asc')->get()->toArray();
+    //     $products = Product::select('id','name','slug','image','youtube_video_link','catalog_type','package_warehouse_id','selling_price','old_selling_price','discount','discount_percent','status','total_review','is_new_arrival','sort')->where('status',1)->orderBy('sort','asc')->get()->toArray();
 
     //     return response()->json([
     //         'products' => $products,
@@ -413,8 +413,9 @@ class FrontendController extends Controller
     }
     public function getProductData()
     { 
-        $query = Product::select('id','name','slug','image','youtube_video_link','selling_price','old_selling_price','discount','discount_percent','status','total_review','rating','is_new_arrival','is_show','sort')
-            ->where('is_show',1)->where('status', 1);
+        $query = Product::select('id','name','slug','image','youtube_video_link','catalog_type','package_warehouse_id','selling_price','old_selling_price','discount','discount_percent','status','total_review','rating','is_new_arrival','is_show','sort')
+            ->where('is_show',1)->where('status', 1)
+            ->where('catalog_type', request('catalog_type') === 'package' ? 'package' : 'single');
 
         // Filters
 
@@ -478,8 +479,9 @@ class FrontendController extends Controller
     }
 
     public function getProductDetailsData($slug){
-        $product = Product::with('brand','images')->where('slug',$slug)->where('status',1)->first();
-        $relatedProducts = Product::select('id','name','slug','image','youtube_video_link','selling_price','old_selling_price','discount','discount_percent','status','total_review','rating','is_show','is_new_arrival','sort')->where('category_id', $product->category_id)->where('id', '!=', $product->id)->where('is_show',1)->where('status', 1)->get();
+        $product = Product::with('brand')->where('slug',$slug)->where('status',1)->firstOrFail();
+        $product->setRelation('images', collect());
+        $relatedProducts = Product::select('id','name','slug','image','youtube_video_link','catalog_type','package_warehouse_id','selling_price','old_selling_price','discount','discount_percent','status','total_review','rating','is_show','is_new_arrival','sort')->where('category_id', $product->category_id)->where('id', '!=', $product->id)->where('is_show',1)->where('status', 1)->get();
         return response()->json([
             'product' => $product,
             'relatedProducts' => $relatedProducts,

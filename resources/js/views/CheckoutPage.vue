@@ -326,9 +326,17 @@ export default {
             address: this.form.address
           }
         };
-        const response = await axios.post("/api/order", payload);
+        const hasPackage = this.cartItems.some(item => item.product?.catalog_type === 'package');
+        if (hasPackage) {
+          if (this.paymentMethod !== 'cod') { toast.error('Select Cash on Delivery for package orders.'); return; }
+          let requestKey = sessionStorage.getItem('package_checkout_request');
+          if (!requestKey) { requestKey = crypto.randomUUID(); sessionStorage.setItem('package_checkout_request', requestKey); }
+          payload.request_key = requestKey;
+        }
+        const response = await axios.post(hasPackage ? '/api/package-checkout' : '/api/order', payload);
 
         if (response.data.success) {
+          if (hasPackage) sessionStorage.removeItem('package_checkout_request');
 			    toast.success(`Order placed! Order No: ${response.data.order_no}`);
 
           await this.clearCartAfterOrder();

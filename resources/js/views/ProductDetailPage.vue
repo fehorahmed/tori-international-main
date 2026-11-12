@@ -31,6 +31,13 @@
                   {{ product.name }}
                 </a>
               </h1>
+              <div v-if="product.catalog_type === 'package'" class="my-3 rounded border p-3">
+                <strong>Product Package</strong>
+                <ul><li v-for="part in product.package_info?.components || []" :key="part.product_id">{{ part.name }} — {{ part.quantity }} {{ part.unit }}</li></ul>
+                <p>Available packages: {{ product.package_info?.available_quantity || 0 }}</p>
+                <p class="text-sm">Fixed contents. Cash on Delivery. Stock is confirmed before dispatch.</p>
+              </div>
+
 
               <div class="flex flex-col md:flex-row md:justify-between md:items-start gap-4 my-3">
                 <div class="product-other-info w-full md:w-1/2">
@@ -110,10 +117,10 @@
                 </div>
               </div> -->
               <div class="flex gap-3 mt-4">
-                <button @click="addToCart(product)" class="flex-1 text-uppercase bg-primary_color text-white font-medium py-2 px-4 rounded-lg hover:bg-[#539522] transition">
+                <button :disabled="purchaseDisabled" @click="addToCart(product)" class="flex-1 text-uppercase bg-primary_color text-white font-medium py-2 px-4 rounded-lg hover:bg-[#539522] transition">
                   <i class="fas fa-shopping-basket"></i> Add to Cart
                 </button>
-                <button class="flex-1 bg-gray-200 text-gray-800 font-medium py-2 px-4 rounded-lg hover:bg-gray-300 transition">
+                <button :disabled="purchaseDisabled" @click="buyNow" class="flex-1 bg-gray-200 text-gray-800 font-medium py-2 px-4 rounded-lg hover:bg-gray-300 transition">
                   Buy It Now
                 </button>
               </div>
@@ -162,6 +169,11 @@ export default {
   computed: {
     ...mapGetters({ isLoggedIn: 'auth/isLoggedIn'}),
     ...mapGetters('product_detail', ['product', 'relatedProducts', 'productLoading', 'seo']),
+    ...mapGetters('cart', ['cartLoading']),
+    purchaseDisabled() {
+      return this.productLoading || this.cartLoading || !this.product.id ||
+        (this.product.catalog_type === 'package' && !this.product.package_info?.available_quantity);
+    },
 
     youtubeVideoId() {
       if (!this.product.youtube_video_link) return null;
@@ -218,6 +230,12 @@ export default {
     }
   },
   methods: {
+    async buyNow() {
+      if (this.purchaseDisabled) return;
+      if (await this.addToCart(this.product)) {
+        await this.$router.push('/checkout');
+      }
+    },
     ...mapActions('product_detail', ['fetchProductData']),
     ...mapActions("cart", ["addToCart"]),
     ...mapActions("wishlist", ["addToWishlist", "removeFromWishlist"]),

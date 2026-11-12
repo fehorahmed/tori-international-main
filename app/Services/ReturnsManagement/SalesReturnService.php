@@ -21,6 +21,10 @@ class SalesReturnService
 {
     public function createAndApprove($data)
     {
+        if (!empty($data['sale_order_id']) && \App\Models\Ecommerce\PackageOrderCheckout::where('sale_order_id', $data['sale_order_id'])->exists()) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['sale_order_id' => 'Package returns require a dedicated full-package return workflow.']);
+        }
+
         DB::beginTransaction();
 
         try {

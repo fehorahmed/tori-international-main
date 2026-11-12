@@ -235,6 +235,7 @@ class ProductController extends Controller
      */
     public function update(Request $request, Product $product)
     {
+        abort_if($product->isPackage(), 403, 'Edit packages from Product Packages.');
         if (!auth()->user()->hasPermissionTo('product_edit')) {
             abort(403, 'Unauthorized');
         }
@@ -316,6 +317,7 @@ class ProductController extends Controller
      */
     public function destroy(Product $product)
     {
+        abort_if($product->isPackage(), 403, 'Deactivate packages from Product Packages.');
         try {
             if (!auth()->user()->hasPermissionTo('product_delete')) {
                 abort(403, 'Unauthorized');

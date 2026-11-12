@@ -14,6 +14,13 @@ class Product extends Model
     protected $guarded = [];
 
 
+    protected $appends = ['package_info'];
+    public function getPackageInfoAttribute(): ?array { return $this->isPackage() ? app(\App\Services\Packages\ProductPackageService::class)->details($this) : null; }
+
+    public function packageItems() { return $this->hasMany(ProductPackageItem::class, 'package_product_id'); }
+    public function packageWarehouse() { return $this->belongsTo(Warehouse::class, 'package_warehouse_id'); }
+    public function isPackage(): bool { return $this->catalog_type === 'package'; }
+
     public function supplier()
     {
         return $this->belongsTo(Supplier::class);

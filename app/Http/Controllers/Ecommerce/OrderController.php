@@ -117,6 +117,7 @@ class OrderController extends Controller{
     }
     
     public function salesConfirm(SaleOrder $order){
+        if ($checkout = $order->packageCheckout) return redirect()->route('package-orders.show', $checkout);
         if($order->status > 0){
             return redirect()->route('ecom_order')->with('error','Order Already Confirmed');
         } 
@@ -135,6 +136,7 @@ class OrderController extends Controller{
     }
 
     public function salesConfirmPost(SaleOrder $order, Request $request){
+        if ($checkout = $order->packageCheckout) return redirect()->route('package-orders.show', $checkout);
         $total = $request->total;
         $rules = [
             'sister_concern_id' => 'required',
@@ -415,6 +417,7 @@ private function createAccountingEntries($saleOrder, $costingTotal, $request)
     }
 
     public function details(SaleOrder $order){
+        if ($checkout = $order->packageCheckout) return redirect()->route('package-orders.show', $checkout);
         $accounts = AccountHead::where('payment_mode', 1)->where('status', 1)->orderBy('name')->get();
         $mobileBankings = AccountHead::where('payment_mode', 3)->where('status', 1)->orderBy('name')->get();
         return view('ecommerce.order.details', compact('order', 'accounts', 'mobileBankings'));
@@ -446,6 +449,7 @@ private function createAccountingEntries($saleOrder, $costingTotal, $request)
                 return response()->json(['success' => false, 'message' => "Order is already in this status!"]);
             }
             
+            if ($order->packageCheckout && ($order->packageCheckout->status !== 'Confirmed' || !in_array((int)$request->status, [2,3], true))) { DB::rollBack(); return response()->json(['success'=>false,'message'=>'Use the Package Orders workflow.']); }
             $order->status = $request->status;
             if($request->status == '4') $order->note = $request->note;
             $order->save();
@@ -580,6 +584,7 @@ private function createAccountingEntries($saleOrder, $costingTotal, $request)
     {
         $order = SaleOrder::find($request->orderId);
         if ($order) {
+            abort_if($order->packageCheckout !== null, 403, 'Use the package order workflow; package accounting cannot be deleted here.');
             $order->delete();
             return response()->json(['success' => true, 'message' => 'Order deleted successfully.']);
         }
@@ -588,6 +593,7 @@ private function createAccountingEntries($saleOrder, $costingTotal, $request)
 
     public function instantOrder(Request $request)
     {
+        abort_if(Product::where('catalog_type', 'package')->whereIn('id', collect($request->input('items', []))->pluck('product_id'))->exists(), 422, 'Use the package checkout workflow.');
         $rules = [
             'recaptchaToken' => 'required',
             'billing.name' => 'required|string|max:255',

@@ -123,13 +123,13 @@
                 >
                     Continue Shopping
                 </router-link>
-                <router-link
-                    :to="`/api/order/${order.order_no}/${order.billing_mobile_no}/receipt`"
+                <a
+                    :href="`/api/order/${order.order_no}/${order.billing_mobile_no}/receipt`"
                     target="_blank"
                     class="px-6 py-2 rounded-lg bg-gray-200 text-gray-700 font-semibold hover:bg-gray-300 transition"
                 >
-                    Download Receipt
-                </router-link>
+                    {{ order.is_package_order ? 'View / Print Receipt' : 'Download Receipt' }}
+                </a>
             </div>
         </div>
 

@@ -45,6 +45,7 @@ class EcomProductController extends Controller
             })
             ->addColumn('action', function(Product $product) {
                 $btn = '';
+                if ($product->isPackage()) return auth()->user()->can('ecommerce_product_edit') ? '<a class="btn btn-primary btn-sm" href="'.route('product-packages.edit', $product).'">Edit Package</a>' : '';
                 if(auth()->user()->can('product_edit')) {
                     $btn .='<a href="'.route('ecom_product.edit', ['product' => $product->id]).'" class="btn btn-primary bg-gradient-primary btn-sm btn-edit"><i class="fa fa-edit"></i></a>&nbsp;';
                 }
@@ -60,11 +61,6 @@ class EcomProductController extends Controller
                 $preview_html = '';
                 $preview_html .= '<div class="zoom-gallery">';
                 $preview_html .= '<a class="image_preview" title="'. $product->name .'" data-source="'. asset(file_exists($product->image) ? $product->image : 'img/no-image.webp') .'" href="'. asset(file_exists($product->image) ? $product->image : 'img/no-image.webp') .'"><img height="50px" src="'.asset(file_exists($product->image) ? $product->image : 'img/no-image.webp').'"></a>';
-                if($product->images){
-                    foreach($product->images as $image){
-                        $preview_html .= '<a class="image_preview" title="'. $product->name .'" data-source="'. asset(file_exists($image->path) ? $image->path : 'img/no-image.webp') .'" href="'. asset(file_exists($image->path) ? $image->path : 'img/no-image.webp') .'"><img height="0px" src="'.asset(file_exists($image->path) ? $image->path : 'img/no-image.webp').'"></a>';
-                    }
-                }
                 $preview_html .= '</div>';
                 return $preview_html;
             })
@@ -201,6 +197,7 @@ class EcomProductController extends Controller
     }
 
     public function editPost(Product $product, Request $request) {
+        abort_if($product->isPackage(), 403, 'Edit packages from Product Packages.');
         abort_if(!auth()->user()->can('ecommerce_product_edit'), 403);
         $request->validate([
             'name' => 'required|string|max:255',

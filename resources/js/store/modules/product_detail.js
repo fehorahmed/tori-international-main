@@ -56,12 +56,14 @@ const mutations = {
 const actions = {
   async fetchProductData({ commit }, slug) {
     commit('SET_PRODUCT_LOADING', true);
+    commit('SET_PRODUCT', {});
+    commit('SET_RELATED_PRODUCTS', []);
     try {
       const res = await axios.get(`/api/get-product-details-data/${slug}`);
       const { product, relatedProducts } = res.data;
       
       if (!product || Object.keys(product).length === 0) {
-        commit('SET_PRODUCT', null); 
+        commit('SET_PRODUCT', {});
         return false; 
       }
       commit('SET_PRODUCT', product);

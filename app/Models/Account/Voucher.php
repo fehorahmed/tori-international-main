@@ -87,6 +87,11 @@ class Voucher extends Model
             $this->employeeAdvance()->exists();
     }
 
+    public function isPackageSale(): bool
+    {
+        return $this->sale_order_id && \App\Models\Ecommerce\PackageOrderCheckout::where('sale_order_id', $this->sale_order_id)->exists();
+    }
+
     public function isMembershipTransfer(): bool
     {
         return \App\Models\MembershipTransfer::where('voucher_id', $this->id)->orWhere('recipient_voucher_id', $this->id)->orWhere('fee_voucher_id', $this->id)->exists();

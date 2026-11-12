@@ -17,6 +17,8 @@ class SaleOrder extends Model
     use HasFactory,SoftDeletes;
     protected $guarded = [];
     
+    public function packageCheckout() { return $this->hasOne(\App\Models\Ecommerce\PackageOrderCheckout::class); }
+
     public function warehouse(){
         return $this->belongsTo(Warehouse::class);
     }

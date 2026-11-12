@@ -24,6 +24,7 @@ const routes = [
   { path: '/', component: HomePage, name: 'home', meta: { title: `Home | ${APP_NAME}`, description: 'Welcome to Ecommerce online store.' } },
   { path: '/pages/:slug', component: DynamicPage, name: 'dynamic_pages', meta: { title: 'Loading...', description: '' } },
   { path: '/products/:slug?', component: ProductsPage, name: 'products', meta: { title: `Products | ${APP_NAME}`, description: 'Explore our product catalog.' },props: (route) => ({ slug: route.params.slug || null }), },
+  { path: '/packages', component: ProductsPage, name: 'packages', props: { catalogType: 'package' }, meta: { title: `Packages | ${APP_NAME}`, description: 'Explore our product packages.' } },
   { path: '/product/details/:slug', component: ProductDetailPage, name: 'product_details', meta: { title: 'Loading...', description: '' } },
   { path: '/blog', component: BlogPage, name: 'blog', meta: { title: `Blog | ${APP_NAME}`, description: 'Read the latest tech articles.' } },
   { path: '/gallery', component: GalleryPage, name: 'gallery', meta: { title: `Gallery | ${APP_NAME}`, description: 'Browse our gallery.' } },

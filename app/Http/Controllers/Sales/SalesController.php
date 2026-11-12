@@ -354,6 +354,7 @@ class SalesController extends Controller
     }
     public function update(SaleOrder $sale, Request $request)
     {
+        abort_if($sale->packageCheckout !== null, 403, 'Use the package order workflow.');
         if (!auth()->user()->hasPermissionTo('sales_edit'))
             abort(403);
         if ($sale->sister_concern_id != auth()->user()->activeConcernId())
@@ -1015,6 +1016,7 @@ class SalesController extends Controller
 
     public function destroy(SaleOrder $sale)
     {
+        abort_if($sale->packageCheckout !== null, 403, 'Use the package order workflow.');
         if (!auth()->user()->hasPermissionTo('sales_delete')) {
             abort(403, 'Unauthorized');
         }

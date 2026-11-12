@@ -173,3 +173,19 @@ Route::middleware('permission:ecommerce_filter_edit')->group(function () {
 Route::middleware('permission:ecommerce_filter_delete')->group(function () {
     Route::resource('filters', FilterController::class)->only(['destroy']);
 });
+
+Route::prefix('ecommerce/packages')->name('product-packages.')->controller(\App\Http\Controllers\Ecommerce\ProductPackageController::class)->group(function () {
+ Route::get('/', 'index')->name('index');
+ Route::get('create', 'create')->name('create');
+ Route::post('/', 'store')->name('store');
+ Route::get('{package}/edit', 'edit')->name('edit');
+ Route::put('{package}', 'update')->name('update');
+});
+
+Route::prefix('ecommerce/package-orders')->name('package-orders.')->controller(\App\Http\Controllers\Ecommerce\PackageOrderController::class)->group(function () {
+ Route::get('/', 'index')->name('index');
+ Route::get('{checkout}', 'show')->name('show');
+ Route::post('{checkout}/confirm', 'confirm')->name('confirm');
+ Route::post('{checkout}/cancel', 'cancel')->name('cancel');
+ Route::post('{checkout}/status', 'status')->name('status');
+});

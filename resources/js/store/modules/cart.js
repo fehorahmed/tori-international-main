@@ -69,21 +69,28 @@ export default {
         await axios.post('/api/cart/add', { product_id: product.id, quantity: 1, discount: product.discount });
         await dispatch('fetchCart');
         toast.success(`Product added to cart!`);
+        return true;
       } catch (err) {
-        commit('setError', err.response?.data?.message || 'Failed to add to cart.');
+        const message = err.response?.data?.message || 'Failed to add to cart.';
+        commit('setError', message);
+        toast.error(message);
+        return false;
       } finally {
         commit('setLoading', false);
       }
     },
 
     async updateCart({ dispatch, commit }, { productId, quantity }) {
+      const toast = useToast();
       commit('setLoading', true);
       commit('clearError');
       try {
         await axios.post(`/api/cart/update/${productId}`, { quantity });
         await dispatch('fetchCart');
       } catch (err) {
-        commit('setError', err.response?.data?.message || 'Failed to update cart.');
+        const message = err.response?.data?.message || 'Failed to update cart.';
+        commit('setError', message);
+        toast.error(message);
       } finally {
         commit('setLoading', false);
       }

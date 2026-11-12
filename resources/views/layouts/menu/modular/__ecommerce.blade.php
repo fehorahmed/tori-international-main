@@ -149,3 +149,9 @@
     </a>
 </li>
 @endif
+
+@can('ecommerce_product')
+<li class="nav-item"><a class="nav-link {{ request()->routeIs('product-packages.*') ? 'active' : '' }}" href="{{ route('product-packages.index') }}"><i class="nav-icon fas fa-box-open"></i><p>Product Packages</p></a></li>
+@endcan
+
+@can('ecommerce_order')<li class="nav-item"><a class="nav-link {{ request()->routeIs('package-orders.*') ? 'active' : '' }}" href="{{ route('package-orders.index') }}"><i class="nav-icon fas fa-boxes"></i><p>Package Orders</p></a></li>@endcan
