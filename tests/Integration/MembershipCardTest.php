@@ -13,6 +13,26 @@ class MembershipCardTest extends TestCase
 {
     use DatabaseTransactions;
 
+    public function test_ecommerce_dashboard_returns_only_own_card_details_and_no_pin(): void
+    {
+        $customer = Supplier::where('type', 'Customer')->where('status', 1)->firstOrFail();
+        $customer->cards()->delete();
+        $this->actingAs($customer, 'customer')->getJson('/api/user')
+            ->assertOk()->assertJsonPath('membership_card', null)->assertJsonMissingPath('pin');
+        $card = Card::create([
+            'cardable_type' => Supplier::class, 'cardable_id' => $customer->id,
+            'card_number' => 'TEST-WEB-'.bin2hex(random_bytes(4)),
+            'status' => 'Active', 'amount' => 100, 'payment_status' => 'Received',
+            'created_by' => User::firstOrFail()->id,
+            'origin_sister_concern_id' => $customer->origin_sister_concern_id,
+        ]);
+        $this->getJson('/api/user')->assertOk()
+            ->assertJsonPath('membership_card.card_number', $card->card_number)
+            ->assertJsonPath('membership_card.holder_name', $customer->name)
+            ->assertJsonPath('membership_card.fee_status', 'Received')
+            ->assertJsonMissingPath('pin');
+    }
+
     public function test_only_own_issued_cards_are_returned_and_active_card_is_preferred(): void
     {
         $customer = Supplier::where('type', '!=', 'Supplier')->where('status', 1)->firstOrFail();

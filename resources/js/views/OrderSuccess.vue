@@ -128,7 +128,7 @@
                     target="_blank"
                     class="px-6 py-2 rounded-lg bg-gray-200 text-gray-700 font-semibold hover:bg-gray-300 transition"
                 >
-                    {{ order.is_package_order ? 'View / Print Receipt' : 'Download Receipt' }}
+                    {{ order.is_snapshot_order ? 'View / Print Receipt' : 'Download Receipt' }}
                 </a>
             </div>
         </div>

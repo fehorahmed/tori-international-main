@@ -7,38 +7,38 @@
       </div>
 
       <div class="row">
-        <!-- Shomriddhi Advance Card -->
-        <div class="col-md-6 mb-4" v-if="user.shomriddhi_account">
-          <div class="card premium-card shadow-sm border-0 h-100 bg-custom-primary text-white position-relative overflow-hidden">
-            <div class="bg-shape"></div>
-            <div class="card-body p-4 d-flex flex-column justify-content-center position-relative z-index-1">
-              <h5 class="fw-bold mb-3"><i class="fas fa-wallet me-2"></i> Shomriddhi Advance</h5>
-              <div class="d-flex justify-content-between align-items-end mt-2">
-                <div>
-                  <span class="d-block small text-white-50 text-uppercase fw-bold mb-1">Principal Balance</span>
-                  <span class="fs-2 fw-bold">৳ {{ Number(user.shomriddhi_account.principal_balance).toLocaleString() }}</span>
-                </div>
-                <div class="text-end">
-                  <span class="d-block small text-white-50 text-uppercase fw-bold mb-1">Accrued Interest</span>
-                  <span class="fs-4 fw-bold">৳ {{ Number(user.shomriddhi_account.accrued_interest || 0).toLocaleString() }}</span>
-                </div>
-              </div>
+        <div class="col-md-6 mb-4">
+          <div class="card premium-card shadow-sm border-0 h-100 bg-dark text-white member-card-bg">
+            <div class="card-body p-4">
+              <h5 class="fw-bold mb-3">Membership Card</h5>
+              <template v-if="user.membership_card">
+                <p class="fs-4 fw-bold letter-spacing-1">{{ formatCardNumber(user.membership_card.card_number) }}</p>
+                <dl class="row mt-3 mb-0">
+                  <dt class="col-5">Card Holder</dt><dd class="col-7">{{ user.membership_card.holder_name }}</dd>
+                  <dt class="col-5">Member ID</dt><dd class="col-7">{{ user.membership_card.member_no || '—' }}</dd>
+                  <dt class="col-5">Status</dt><dd class="col-7">{{ user.membership_card.status }}</dd>
+                  <dt class="col-5">Branch</dt><dd class="col-7">{{ user.membership_card.branch || '—' }}</dd>
+                  <dt class="col-5">Issued On</dt><dd class="col-7">{{ user.membership_card.issued_at || '—' }}</dd>
+                  <dt class="col-5">Card Fee</dt><dd class="col-7">৳ {{ Number(user.membership_card.fee).toLocaleString() }} · {{ user.membership_card.fee_status }}</dd>
+                  <dt class="col-5">Printed On</dt><dd class="col-7">{{ user.membership_card.printed_at || 'Not printed yet' }}</dd>
+                </dl>
+              </template>
+              <p v-else class="mt-3">কার্ড ইস্যু হয়নি / Card not issued yet.</p>
             </div>
           </div>
         </div>
-
-        <!-- Membership Card View -->
-        <div class="col-md-6 mb-4" v-if="user.cards && user.cards.length > 0">
-          <div class="card premium-card shadow-sm border-0 h-100 bg-dark text-white member-card-bg position-relative overflow-hidden">
-            <div class="card-body p-4 d-flex flex-column justify-content-between position-relative z-index-1">
-              <div class="d-flex justify-content-between align-items-start mb-3">
-                <h5 class="fw-bold"><i class="fas fa-id-card me-2"></i> Membership Card</h5>
-                <i class="fas fa-wifi fa-rotate-90 text-white-50 fs-4"></i>
-              </div>
-              <div class="mt-4">
-                <span class="d-block small text-white-50 text-uppercase fw-bold mb-1">Card Number</span>
-                <span class="fs-4 fw-bold letter-spacing-1">{{ formatCardNumber(user.cards[0].card_number) }}</span>
-              </div>
+        <div class="col-md-6 mb-4">
+          <div class="card premium-card shadow-sm border-0 h-100 bg-custom-primary text-white">
+            <div class="card-body p-4">
+              <h5 class="fw-bold mb-3">Shomriddhi Savings</h5>
+              <template v-if="user.savings">
+                <p class="mb-2">Account: {{ user.savings.account_number }}</p>
+                <span class="d-block small">Available Balance</span>
+                <p class="fs-2 fw-bold">৳ {{ Number(user.savings.available_balance).toLocaleString() }}</p>
+                <p>Total Balance: ৳ {{ Number(user.savings.balance).toLocaleString() }}</p>
+                <router-link :to="{ name: 'products' }" class="btn btn-light">Shop Products</router-link>
+              </template>
+              <p v-else>No active savings account is available.</p>
             </div>
           </div>
         </div>
@@ -110,9 +110,7 @@ export default {
   },
 
   mounted() {
-    if (!this.user) {
-      this.fetchUser();
-    }
+    this.fetchUser();
   },
 
   methods: {

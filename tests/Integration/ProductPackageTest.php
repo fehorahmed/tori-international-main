@@ -102,6 +102,64 @@ class ProductPackageTest extends TestCase
         $this->assertStringContainsString('image_preview', $response->json('data.0.image'));
     }
 
+    public function test_cod_product_order_saves_billing_server_totals_and_can_be_confirmed_once(): void
+    {
+        $data = $this->data();
+        $data['items'] = [['product_id' => $this->a->id, 'quantity' => 2, 'price' => '0.01', 'discount' => 99999]];
+        $this->actingAs($this->customer, 'customer');
+        $response = $this->postJson('/api/order', $data)->assertCreated()->assertJsonPath('success', true);
+        $number = $response->json('order_no');
+        $this->assertStringStartsWith('ESO-', $number);
+        $checkout = \App\Models\Ecommerce\PackageOrderCheckout::where('request_key', $data['request_key'])->firstOrFail();
+        $this->assertEquals('250.00', $checkout->saleOrder->total);
+        $this->assertEquals(0, $checkout->saleOrder->paid);
+        $this->assertEquals('250.00', $checkout->saleOrder->due);
+        $this->assertSame($this->operator->id, $checkout->saleOrder->user_id);
+        $this->assertSame($data['billing'], $checkout->billing);
+        $this->assertEquals(10, Inventory::where('product_id', $this->a->id)->sum('quantity'));
+        $this->postJson('/api/order', $data)->assertCreated()->assertJsonPath('order_no', $number);
+        $this->assertSame(1, \App\Models\Ecommerce\PackageOrderCheckout::where('request_key', $data['request_key'])->count());
+        $this->getJson('/api/order/'.$number)->assertOk()
+            ->assertJsonPath('billing_name', $data['billing']['name'])
+            ->assertJsonPath('is_package_order', false)
+            ->assertJsonPath('is_snapshot_order', true);
+        $this->get('/api/order/'.$number.'/'.$data['billing']['phone'].'/receipt')->assertOk();
+        $service = app(PackageOrderService::class);
+        $service->confirm($checkout, $this->operator);
+        $service->confirm($checkout, $this->operator);
+        $this->assertEquals(8, Inventory::where('product_id', $this->a->id)->sum('quantity'));
+        $this->assertEquals(2, SaleOrderItem::where('sale_order_id', $checkout->sale_order_id)->sum('quantity'));
+        $entries = Transaction::where('sale_order_id', $checkout->sale_order_id)->get();
+        $this->assertEquals($entries->where('transaction_type', 1)->sum('amount'), $entries->where('transaction_type', 2)->sum('amount'));
+    }
+
+    public function test_cod_product_order_rejects_insufficient_stock_without_saving_an_order(): void
+    {
+        $data = $this->data();
+        $data['items'] = [['product_id' => $this->a->id, 'quantity' => 11]];
+        $this->actingAs($this->customer, 'customer')->postJson('/api/order', $data)->assertUnprocessable();
+        $this->assertDatabaseMissing('package_order_checkouts', ['request_key' => $data['request_key']]);
+    }
+
+    public function test_cod_orders_work_when_product_creator_is_missing(): void
+    {
+        $this->operator->update(['status' => 1, 'sister_concern_id' => $this->warehouse->sister_concern_id]);
+        foreach ([$this->a, $this->package] as $product) {
+            $product->update(['user_id' => 0]);
+            $data = $this->data();
+            $data['items'] = [['product_id' => $product->id, 'quantity' => 1]];
+            $response = $this->actingAs($this->customer, 'customer')->postJson('/api/order', $data)
+                ->assertCreated()->assertJsonPath('success', true);
+            $order = \App\Models\Sales\SaleOrder::where('order_no', $response->json('order_no'))->firstOrFail();
+            $actor = User::findOrFail($order->user_id);
+            $this->assertEquals(1, $actor->status);
+            $this->assertEquals($this->warehouse->sister_concern_id, $actor->sister_concern_id);
+            $this->assertSame($this->customer->id, $order->customer_id);
+            $this->assertEquals(0, $order->status);
+            $this->assertFalse(Voucher::where('sale_order_id', $order->id)->exists());
+        }
+    }
+
     public function test_package_availability_is_limited_by_components_and_has_no_inventory(): void
     {
         $this->assertSame(3, app(ProductPackageService::class)->availability($this->package));

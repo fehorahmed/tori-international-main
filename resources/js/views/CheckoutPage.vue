@@ -216,7 +216,7 @@
                 </div>
 
                 <!-- Submit -->
-                <button type="submit" class="w-full py-2 bg-primary_color text-white rounded-lg font-bold text-lg hover:bg-[#5ca327] transition">
+                <button type="submit" :disabled="placingOrder || !cartItems.length" class="w-full py-2 bg-primary_color text-white rounded-lg font-bold text-lg hover:bg-[#5ca327] transition">
                   Place Order
                 </button>
 
@@ -248,6 +248,7 @@ export default {
       deliveryCharge: 50,
       paymentMethod: "cod",
       couponCode: "",
+      placingOrder: false,
     };
   },
   computed: {
@@ -312,6 +313,8 @@ export default {
     },
     async placeOrder() {
 	  const toast = useToast();
+      if (this.placingOrder || !this.cartItems.length) return;
+      this.placingOrder = true;
       try {
         const payload = {
           coupon_code: this.coupon?.code,
@@ -327,16 +330,22 @@ export default {
           }
         };
         const hasPackage = this.cartItems.some(item => item.product?.catalog_type === 'package');
-        if (hasPackage) {
+        if (this.paymentMethod === 'cod' || hasPackage) {
           if (this.paymentMethod !== 'cod') { toast.error('Select Cash on Delivery for package orders.'); return; }
-          let requestKey = sessionStorage.getItem('package_checkout_request');
-          if (!requestKey) { requestKey = crypto.randomUUID(); sessionStorage.setItem('package_checkout_request', requestKey); }
-          payload.request_key = requestKey;
+          const fingerprint = JSON.stringify([this.loginUser?.id, payload.billing, payload.shipping_charge, payload.payment_method,
+            payload.items.map(item => [item.product_id, item.quantity]).sort((a, b) => a[0] - b[0])]);
+          let pending;
+          try { pending = JSON.parse(sessionStorage.getItem('ecommerce_checkout_request')); } catch (_) { pending = null; }
+          if (!pending || pending.fingerprint !== fingerprint) {
+            pending = { fingerprint, key: crypto.randomUUID() };
+            sessionStorage.setItem('ecommerce_checkout_request', JSON.stringify(pending));
+          }
+          payload.request_key = pending.key;
         }
         const response = await axios.post(hasPackage ? '/api/package-checkout' : '/api/order', payload);
 
         if (response.data.success) {
-          if (hasPackage) sessionStorage.removeItem('package_checkout_request');
+          if (this.paymentMethod === 'cod' || hasPackage) sessionStorage.removeItem('ecommerce_checkout_request');
 			    toast.success(`Order placed! Order No: ${response.data.order_no}`);
 
           await this.clearCartAfterOrder();
@@ -351,6 +360,8 @@ export default {
         }
       } catch (error) {
         toast.error(error.response?.data?.message || "Server error, try again.");
+      } finally {
+        this.placingOrder = false;
       }
     }
   },

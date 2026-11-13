@@ -67,7 +67,17 @@ Route::middleware(['ecommerce'])->group(function() {
     //Protected Routes
     Route::middleware('auth:customer')->group(function () {
         Route::get('user', function (Request $request) {
-            return Auth::guard('customer')->user()->load('cards', 'shomriddhiAccount');
+            $customer = Auth::guard('customer')->user()->load('shomriddhiAccount');
+            $customer->setAttribute('membership_card', app(\App\Services\Membership\CardProfileService::class)->card($customer));
+            $accounts = \App\Models\ShomriddhiAdvance\ShomriddhiAccount::where('customer_id', $customer->id)->where('status', 'Active')->get();
+            $account = $accounts->count() === 1 ? $accounts->first() : null;
+            $customer->setAttribute('savings', $account ? [
+                'account_number' => $account->account_number,
+                'balance' => \App\Services\Membership\CashoutService::money(\App\Services\Membership\CashoutService::minor($account->principal_balance)),
+                'available_balance' => \App\Services\Membership\CashoutService::money(\App\Services\Membership\CashoutService::available($account)),
+                'status' => $account->status,
+            ] : null);
+            return $customer;
         });
         Route::put('user', [FrontendController::class, 'update']);
         Route::post('logout', [FrontendController::class, 'logout']);

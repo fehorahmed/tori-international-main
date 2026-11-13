@@ -45,7 +45,7 @@ class OrderController extends Controller{
     public function datatable(Request $request){
         $query = SaleOrder::with(['customer', 'user']);
         
-        $query->where('sister_concern_id', 1);
+        $query->where('sister_concern_id', auth()->user()->activeConcernId());
         if ($request->input('start_date') && $request->input('end_date')) {
             $query->whereBetween('date', [Carbon::parse($request->input('start_date'))->format('Y-m-d'), Carbon::parse($request->input('end_date'))->format('Y-m-d')]);
         }
@@ -82,6 +82,7 @@ class OrderController extends Controller{
                 elseif ($order->status == 4) return '<span class="badge badge-danger">Cancelled</span>';
             })
             ->addColumn('action', function (SaleOrder $order) {
+                if ($checkout = $order->packageCheckout) return '<a href="'.route('package-orders.show', $checkout).'" class="btn btn-primary btn-sm">View order</a>';
                 $btn = '';
                 $btn .= '<a href="' . route('ecom_order.details', ['order' => $order->id]) . '" class="btn btn-primary btn-sm"><i class="fas fa-eye"></i></a> ';
                 if($order->deleted_at == null && $order->status != 4){

@@ -31,10 +31,10 @@ class PackageOrderService
             ProductPackageService::fail('Active customer account required.');
         }
         if (($data['coupon_code'] ?? null)) {
-            ProductPackageService::fail('Package coupons are not available yet. Remove the coupon to continue.');
+            ProductPackageService::fail('Coupons are not available for this checkout yet. Remove the coupon to continue.');
         }
         if ($data['payment_method'] !== 'cod') {
-            ProductPackageService::fail('Package orders currently support Cash on Delivery.');
+            ProductPackageService::fail('This checkout currently supports Cash on Delivery.');
         }
         $shipping = CashoutService::minor((string) ($data['shipping_charge'] ?? 0));
         if (! in_array($shipping, [5000, 10000], true)) {
@@ -92,7 +92,25 @@ class PackageOrderService
                 $total += $price * $item['quantity'];
             }
             if (! $warehouseId) {
-                ProductPackageService::fail('This checkout requires a package.');
+                // Ordinary products use one active warehouse that can fulfil the full order.
+                // Prefer the customer's branch, then use a stable warehouse order.
+                $candidates = Warehouse::where('status', 1)
+                    ->whereHas('sisterConcern', fn ($q) => $q->where('status', 1))
+                    ->orderByRaw('CASE WHEN sister_concern_id = ? THEN 0 ELSE 1 END', [(int) $customer->origin_sister_concern_id])
+                    ->orderBy('id')->get();
+                foreach ($candidates as $candidate) {
+                    $canFulfil = true;
+                    foreach ($this->demands($lines) as $productId => $quantity) {
+                        $stock = Inventory::where('warehouse_id', $candidate->id)
+                            ->where('sister_concern_id', $candidate->sister_concern_id)
+                            ->where('product_id', $productId)->sum('quantity');
+                        if ((float) $stock < $quantity) { $canFulfil = false; break; }
+                    }
+                    if ($canFulfil) { $warehouseId = $candidate->id; break; }
+                }
+                if (! $warehouseId) {
+                    ProductPackageService::fail('Insufficient stock to fulfil this order from one warehouse.');
+                }
             }
             $warehouse = Warehouse::whereKey($warehouseId)->lockForUpdate()->firstOrFail();
             $branch = SisterConcern::whereKey($warehouse->sister_concern_id)->lockForUpdate()->firstOrFail();
@@ -101,11 +119,18 @@ class PackageOrderService
             }
             $this->checkStock($lines, $warehouse);
             $package = $products->first(fn ($p) => $p->isPackage());
-            $actor = User::find($package->user_id);
+            $actor = User::where('status', 1)->find(($package ?? $products->first())->user_id);
+            // Imported/older products may not have a surviving ERP creator.
+            // This user is only the pending order's ERP reference; confirmation
+            // records the actual operator and posts accounting separately.
+            $actor ??= User::where('status', 1)->where('sister_concern_id', $branch->id)->orderBy('id')->first();
+            $actor ??= User::where('status', 1)
+                ->whereHas('roles', fn ($q) => $q->where('name', 'Admin'))
+                ->orderBy('id')->first();
             if (! $actor) {
-                ProductPackageService::fail('Package posting user is unavailable.');
+                ProductPackageService::fail('No active ERP user is available for this fulfilment branch. Please contact the branch.');
             }
-            $order = SaleOrder::create(['sister_concern_id' => $branch->id, 'warehouse_id' => $warehouse->id, 'customer_id' => $customer->id, 'order_no' => 'PKO-'.Str::upper((string) Str::ulid()), 'type' => SaleType::$ECOMMERCE, 'sub_total' => CashoutService::money($total), 'discount' => 0, 'total' => CashoutService::money($total + $shipping), 'paid' => 0, 'due' => CashoutService::money($total + $shipping), 'notes' => 'Package ecommerce order (COD), pending stock confirmation', 'date' => now()->toDateString(), 'status' => 0, 'user_id' => $actor->id]);
+            $order = SaleOrder::create(['sister_concern_id' => $branch->id, 'warehouse_id' => $warehouse->id, 'customer_id' => $customer->id, 'order_no' => ($package ? 'PKO-' : 'ESO-').Str::upper((string) Str::ulid()), 'type' => SaleType::$ECOMMERCE, 'sub_total' => CashoutService::money($total), 'discount' => 0, 'total' => CashoutService::money($total + $shipping), 'paid' => 0, 'due' => CashoutService::money($total + $shipping), 'notes' => 'Ecommerce order (COD), pending stock confirmation', 'date' => now()->toDateString(), 'status' => 0, 'user_id' => $actor->id]);
 
             return PackageOrderCheckout::create(['sale_order_id' => $order->id, 'customer_id' => $customer->id, 'warehouse_id' => $warehouse->id, 'request_key' => $data['request_key'], 'request_hash' => $hash, 'billing' => $data['billing'], 'lines' => $lines, 'shipping_charge' => CashoutService::money($shipping), 'payment_method' => 'cod']);
         }, 3);
@@ -145,7 +170,7 @@ class PackageOrderService
                 return $checkout;
             }
             if ($checkout->status !== 'Pending' || $order->status != 0) {
-                ProductPackageService::fail('Only pending package orders can be confirmed.');
+                ProductPackageService::fail('Only pending ecommerce orders can be confirmed.');
             }
             Supplier::whereKey($order->customer_id)->lockForUpdate()->firstOrFail();
             $warehouse = Warehouse::whereKey($checkout->warehouse_id)->lockForUpdate()->firstOrFail();
@@ -184,7 +209,7 @@ class PackageOrderService
                             $cost += (int) round((float) $inventory->unit_price * 100) * $take;
                             $inventory->quantity = (float) $inventory->quantity - $take;
                             $inventory->save();
-                            InventoryLog::create(['sister_concern_id' => $branch->id, 'warehouse_id' => $warehouse->id, 'inventory_id' => $inventory->id, 'product_id' => $part['product_id'], 'product_code' => $inventory->product_code, 'batch_no' => $inventory->batch_no, 'sale_order_id' => $order->id, 'type' => 2, 'quantity' => $take, 'unit_price' => $inventory->unit_price, 'date' => $order->date, 'notes' => 'Package sale '.$order->order_no, 'user_id' => $operator->id]);
+                            InventoryLog::create(['sister_concern_id' => $branch->id, 'warehouse_id' => $warehouse->id, 'inventory_id' => $inventory->id, 'product_id' => $part['product_id'], 'product_code' => $inventory->product_code, 'batch_no' => $inventory->batch_no, 'sale_order_id' => $order->id, 'type' => 2, 'quantity' => $take, 'unit_price' => $inventory->unit_price, 'date' => $order->date, 'notes' => 'Ecommerce sale '.$order->order_no, 'user_id' => $operator->id]);
                             $count -= $take;
                             if (! $count) {
                                 break;
@@ -218,7 +243,7 @@ class PackageOrderService
             ProductPackageService::fail('Customer receivable ledger has an invalid nature.');
         }
         $number = generateVoucherNo(1, 'vouchers', $order->sister_concern_id);
-        $voucher = Voucher::create(['sale_order_id' => $order->id, 'sister_concern_id' => $order->sister_concern_id, 'voucher_type' => 1, 'voucher_no' => $number, 'voucher_no_group_sl' => (int) filter_var($number, FILTER_SANITIZE_NUMBER_INT), 'date' => $order->date, 'amount' => CashoutService::money(CashoutService::minor($order->total) + $cost), 'notes' => 'Package sale '.$order->order_no, 'user_id' => $operator->id]);
+        $voucher = Voucher::create(['sale_order_id' => $order->id, 'sister_concern_id' => $order->sister_concern_id, 'voucher_type' => 1, 'voucher_no' => $number, 'voucher_no_group_sl' => (int) filter_var($number, FILTER_SANITIZE_NUMBER_INT), 'date' => $order->date, 'amount' => CashoutService::money(CashoutService::minor($order->total) + $cost), 'notes' => 'Ecommerce sale '.$order->order_no, 'user_id' => $operator->id]);
         $entries = [[$receivable->id, 1, CashoutService::minor($order->total)], [reservedAccountHeadId(ReservedAccountHead::SALES_REVENUE), 2, CashoutService::minor($order->total)]];
         if ($cost) {
             $entries[] = [reservedAccountHeadId(ReservedAccountHead::COST_OF_GOODS_SOLD), 1, $cost];
@@ -235,6 +260,6 @@ class PackageOrderService
     {
         $order = $checkout->saleOrder;
 
-        return ['is_package_order' => true, 'id' => $order->id, 'order_no' => $order->order_no, 'date' => $order->date, 'status' => $order->status, 'package_status' => $checkout->status, 'billing_name' => $checkout->billing['name'], 'billing_mobile_no' => $checkout->billing['phone'], 'billing_address' => $checkout->billing['address'], 'payment_method' => $checkout->payment_method, 'shipping_charge' => $checkout->shipping_charge, 'sub_total' => $order->sub_total, 'discount' => 0, 'total' => $order->total, 'paid' => $order->paid, 'due' => $order->due, 'products' => array_map(fn ($line) => $line + ['discount_amt' => 0], $checkout->lines)];
+        return ['is_package_order' => collect($checkout->lines)->contains(fn ($line) => $line['catalog_type'] === 'package'), 'is_snapshot_order' => true, 'id' => $order->id, 'order_no' => $order->order_no, 'date' => $order->date, 'status' => $order->status, 'package_status' => $checkout->status, 'billing_name' => $checkout->billing['name'], 'billing_mobile_no' => $checkout->billing['phone'], 'billing_address' => $checkout->billing['address'], 'payment_method' => $checkout->payment_method, 'shipping_charge' => $checkout->shipping_charge, 'sub_total' => $order->sub_total, 'discount' => 0, 'total' => $order->total, 'paid' => $order->paid, 'due' => $order->due, 'products' => array_map(fn ($line) => $line + ['discount_amt' => 0], $checkout->lines)];
     }
 }
