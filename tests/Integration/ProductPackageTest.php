@@ -422,6 +422,16 @@ class ProductPackageTest extends TestCase
         $this->actingAs($other, 'customer');
         $this->getJson('/api/order/'.$checkout->saleOrder->order_no)->assertForbidden();
         $this->get('/api/order/'.$checkout->saleOrder->order_no.'/01712345678/receipt')->assertForbidden();
+        $this->get('/api/order/'.$checkout->saleOrder->order_no.'/receipt')->assertForbidden();
+    }
+
+    public function test_customer_can_open_receipt_without_mobile_in_url_and_old_undefined_link(): void
+    {
+        $checkout = app(PackageOrderService::class)->checkout($this->customer, $this->data());
+        $number = $checkout->saleOrder->order_no;
+        $this->actingAs($this->customer, 'customer');
+        $this->get('/api/order/'.$number.'/receipt')->assertOk()->assertSee($number)->assertSee('01712345678');
+        $this->get('/api/order/'.$number.'/undefined/receipt')->assertOk()->assertSee($number);
     }
 
     public function test_package_create_controller_saves_components_and_published_product(): void

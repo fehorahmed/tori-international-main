@@ -124,7 +124,7 @@
                     Continue Shopping
                 </router-link>
                 <a
-                    :href="`/api/order/${order.order_no}/${order.billing_mobile_no}/receipt`"
+                    :href="`/api/order/${encodeURIComponent(order.order_no)}/receipt`"
                     target="_blank"
                     class="px-6 py-2 rounded-lg bg-gray-200 text-gray-700 font-semibold hover:bg-gray-300 transition"
                 >

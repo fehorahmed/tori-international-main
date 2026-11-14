@@ -69,13 +69,13 @@
                 <span v-else-if="order.status==3">Completed</span>
               </td>
               <td class="px-4 py-3 text-center space-x-2">
-                <router-link
-                  :to="`/api/order/${order.order_no}/${order.billing_mobile_no}/receipt`"
+                <a
+                  :href="`/api/order/${encodeURIComponent(order.order_no)}/receipt`"
                   target="_blank"
                   class="px-3 py-1 bg-primary_color text-white rounded hover:bg-primary_color/50 text-sm"
                 >
                   Receipt
-                </router-link>
+                </a>
               </td>
             </tr>
           </tbody>

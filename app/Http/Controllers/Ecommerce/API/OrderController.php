@@ -286,11 +286,11 @@ class OrderController extends Controller
         $order = SaleOrder::with('products')->where('order_no', $order_no)->where('type',SaleType::$ECOMMERCE)->where('customer_id',auth()->guard('customer')->user()->id)->first();
         return response()->json($order);
     }
-    public function downloadReceipt($order_no, $mobile)
+    public function downloadReceipt($order_no, $mobile = null)
     {
         $packageCheckout = \App\Models\Ecommerce\PackageOrderCheckout::whereHas('saleOrder', fn($q) => $q->where('order_no', $order_no))->first();
         if ($packageCheckout) {
-            abort_unless(auth()->guard('customer')->id() == $packageCheckout->customer_id && $packageCheckout->billing['phone'] === $mobile, 403);
+            abort_unless(auth()->guard('customer')->id() == $packageCheckout->customer_id, 403);
             $order = app(\App\Services\Packages\PackageOrderService::class)->data($packageCheckout);
             return response()->view('ecommerce.packages.receipt', compact('order'));
         }
@@ -298,7 +298,7 @@ class OrderController extends Controller
         // Fetch the order (guest or logged-in user)
         $order = SaleOrder::with('products')
             ->where('order_no', $order_no)
-            ->where('billing_mobile_no', $mobile)
+            ->when($mobile !== null, fn ($q) => $q->where('billing_mobile_no', $mobile), fn ($q) => $q->where('customer_id', auth()->guard('customer')->id()))
             ->where('type', SaleType::$ECOMMERCE)
             ->firstOrFail();
 

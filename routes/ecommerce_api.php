@@ -86,6 +86,7 @@ Route::middleware(['ecommerce'])->group(function() {
         Route::post('package-checkout', [\App\Http\Controllers\Ecommerce\API\PackageCheckoutController::class, 'store'])->middleware('throttle:10,1');
         Route::post('order', [OrderController::class, 'store']);
         Route::get('order/{order_no}', [OrderController::class, 'show']);
+        Route::get('order/{order_no}/receipt', [OrderController::class, 'downloadReceipt']);
 
         //Wishlist
         Route::get('wishlist', [WishlistController::class, 'index']);
