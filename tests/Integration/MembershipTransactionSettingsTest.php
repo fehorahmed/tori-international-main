@@ -17,6 +17,49 @@ class MembershipTransactionSettingsTest extends TestCase
 {
     use DatabaseTransactions;
 
+    private function registrationIncomeHead(): int
+    {
+        return \App\Models\Account\AccountHead::with('accountGroup')->where('nature', 'Credit')->whereNull('sister_concern_id')->where('status', 1)->get()->first(fn ($head) => $head->accountGroup?->top_reserved_id == 4)->id;
+    }
+
+    public function test_membership_settings_can_be_saved_through_the_post_route(): void
+    {
+        $admin = User::firstOrFail();
+        $admin->forceFill(['role' => 'Admin'])->save();
+
+        $this->actingAs($admin)->post('/admin/card-management/transaction-settings/membership', [
+            'income_head_id' => $this->registrationIncomeHead(), 'registration_fee' => '150.50',
+            'account_hold_amount' => '1000.00',
+        ])->assertRedirect(route('card-management.transaction-settings.index').'#membership');
+
+        $this->assertSame('150.50', membership_transaction_setting('membership.registration_fee'));
+        $this->assertSame('1000.00', membership_transaction_setting('membership.account_hold_amount'));
+    }
+
+    public function test_membership_amounts_save_as_decimal_strings_without_changing_transaction_settings(): void
+    {
+        $admin = User::firstOrFail();
+        $admin->forceFill(['role' => 'Admin'])->save();
+        $this->actingAs($admin);
+        $cashout = (array) membership_transaction_settings('cashout');
+        $transfer = (array) membership_transaction_settings('transfer');
+        $controller = new TransactionSettingController;
+        $controller->update(Request::create('/', 'POST', ['income_head_id' => $this->registrationIncomeHead(), 'registration_fee' => '150.5', 'account_hold_amount' => '1000', 'enabled' => 1]), 'membership');
+        $this->assertSame('150.50', membership_transaction_setting('membership.registration_fee'));
+        $this->assertSame('1000.00', membership_transaction_settings('membership')->account_hold_amount);
+        $this->assertSame($cashout, (array) membership_transaction_settings('cashout'));
+        $this->assertSame($transfer, (array) membership_transaction_settings('transfer'));
+        $this->assertStringContainsString('Membership Registration Fee (Tk)', $controller->index()->with('errors', new ViewErrorBag)->render());
+        try {
+            $controller->update(Request::create('/', 'POST', ['registration_fee' => '-1', 'account_hold_amount' => '1000.001']), 'membership');
+            $this->fail('Invalid amounts must be rejected.');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('registration_fee', $exception->errors());
+            $this->assertArrayHasKey('account_hold_amount', $exception->errors());
+            $this->assertSame('150.50', membership_transaction_setting('membership.registration_fee'));
+        }
+    }
+
     public function test_key_helper_returns_typed_values_and_group_reads_the_same_store_without_stale_cache(): void
     {
         MembershipTransactionSetting::writeGroup('cashout', ['enabled' => false, 'minimum_amount' => '1.00', 'maximum_amount' => '1234.50', 'hold_minutes' => 17, 'income_head_id' => null]);

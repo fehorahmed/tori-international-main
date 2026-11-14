@@ -52,10 +52,11 @@ class ShomriddhiAdvanceService
                 DB::rollBack();
                 return ['success' => false, 'message' => 'Transaction is no longer pending.'];
             }
-            if ($advance->type === 'withdraw' && \App\Models\MembershipCashout::held($account->id) > 0
+            if ($advance->type === 'withdraw' && (\App\Models\MembershipCashout::held($account->id) > 0
+                || \App\Services\Membership\CashoutService::minimumBalance() > 0)
                 && \App\Services\Membership\CashoutService::minor($advance->amount) > \App\Services\Membership\CashoutService::available($account)) {
                 DB::rollBack();
-                return ['success' => false, 'message' => 'Insufficient available balance: cash-out funds are reserved.'];
+                return ['success' => false, 'message' => 'Insufficient available balance after protected membership minimum balance and cash-out holds.'];
             }
 
             $date = Carbon::parse(auth()->user()->business_date)->format('Y-m-d');
@@ -186,6 +187,10 @@ class ShomriddhiAdvanceService
                 'voucher_id'  => $voucher->id,
             ]);
 
+            if ($advance->type === 'deposit') {
+                \App\Services\Membership\RegistrationFeeService::collect($account, auth()->id());
+            }
+
             DB::commit();
             return ['success' => true, 'message' => 'Transaction approved. Account balances and GL updated.'];
         } catch (\Exception $e) {
@@ -208,6 +213,12 @@ class ShomriddhiAdvanceService
      */
     public function deleteTransaction(ShomriddhiTransaction $advance): array
     {
+        if ($advance->voucher_id && Voucher::find($advance->voucher_id)?->isPackageSale()) {
+            return ['success' => false, 'message' => 'Ecommerce payments and refunds cannot be deleted through ordinary withdrawals.'];
+        }
+        if ($advance->voucher_id && DB::table('membership_registration_fees')->where('voucher_id', $advance->voucher_id)->exists()) {
+            return ['success' => false, 'message' => 'Registration fee entries cannot be deleted through ordinary withdrawals.'];
+        }
         if ($advance->voucher_id && \App\Models\Account\Voucher::find($advance->voucher_id)?->isMembershipTransfer()) {
             return ['success' => false, 'message' => 'Send Money entries cannot be deleted through ordinary withdrawals.'];
         }

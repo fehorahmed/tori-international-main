@@ -21,6 +21,7 @@ class CashoutController extends Controller
             'enabled' => (bool) $setting->enabled, 'minimum_amount' => $setting->minimum_amount, 'maximum_amount' => $setting->maximum_amount ?? '0.00',
             'charge_type' => $setting->charge_type ?? 'fixed', 'charge_rate' => $setting->charge_rate ?? '0.00',
             'balance' => $account?->principal_balance ?? '0.00',
+            'minimum_balance' => CashoutService::money(CashoutService::minimumBalance()),
             'held_balance' => CashoutService::money($account ? MembershipCashout::held($account->id) : 0),
             'available_balance' => CashoutService::money($account ? CashoutService::available($account) : 0),
             'requests' => MembershipCashout::with('branch')->where('customer_id', $customer->id)->latest('id')->limit(20)->get()->map(fn ($row) => self::data($row)),

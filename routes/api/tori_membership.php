@@ -14,6 +14,11 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('v1')->group(function () {
     // Guest / Authentication Routes (Rate Limited)
     Route::prefix('auth')->middleware(['throttle:10,1'])->group(function () {
+        Route::get('registration/options', [\App\Http\Controllers\API\Membership\RegistrationController::class, 'options']);
+        Route::post('register/initiate', [\App\Http\Controllers\API\Membership\RegistrationController::class, 'initiate']);
+        Route::post('register/resend', [\App\Http\Controllers\API\Membership\RegistrationController::class, 'resend']);
+        Route::post('register/verify-otp', [\App\Http\Controllers\API\Membership\RegistrationController::class, 'verify']);
+        Route::post('register/complete', [\App\Http\Controllers\API\Membership\RegistrationController::class, 'complete']);
         // Step 1: Submit mobile number -> Send OTP
         Route::post('initiate', [\App\Http\Controllers\API\Membership\AuthController::class, 'initiate']);
 

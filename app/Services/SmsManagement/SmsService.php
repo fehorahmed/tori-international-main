@@ -10,6 +10,24 @@ use Exception;
 
 class SmsService
 {
+    /** Send a transactional OTP without requiring a marketing/event template. */
+    public function sendSms(string $mobile, string $message): bool
+    {
+        $gateway = SmsGateway::where('is_active', true)->where('status', true)->first();
+        $success = false;
+        if ($gateway) {
+            $strategyClass = $this->resolveStrategyClass($gateway->provider_name);
+            if (class_exists($strategyClass)) {
+                try { $success = (bool) ((new $strategyClass())->send($mobile, $message, $gateway)['success'] ?? false); }
+                catch (Exception $e) { Log::error('Transactional SMS delivery failed.'); }
+            }
+        }
+        SmsLog::create(['event_name' => 'membership_otp', 'mobile_no' => $mobile,
+            'message' => 'Membership OTP (redacted)', 'response_text' => $success ? 'OTP dispatched' : 'OTP delivery failed',
+            'status' => $success ? 'Sent' : 'Failed', 'sent_by' => null, 'sent_at' => now()]);
+        return $success;
+    }
+
     /**
      * Dispatch the SMS. This method is called from the Queue Job.
      *

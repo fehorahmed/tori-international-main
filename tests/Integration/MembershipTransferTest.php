@@ -2,6 +2,8 @@
 
 namespace Tests\Integration;
 
+use Illuminate\Support\Facades\DB;
+
 use App\Http\Controllers\CardManagement\TransactionSettingController;
 use App\Http\Controllers\CardManagement\TransferController;
 use App\Models\Account\AccountGroup;
@@ -63,6 +65,7 @@ class MembershipTransferTest extends TestCase
     {
         parent::setUp();
         config(['cache.default' => 'array']);
+        MembershipTransactionSetting::writeGroup('membership', ['account_hold_amount' => '0.00', 'registration_fee' => '0.00']);
         $this->branch = SisterConcern::where('status', 1)->firstOrFail();
         $this->customer = Supplier::create(['type' => 'Customer', 'name' => 'Cashout rollback test',
             'status' => 1, 'origin_sister_concern_id' => $this->branch->id, 'pin' => Hash::make('763921')]);
@@ -120,6 +123,105 @@ class MembershipTransferTest extends TestCase
     private function transferQuote(string $amount = '1000.00'): array
     {
         return $this->transfer->quote($this->customer, $this->recipient->member_no, $amount);
+    }
+
+    private function newFeePayingRecipient(): void
+    {
+        MembershipTransactionSetting::writeGroup('membership', ['registration_fee' => '200.00', 'account_hold_amount' => '100.00', 'income_head_id' => $this->income->id]);
+        $this->recipient = Supplier::create(['type' => 'Customer', 'name' => 'New fee paying member',
+            'member_no' => 'RF-'.Str::random(12), 'status' => 1, 'origin_sister_concern_id' => $this->branch->id]);
+        $this->recipientAccount->update(['customer_id' => $this->recipient->id]);
+        $this->recipientHead->update(['supplier_id' => $this->recipient->id]);
+    }
+
+    public function test_new_member_fee_waits_for_full_amount_plus_minimum_and_is_collected_once(): void
+    {
+        $this->newFeePayingRecipient();
+        foreach ([1, 2, 3] as $number) {
+            $quote = $this->transferQuote('100.00');
+            $key = (string) Str::uuid();
+            $transfer = $this->transfer->send($this->customer, $quote['quote'], '763921', $key);
+            $this->assertSame($number === 3 ? '100.00' : $number.'00.00', $this->recipientAccount->fresh()->principal_balance);
+        }
+        $fee = DB::table('membership_registration_fees')->where('customer_id', $this->recipient->id)->first();
+        $this->assertNotNull($fee->paid_at);
+        $this->assertSame('200.00', $fee->amount);
+        $this->assertSame(1, ShomriddhiTransaction::where('voucher_id', $fee->voucher_id)->count());
+        $this->assertSame(20000, CashoutService::minor(Transaction::where('voucher_id', $fee->voucher_id)->where('transaction_type', 1)->sum('amount')));
+        $this->assertSame(20000, CashoutService::minor(Transaction::where('voucher_id', $fee->voucher_id)->where('transaction_type', 2)->sum('amount')));
+        $this->assertTrue(Voucher::findOrFail($fee->voucher_id)->is_locked());
+        $this->transfer->send($this->customer, $quote['quote'], '763921', $key);
+        $quote = $this->transferQuote('100.00');
+        $this->transfer->send($this->customer, $quote['quote'], '763921', (string) Str::uuid());
+        $this->assertSame('200.00', $this->recipientAccount->fresh()->principal_balance);
+        $history = app(\App\Services\Membership\RecentTransactionService::class)->forCustomer($this->recipient);
+        $this->assertCount(1, array_filter($history, fn ($row) => $row['title_en'] === 'Membership registration fee'));
+        $this->assertFalse(app(ShomriddhiAdvanceService::class)->deleteTransaction(ShomriddhiTransaction::where('voucher_id', $fee->voucher_id)->first())['success']);
+    }
+
+    public function test_approved_cash_deposit_collects_snapshotted_fee_once(): void
+    {
+        $this->newFeePayingRecipient();
+        MembershipTransactionSetting::writeGroup('membership', ['registration_fee' => '900.00']);
+        $deposit = ShomriddhiTransaction::create(['customer_id' => $this->recipient->id, 'type' => 'deposit',
+            'amount' => '300.00', 'date' => now()->toDateString(), 'status' => 'Pending', 'created_by' => $this->operator->id]);
+        $result = app(ShomriddhiAdvanceService::class)->approve($deposit, $this->cash->id);
+        $this->assertTrue($result['success'], $result['message']);
+        $this->assertSame('100.00', $this->recipientAccount->fresh()->principal_balance);
+        $this->assertNotNull(DB::table('membership_registration_fees')->where('customer_id', $this->recipient->id)->value('paid_at'));
+        $this->assertFalse(app(ShomriddhiAdvanceService::class)->approve($deposit->fresh(), $this->cash->id)['success']);
+    }
+
+    public function test_fee_ledger_failure_rolls_back_incoming_transfer_and_keeps_fee_unpaid(): void
+    {
+        $this->newFeePayingRecipient();
+        MembershipTransactionSetting::writeGroup('membership', ['income_head_id' => null]);
+        $quote = $this->transferQuote('300.00');
+        $before = Transaction::count();
+        try {
+            $this->transfer->send($this->customer, $quote['quote'], '763921', (string) Str::uuid());
+            $this->fail('Invalid fee ledger must roll back the entire credit.');
+        } catch (ValidationException) {
+            $this->assertSame('10000.00', $this->account->fresh()->principal_balance);
+            $this->assertSame('0.00', $this->recipientAccount->fresh()->principal_balance);
+            $this->assertSame($before, Transaction::count());
+            $this->assertNull(DB::table('membership_registration_fees')->where('customer_id', $this->recipient->id)->value('paid_at'));
+        }
+    }
+
+    public function test_existing_and_zero_fee_members_are_not_charged_retroactively(): void
+    {
+        MembershipTransactionSetting::writeGroup('membership', ['registration_fee' => '200.00', 'income_head_id' => $this->income->id]);
+        $quote = $this->transferQuote('300.00');
+        $this->transfer->send($this->customer, $quote['quote'], '763921', (string) Str::uuid());
+        $this->assertSame('300.00', $this->recipientAccount->fresh()->principal_balance);
+        $this->assertFalse(DB::table('membership_registration_fees')->where('customer_id', $this->recipient->id)->exists());
+    }
+
+    public function test_transfer_preserves_minimum_including_fee_at_exact_boundary(): void
+    {
+        MembershipTransactionSetting::writeGroup('membership', ['account_hold_amount' => '8990.00']);
+        $q = $this->transferQuote();
+        $this->transfer->send($this->customer, $q['quote'], '763921', (string) Str::uuid());
+        $this->assertSame('8990.00', $this->account->fresh()->principal_balance);
+        $this->assertSame('1000.00', $this->recipientAccount->fresh()->principal_balance);
+        $this->expectException(ValidationException::class);
+        $this->transferQuote('1.00');
+    }
+
+    public function test_transfer_rechecks_minimum_after_quote_without_posting(): void
+    {
+        $q = $this->transferQuote();
+        MembershipTransactionSetting::writeGroup('membership', ['account_hold_amount' => '9000.00']);
+        $before = Transaction::count();
+        try {
+            $this->transfer->send($this->customer, $q['quote'], '763921', (string) Str::uuid());
+            $this->fail('Minimum balance changed after quote must be enforced.');
+        } catch (ValidationException) {
+            $this->assertSame('10000.00', $this->account->fresh()->principal_balance);
+            $this->assertSame('0.00', $this->recipientAccount->fresh()->principal_balance);
+            $this->assertSame($before, Transaction::count());
+        }
     }
 
     public function test_same_branch_transfer_posts_balanced_journals_and_both_savings(): void

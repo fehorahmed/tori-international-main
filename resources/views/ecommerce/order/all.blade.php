@@ -403,7 +403,7 @@
                         name: 'user.name'
                     },
                     @if (request('type') == null)
-                        { data: 'paid_by',name: 'paid_by'},
+                        { data: 'paid_by',name: 'paid_by', orderable: false, searchable: false, defaultContent: '—'},
                     @else
                         { data: 'note',name: 'note'},
                     @endif

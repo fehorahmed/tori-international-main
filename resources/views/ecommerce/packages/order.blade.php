@@ -6,13 +6,21 @@
 @if($errors->any())<div class="alert alert-danger">{{ $errors->first() }}</div>@endif
 <h4>{{ $order['order_no'] }} — {{ $checkout->status }} @if($order['status'] == 2) / Dispatched @elseif($order['status'] == 3) / Delivered @endif</h4>
 <p>{{ $order['billing_name'] }} / {{ $order['billing_mobile_no'] }}<br>{{ $order['billing_address'] }}</p>
+@if($checkout->payment_method === 'membership')
+<p>Payment: Membership Account — {{ $checkout->status === 'Cancelled' ? 'Refunded to savings account' : 'Paid at checkout' }}. Paid: Tk {{ $order['paid'] }}. Cancelling before dispatch refunds the full order total.</p>
+@else
 <p>Payment: Cash on Delivery. Stock is checked again at confirmation; payment is recorded separately after collection.</p>
+@endif
 <table class="table table-bordered"><thead><tr><th>Item</th><th>Contents per item</th><th>Qty</th><th>Unit price</th><th>Total</th></tr></thead><tbody>
 @foreach($order['products'] as $line)<tr><td>{{ $line['name'] }}</td><td>@foreach($line['components'] as $part){{ $part['name'] }} × {{ $part['quantity'] }}<br>@endforeach</td><td>{{ $line['quantity'] }}</td><td>{{ $line['unit_price'] }}</td><td>{{ $line['line_total'] }}</td></tr>@endforeach
 </tbody></table><p>Products: Tk {{ $order['sub_total'] }} | Delivery: Tk {{ $order['shipping_charge'] }} | Total: Tk {{ $order['total'] }} | Due: Tk {{ $order['due'] }}</p>
 @if($checkout->status === 'Pending')
 @can('ecommerce_order_confirm')<form method="POST" action="{{ route('package-orders.confirm',$checkout) }}" onsubmit="return confirm('Confirm this order and deduct stock?')">@csrf<button class="btn btn-success" type="submit">Confirm order &amp; deduct stock</button></form>@endcan
-@can('ecommerce_order_confirm')<form class="mt-2" method="POST" action="{{ route('package-orders.cancel',$checkout) }}" onsubmit="return confirm('Cancel this pending order?')">@csrf<button class="btn btn-danger" type="submit">Cancel order</button></form>@endcan
+
+@endif
+
+@if(in_array($checkout->status, ['Pending', 'Confirmed']) && $order['status'] < 2)
+@can('ecommerce_order_confirm')<form class="mt-2" method="POST" action="{{ route('package-orders.cancel',$checkout) }}" onsubmit="return confirm('Cancel this order? Any account payment will be refunded; confirmed stock will be restored.')">@csrf<button class="btn btn-danger" type="submit">Cancel order &amp; refund account payment</button></form>@endcan
 @endif
 
 @if($checkout->status === 'Confirmed' && $order['status'] < 3)

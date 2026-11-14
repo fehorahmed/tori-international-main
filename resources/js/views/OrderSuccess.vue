@@ -37,7 +37,7 @@
                 <div>
                     <p class="text-gray-700 font-medium">Payment Method</p>
                     <p class="font-bold text-gray-900 text-lg capitalize">
-                        {{ order.payment_method }}
+                        {{ order.payment_method === 'membership' ? 'Membership Account Balance' : order.payment_method }}
                     </p>
                 </div>
                 <div>

@@ -189,6 +189,7 @@ class TransferService
             $source->save();
             $target->principal_balance = CashoutService::money(CashoutService::minor($target->principal_balance) + $p['amount']);
             $target->save();
+            RegistrationFeeService::collect($target, $s->posting_user_id);
 
             return $t;
         }, 3);

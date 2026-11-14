@@ -159,10 +159,14 @@
                   <label class="block text-sm font-medium text-gray-700 mb-1">Payment Method</label>
                   <select v-model="paymentMethod" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring focus:ring-green-200">
                     <option value="cod">Cash on Delivery</option>
-                    <option value="bkash">bKash</option>
-                    <option value="card">Credit/Debit Card</option>
+                    <option value="membership" :disabled="!membershipSavings">Membership Account Balance</option>
+                    <option value="bkash" disabled>bKash (Unavailable)</option>
+                    <option value="card" disabled>Credit/Debit Card (Unavailable)</option>
                   </select>
                 </div>
+
+                <p v-if="membershipSavings" class="text-sm font-bold text-gray-600">Membership balance: Tk {{ membershipSavings.balance }} · Available: Tk {{ membershipSavings.available_balance }}</p>
+                <p v-if="paymentMethod === 'membership'" class="text-sm text-gray-600">The full order total, including delivery, will be deducted immediately. The protected minimum balance is unavailable. Cancelled orders are refunded to the same savings account.</p>
 
                 <!-- Coupon -->
                 <div>
@@ -249,6 +253,7 @@ export default {
       paymentMethod: "cod",
       couponCode: "",
       placingOrder: false,
+      membershipSavings: null,
     };
   },
   computed: {
@@ -269,6 +274,7 @@ export default {
   },
   mounted() {
     if (this.isLoggedIn) {
+      axios.get('/api/user').then(({ data }) => { this.membershipSavings = data.savings; }).catch(() => { this.membershipSavings = null; });
       this.form.name = this.loginUser.name || "";
       this.form.mobile = this.loginUser.mobile_no || "";
       this.form.address = this.loginUser.address || "";
@@ -314,6 +320,7 @@ export default {
     async placeOrder() {
 	  const toast = useToast();
       if (this.placingOrder || !this.cartItems.length) return;
+      if (this.paymentMethod === 'membership' && !window.confirm(`Pay Tk ${this.grandTotal} from your membership account now?`)) return;
       this.placingOrder = true;
       try {
         const payload = {
@@ -321,6 +328,7 @@ export default {
           coupon_discount: this.couponDiscount,
           shipping_charge: this.deliveryCharge,
           payment_method: this.paymentMethod,
+          expected_total: this.paymentMethod === 'membership' ? this.grandTotal : undefined,
           notes: 'Ecommerce',
           items: this.cartItems,
           billing: {
@@ -330,9 +338,9 @@ export default {
           }
         };
         const hasPackage = this.cartItems.some(item => item.product?.catalog_type === 'package');
-        if (this.paymentMethod === 'cod' || hasPackage) {
-          if (this.paymentMethod !== 'cod') { toast.error('Select Cash on Delivery for package orders.'); return; }
-          const fingerprint = JSON.stringify([this.loginUser?.id, payload.billing, payload.shipping_charge, payload.payment_method,
+        if (['cod', 'membership'].includes(this.paymentMethod) || hasPackage) {
+          if (!['cod', 'membership'].includes(this.paymentMethod)) { toast.error('Select Cash on Delivery or Membership Account.'); return; }
+          const fingerprint = JSON.stringify([this.loginUser?.id, payload.billing, payload.shipping_charge, payload.payment_method, payload.expected_total,
             payload.items.map(item => [item.product_id, item.quantity]).sort((a, b) => a[0] - b[0])]);
           let pending;
           try { pending = JSON.parse(sessionStorage.getItem('ecommerce_checkout_request')); } catch (_) { pending = null; }
@@ -345,10 +353,12 @@ export default {
         const response = await axios.post(hasPackage ? '/api/package-checkout' : '/api/order', payload);
 
         if (response.data.success) {
-          if (this.paymentMethod === 'cod' || hasPackage) sessionStorage.removeItem('ecommerce_checkout_request');
+
 			    toast.success(`Order placed! Order No: ${response.data.order_no}`);
 
           await this.clearCartAfterOrder();
+          await this.$store.dispatch('auth/fetchUser');
+          sessionStorage.removeItem('ecommerce_checkout_request');
 
           if (response.data.redirect) {
             window.location.href = response.data.redirect;

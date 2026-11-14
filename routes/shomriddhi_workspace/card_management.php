@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('card-management')->name('card-management.')->group(function () {
     Route::prefix('transaction-settings')->name('transaction-settings.')->controller(\App\Http\Controllers\CardManagement\TransactionSettingController::class)->group(function () {
         Route::get('/', 'index')->name('index');
-        Route::post('{group}', 'update')->whereIn('group', ['cashout', 'transfer'])->name('update');
+        Route::post('{group}', 'update')->whereIn('group', ['cashout', 'transfer', 'membership'])->name('update');
     });
 
     Route::prefix('transfers')->name('transfers.')->controller(\App\Http\Controllers\CardManagement\TransferController::class)->group(function () {

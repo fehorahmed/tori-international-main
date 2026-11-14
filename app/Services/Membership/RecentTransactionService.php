@@ -14,6 +14,9 @@ class RecentTransactionService
     {
         $logs = ShomriddhiTransaction::where('customer_id', $customer->id)->where('status', 'Approved')->orderByDesc('date')->orderByDesc('id')->limit(150)->get();
         $ids = $logs->pluck('voucher_id')->filter()->unique();
+        $registrationFees = \Illuminate\Support\Facades\DB::table('membership_registration_fees')->where('customer_id', $customer->id)
+            ->whereNotNull('paid_at')->get()->keyBy('voucher_id');
+        $orderVouchers = \App\Models\Account\Voucher::whereIn('id', $ids)->whereIn('payment_purpose', [OrderPaymentService::PAYMENT, OrderPaymentService::REFUND])->get()->keyBy('id');
         $transfers = MembershipTransfer::with(['sender', 'recipient'])->where(fn ($q) => $q->where('sender_id', $customer->id)->orWhere('recipient_id', $customer->id))->where(function ($q) use ($ids) {
             $q->whereIn('voucher_id', $ids)->orWhereIn('recipient_voucher_id', $ids)->orWhereIn('fee_voucher_id', $ids);
         })->get();
@@ -48,7 +51,22 @@ class RecentTransactionService
             $en = $credit ? 'Savings deposit' : 'Savings withdrawal';
             $bn = $credit ? 'সঞ্চয় জমা' : 'সঞ্চয় উত্তোলন';
             $at = $log->date;
-            if ($t = $transferMap[$log->voucher_id] ?? null) {
+            if ($orderPayment = $orderVouchers[$log->voucher_id] ?? null) {
+                $en = $credit ? 'Ecommerce payment refund' : 'Ecommerce order payment';
+                $bn = $credit ? 'ইকমার্স পেমেন্ট ফেরত' : 'ইকমার্স অর্ডার পেমেন্ট';
+                $category = 'Ecommerce';
+                $categoryBn = 'ইকমার্স';
+                $reference = $orderPayment->voucher_no;
+                $at = $log->created_at;
+            } elseif ($registration = $registrationFees[$log->voucher_id] ?? null) {
+                $id = 'registration-fee-'.$registration->id;
+                $reference = 'RF-'.$registration->id;
+                $en = 'Membership registration fee';
+                $bn = 'সদস্য নিবন্ধন ফি';
+                $category = 'Registration fee';
+                $categoryBn = 'নিবন্ধন ফি';
+                $at = $registration->paid_at;
+            } elseif ($t = $transferMap[$log->voucher_id] ?? null) {
                 $id = 'transfer-'.$t->id;
                 $sent = $t->sender_id == $customer->id;
                 $credit = ! $sent;

@@ -54,6 +54,7 @@ class MembershipCashoutTest extends TestCase
     {
         parent::setUp();
         config(['cache.default' => 'array']);
+        MembershipTransactionSetting::writeGroup('membership', ['account_hold_amount' => '0.00', 'registration_fee' => '0.00']);
         $this->branch = SisterConcern::where('status', 1)->firstOrFail();
         $this->customer = Supplier::create(['type' => 'Customer', 'name' => 'Cashout rollback test',
             'status' => 1, 'origin_sister_concern_id' => $this->branch->id, 'pin' => Hash::make('763921')]);
@@ -100,6 +101,52 @@ class MembershipCashoutTest extends TestCase
         $quote = $this->service->quote($this->customer, $this->code, $amount);
 
         return $this->service->request($this->customer, $quote['quote'], '763921', (string) Str::uuid());
+    }
+
+    public function test_minimum_balance_combines_with_cashout_holds_and_allows_exact_boundary(): void
+    {
+        MembershipTransactionSetting::writeGroup('membership', ['account_hold_amount' => '8990.00']);
+        $request = $this->requestCash('1000.00');
+        $this->assertSame(0, CashoutService::available($this->account->fresh()));
+        $this->service->change($request, 'accept', $this->operator);
+        $this->service->change($request->fresh(), 'complete', $this->operator);
+        $this->assertSame('8990.00', $this->account->fresh()->principal_balance);
+        $this->expectException(ValidationException::class);
+        $this->service->quote($this->customer, $this->code, '1.00');
+    }
+
+    public function test_increasing_minimum_after_acceptance_blocks_payout_without_postings(): void
+    {
+        $request = $this->requestCash();
+        $this->service->change($request, 'accept', $this->operator);
+        MembershipTransactionSetting::writeGroup('membership', ['account_hold_amount' => '9000.00']);
+        $before = Transaction::count();
+        try {
+            $this->service->change($request->fresh(), 'complete', $this->operator);
+            $this->fail('The new minimum must be protected at payout.');
+        } catch (ValidationException) {
+            $this->assertSame('Accepted', $request->fresh()->status);
+            $this->assertSame('10000.00', $this->account->fresh()->principal_balance);
+            $this->assertSame($before, Transaction::count());
+        }
+    }
+
+    public function test_minimum_blocks_admin_withdrawal_and_direct_debit_but_allows_deposits_below_floor(): void
+    {
+        MembershipTransactionSetting::writeGroup('membership', ['account_hold_amount' => '10001.00']);
+        $advance = ShomriddhiTransaction::create(['customer_id' => $this->customer->id, 'type' => 'withdraw',
+            'amount' => '1.00', 'date' => now()->toDateString(), 'status' => 'Pending', 'created_by' => $this->operator->id]);
+        $this->assertFalse(app(ShomriddhiAdvanceService::class)->approve($advance, $this->cash->id)['success']);
+        $this->assertSame('Pending', $advance->fresh()->status);
+        $this->account->fresh()->increment('principal_balance', '0.50');
+        $this->assertSame('10000.50', $this->account->fresh()->principal_balance);
+        $this->assertSame(0, CashoutService::available($this->account->fresh()));
+        try {
+            $this->account->fresh()->decrement('principal_balance', '0.01');
+            $this->fail('Direct debit must preserve the minimum.');
+        } catch (ValidationException) {
+            $this->assertSame('10000.50', $this->account->fresh()->principal_balance);
+        }
     }
 
     public function test_admin_cashout_routes_belong_to_card_management(): void

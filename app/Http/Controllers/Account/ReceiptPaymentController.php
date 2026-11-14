@@ -718,7 +718,7 @@ class ReceiptPaymentController extends Controller
 
     public function edit(Voucher $voucher, Request $request)
     {
-        abort_if($voucher->isMembershipCashout() || $voucher->isMembershipTransfer() || $voucher->isPackageSale(), 403, 'System payment vouchers are locked.');
+        abort_if($voucher->isMembershipCashout() || $voucher->isMembershipTransfer() || $voucher->isMembershipRegistrationFee() || $voucher->isPackageSale(), 403, 'System payment vouchers are locked.');
 
         $paymentModes = AccountHead::where(function($q) { $q->whereNull('sister_concern_id')->orWhere('sister_concern_id', auth()->user()->activeConcernId()); })->where('payment_mode', '>', 0)
                 ->get();
@@ -763,7 +763,7 @@ class ReceiptPaymentController extends Controller
 
     public function update(Voucher $voucher, Request $request)
     {
-        abort_if($voucher->isMembershipCashout() || $voucher->isMembershipTransfer() || $voucher->isPackageSale(), 403, 'System payment vouchers are locked.');
+        abort_if($voucher->isMembershipCashout() || $voucher->isMembershipTransfer() || $voucher->isMembershipRegistrationFee() || $voucher->isPackageSale(), 403, 'System payment vouchers are locked.');
 
         if ($voucher->voucher_type == '')
             abort('404');
@@ -1102,7 +1102,7 @@ class ReceiptPaymentController extends Controller
      */
     public function destroy(Voucher $voucher)
     {
-        abort_if($voucher->isMembershipCashout() || $voucher->isMembershipTransfer() || $voucher->isPackageSale(), 403, 'System payment vouchers are locked.');
+        abort_if($voucher->isMembershipCashout() || $voucher->isMembershipTransfer() || $voucher->isMembershipRegistrationFee() || $voucher->isPackageSale(), 403, 'System payment vouchers are locked.');
         try {
             $permissionDelete = '';
             if ($voucher->voucher_type == VoucherType::$JOURNAL_VOUCHER) {

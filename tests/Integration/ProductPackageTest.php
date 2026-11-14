@@ -44,6 +44,7 @@ class ProductPackageTest extends TestCase
     {
         parent::setUp();
         config(['cache.default' => 'array']);
+        \App\Models\MembershipTransactionSetting::writeGroup('membership', ['registration_fee' => '0.00', 'account_hold_amount' => '100.00']);
         $this->warehouse = Warehouse::where('status', 1)->whereHas('sisterConcern', fn ($q) => $q->where('status', 1))->firstOrFail();
         $this->operator = User::firstOrFail();
         $this->operator->givePermissionTo(['ecommerce_product', 'ecommerce_product_create', 'ecommerce_product_edit', 'ecommerce_order', 'ecommerce_order_confirm', 'ecommerce_order_confirm']);
@@ -66,6 +67,166 @@ class ProductPackageTest extends TestCase
     private function data(): array
     {
         return ['request_key' => (string) Str::uuid(), 'billing' => ['name' => 'Package customer', 'phone' => '01712345678', 'address' => 'Rollback test address'], 'payment_method' => 'cod', 'shipping_charge' => '50.00', 'items' => [['product_id' => $this->package->id, 'quantity' => 1, 'price' => '0.01']]];
+    }
+
+    private function fundedSavings(?int $branch = null): \App\Models\ShomriddhiAdvance\ShomriddhiAccount
+    {
+        $branch ??= $this->warehouse->sister_concern_id;
+        $this->customer->update(['origin_sister_concern_id' => $branch]);
+        \App\Models\Account\AccountHead::create(['name' => 'Checkout savings test', 'nature' => 'Credit',
+            'supplier_id' => $this->customer->id, 'head_type' => 'savings', 'status' => 1,
+            'account_group_id' => \App\Models\Account\AccountGroup::where('reserved_id', 28)->firstOrFail()->id]);
+        return \App\Models\ShomriddhiAdvance\ShomriddhiAccount::create(['customer_id' => $this->customer->id,
+            'origin_sister_concern_id' => $branch, 'principal_balance' => '1000.00', 'status' => 'Active']);
+    }
+
+    public function test_account_checkout_debits_immediately_and_pending_cancellation_refunds_once(): void
+    {
+        $account = $this->fundedSavings();
+        $data = array_replace($this->data(), ['payment_method' => 'membership']);
+        $service = app(PackageOrderService::class);
+        $checkout = $service->checkout($this->customer, $data);
+        $this->assertSame('724.99', $account->fresh()->principal_balance);
+        $this->assertEquals(275.01, $checkout->saleOrder->paid);
+        $this->assertEquals(0, $checkout->saleOrder->due);
+        $this->assertSame($checkout->id, $service->checkout($this->customer, $data)->id);
+        $this->assertSame('724.99', $account->fresh()->principal_balance);
+        $service->cancel($checkout, $this->operator);
+        $service->cancel($checkout, $this->operator);
+        $this->assertSame('1000.00', $account->fresh()->principal_balance);
+        $this->assertSame('Cancelled', $checkout->fresh()->status);
+        $this->assertSame('Refunded', \Illuminate\Support\Facades\DB::table('membership_order_payments')->where('checkout_id', $checkout->id)->value('status'));
+        $this->assertSame(2, Voucher::where('sale_order_id', $checkout->sale_order_id)->count());
+        $this->assertSame(10, (int) Inventory::where('product_id', $this->a->id)->sum('quantity'));
+        $history = app(\App\Services\Membership\RecentTransactionService::class)->forCustomer($this->customer);
+        $this->assertCount(2, array_filter($history, fn ($row) => $row['category_en'] === 'Ecommerce'));
+    }
+
+    public function test_paid_confirmed_order_cancellation_restores_stock_and_reverses_all_journals(): void
+    {
+        $account = $this->fundedSavings();
+        $service = app(PackageOrderService::class);
+        $checkout = $service->checkout($this->customer, array_replace($this->data(), ['payment_method' => 'membership']));
+        $service->confirm($checkout, $this->operator);
+        $this->assertSame('724.99', $account->fresh()->principal_balance);
+        $this->assertSame(8, (int) Inventory::where('product_id', $this->a->id)->sum('quantity'));
+        $service->cancel($checkout, $this->operator);
+        $service->cancel($checkout, $this->operator);
+        $this->assertSame(10, (int) Inventory::where('product_id', $this->a->id)->sum('quantity'));
+        $this->assertSame('1000.00', $account->fresh()->principal_balance);
+        $entries = Transaction::where('sale_order_id', $checkout->sale_order_id)->get();
+        foreach ($entries->groupBy('account_head_id') as $rows) {
+            $this->assertEquals($rows->where('transaction_type', 1)->sum('amount'), $rows->where('transaction_type', 2)->sum('amount'));
+        }
+        foreach ($entries->groupBy('voucher_id') as $rows) {
+            $this->assertEquals($rows->where('transaction_type', 1)->sum('amount'), $rows->where('transaction_type', 2)->sum('amount'));
+        }
+    }
+
+    public function test_account_checkout_cannot_spend_minimum_or_cashout_reservations(): void
+    {
+        $account = $this->fundedSavings();
+        \App\Models\MembershipTransactionSetting::writeGroup('membership', ['account_hold_amount' => '725.00']);
+        $before = \App\Models\Sales\SaleOrder::count();
+        try {
+            app(PackageOrderService::class)->checkout($this->customer, array_replace($this->data(), ['payment_method' => 'membership']));
+            $this->fail('Minimum balance must not be spent.');
+        } catch (ValidationException) {
+            $this->assertSame('1000.00', $account->fresh()->principal_balance);
+            $this->assertSame($before, \App\Models\Sales\SaleOrder::count());
+        }
+        \App\Models\MembershipTransactionSetting::writeGroup('membership', ['account_hold_amount' => '724.99']);
+        $checkout = app(PackageOrderService::class)->checkout($this->customer, array_replace($this->data(), ['payment_method' => 'membership']));
+        $this->assertSame('724.99', $account->fresh()->principal_balance);
+        $this->assertSame('membership', $checkout->payment_method);
+    }
+
+    public function test_cross_branch_account_payment_and_refund_are_balanced_per_branch(): void
+    {
+        $origin = \App\Models\BranchManagement\SisterConcern::where('status', 1)->whereKeyNot($this->warehouse->sister_concern_id)->firstOrFail();
+        $account = $this->fundedSavings($origin->id);
+        $service = app(PackageOrderService::class);
+        $checkout = $service->checkout($this->customer, array_replace($this->data(), ['payment_method' => 'membership']));
+        $this->assertSame('724.99', $account->fresh()->principal_balance);
+        $service->cancel($checkout, $this->operator);
+        $this->assertSame('1000.00', $account->fresh()->principal_balance);
+        $entries = Transaction::where('sale_order_id', $checkout->sale_order_id)->get();
+        $this->assertCount(4, $entries->groupBy('voucher_id'));
+        foreach ($entries->groupBy(fn ($e) => $e->sister_concern_id.'-'.$e->account_head_id) as $rows) {
+            $this->assertEquals($rows->where('transaction_type', 1)->sum('amount'), $rows->where('transaction_type', 2)->sum('amount'));
+        }
+    }
+
+    public function test_existing_cashout_holds_cannot_be_spent_on_checkout(): void
+    {
+        $account = $this->fundedSavings();
+        \App\Models\MembershipCashout::create(['reference' => 'CO-'.Str::ulid(), 'customer_id' => $this->customer->id,
+            'account_id' => $account->id, 'branch_id' => $this->warehouse->sister_concern_id,
+            'cash_head_id' => \App\Models\Account\AccountHead::firstOrFail()->id, 'idempotency_key' => (string) Str::uuid(),
+            'quote_hash' => str_repeat('a', 64), 'amount' => '700.00', 'fee' => '0.00', 'total' => '700.00',
+            'charge_type' => 'fixed', 'charge_rate' => '0.00', 'status' => 'Accepted', 'expires_at' => now()->addMinutes(10)]);
+        $this->expectException(ValidationException::class);
+        app(PackageOrderService::class)->checkout($this->customer, array_replace($this->data(), ['payment_method' => 'membership']));
+    }
+
+    public function test_missing_payment_ledger_rolls_back_order_without_debit(): void
+    {
+        $account = $this->fundedSavings();
+        \App\Models\Account\AccountHead::where('supplier_id', $this->customer->id)->where('head_type', 'savings')->update(['status' => 0]);
+        $before = \App\Models\Sales\SaleOrder::count();
+        try {
+            app(PackageOrderService::class)->checkout($this->customer, array_replace($this->data(), ['payment_method' => 'membership']));
+            $this->fail('Invalid accounting must not produce an order.');
+        } catch (ValidationException) {
+            $this->assertSame('1000.00', $account->fresh()->principal_balance);
+            $this->assertSame($before, \App\Models\Sales\SaleOrder::count());
+        }
+    }
+
+    public function test_dispatched_order_cannot_be_cancelled_or_refunded(): void
+    {
+        $account = $this->fundedSavings();
+        $service = app(PackageOrderService::class);
+        $checkout = $service->checkout($this->customer, array_replace($this->data(), ['payment_method' => 'membership']));
+        $service->confirm($checkout, $this->operator);
+        $checkout->saleOrder->update(['status' => 2]);
+        try {
+            $service->cancel($checkout, $this->operator);
+            $this->fail('Dispatched orders require a return workflow.');
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+            $this->assertSame(422, $e->getStatusCode());
+            $this->assertSame('724.99', $account->fresh()->principal_balance);
+            $this->assertSame('Confirmed', $checkout->fresh()->status);
+        }
+    }
+
+    public function test_authenticated_api_can_pay_for_ordinary_products_from_savings(): void
+    {
+        $account = $this->fundedSavings();
+        $data = array_replace($this->data(), ['payment_method' => 'membership', 'expected_total' => '150.00', 'items' => [['product_id' => $this->a->id, 'quantity' => 1]]]);
+        $this->actingAs($this->customer, 'customer')->postJson('/api/order', $data)->assertCreated()->assertJsonPath('order.payment_method', 'membership')->assertJsonPath('order.due', 0);
+        $this->assertSame('850.00', $account->fresh()->principal_balance);
+    }
+
+    public function test_checkout_rejects_changed_total_before_debit(): void
+    {
+        $account = $this->fundedSavings();
+        $data = array_replace($this->data(), ['payment_method' => 'membership', 'expected_total' => '1.00']);
+        $this->actingAs($this->customer, 'customer')->postJson('/api/package-checkout', $data)->assertUnprocessable();
+        $this->assertSame('1000.00', $account->fresh()->principal_balance);
+        $this->assertSame(0, \Illuminate\Support\Facades\DB::table('membership_order_payments')->where('customer_id', $this->customer->id)->count());
+    }
+
+    public function test_admin_order_datatable_includes_paid_by_for_cod_and_membership_orders(): void
+    {
+        $this->fundedSavings();
+        $service = app(PackageOrderService::class);
+        $cod = $service->checkout($this->customer, $this->data());
+        $paid = $service->checkout($this->customer, array_replace($this->data(), ['payment_method' => 'membership']));
+        $response = app(\App\Http\Controllers\Ecommerce\OrderController::class)->datatable(Request::create('/', 'GET'));
+        $rows = collect($response->getData(true)['data'])->keyBy('id');
+        $this->assertSame('Cash on Delivery', $rows[$cod->sale_order_id]['paid_by']);
+        $this->assertSame('Membership Account', $rows[$paid->sale_order_id]['paid_by']);
     }
 
     public function test_product_details_returns_cart_id_and_images_for_singles_and_packages(): void

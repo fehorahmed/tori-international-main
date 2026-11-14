@@ -23,6 +23,11 @@ class Supplier extends Authenticatable
 {
     use HasApiTokens, HasFactory, SoftDeletes;
     protected $guarded = [];
+
+    protected static function booted(): void
+    {
+        static::created(fn (self $customer) => \App\Services\Membership\RegistrationFeeService::enroll($customer));
+    }
     
     protected $hidden = [
         'password',

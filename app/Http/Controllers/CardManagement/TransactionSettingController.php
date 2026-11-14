@@ -15,16 +15,33 @@ class TransactionSettingController extends Controller
         abort_unless(auth()->user()->role === 'Admin', 403);
         $cashout = membership_transaction_settings('cashout');
         $transfer = membership_transaction_settings('transfer');
+        $membership = membership_transaction_settings('membership');
         $incomeHeads = AccountHead::with('accountGroup')->where('nature', 'Credit')->whereNull('sister_concern_id')
             ->where('status', 1)->get()->filter(fn ($head) => $head->accountGroup?->top_reserved_id == 4);
 
-        return view('card_management.transaction_settings.index', compact('cashout', 'transfer', 'incomeHeads'));
+        return view('card_management.transaction_settings.index', compact('cashout', 'transfer', 'membership', 'incomeHeads'));
     }
 
     public function update(Request $request, string $group)
     {
         abort_unless(auth()->user()->role === 'Admin', 403);
-        abort_unless(in_array($group, ['cashout', 'transfer'], true), 404);
+        abort_unless(in_array($group, ['cashout', 'transfer', 'membership'], true), 404);
+        if ($group === 'membership') {
+            $data = $request->validate([
+                'registration_fee' => 'required|numeric|decimal:0,2|min:0|max:10000000',
+                'account_hold_amount' => 'required|numeric|decimal:0,2|min:0|max:10000000',
+                'income_head_id' => 'nullable|integer',
+            ]);
+            $head = AccountHead::with('accountGroup')->find($data['income_head_id'] ?? null);
+            if ($data['registration_fee'] > 0 && (! $head || $head->status != 1 || $head->nature !== 'Credit'
+                || $head->sister_concern_id || $head->accountGroup?->top_reserved_id != 4)) {
+                throw ValidationException::withMessages(['income_head_id' => 'Select an active global income ledger for membership registration fees.']);
+            }
+            $data['income_head_id'] = $data['income_head_id'] ?? null;
+            MembershipTransactionSetting::writeGroup('membership', $data);
+
+            return redirect()->to(route('card-management.transaction-settings.index').'#membership')->with('success', 'Membership settings saved.');
+        }
         $rules = ['minimum_amount' => 'required|numeric|decimal:0,2|min:0.01|max:10000000|lte:maximum_amount',
             'maximum_amount' => 'required|numeric|decimal:0,2|min:0.01|max:10000000',
             'charge_type' => 'required|in:fixed,percentage', 'charge_rate' => 'required|numeric|decimal:0,2|min:0|max:10000000',

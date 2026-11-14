@@ -5,6 +5,37 @@
     <p>Configure membership transaction limits and charges. Changes apply to new transaction quotes; existing cash-out requests retain their quoted amounts.</p>
     @if(session('success'))<div class="alert alert-success">{{ session('success') }}</div>@endif
     @if($errors->any())<div class="alert alert-danger">{{ $errors->first() }}</div>@endif
+    <div class="card" id="membership">
+        <div class="card-header"><h4 class="card-title">Membership</h4></div>
+        <div class="card-body">
+            <form method="POST" action="{{ route('card-management.transaction-settings.update', 'membership') }}">
+                @csrf
+                <input type="hidden" name="_group" value="membership">
+                <div class="row">
+                    <div class="col-md-6 form-group">
+                        <label for="membership-registration-fee">Membership Registration Fee (Tk)</label>
+                        <input id="membership-registration-fee" class="form-control" name="registration_fee" type="number" min="0" max="10000000" step="0.01" required value="{{ old('_group') === 'membership' ? old('registration_fee', $membership->registration_fee) : $membership->registration_fee }}">
+                    </div>
+                    <div class="col-md-6 form-group">
+                        <label for="membership-account-hold">Membership Account Hold Amount (Tk)</label>
+                        <small class="d-block text-muted">Protected minimum savings balance for every member. Withdrawals, transfers and charges cannot spend this amount.</small>
+                        <input id="membership-account-hold" class="form-control" name="account_hold_amount" type="number" min="0" max="10000000" step="0.01" required value="{{ old('_group') === 'membership' ? old('account_hold_amount', $membership->account_hold_amount) : $membership->account_hold_amount }}">
+                    </div>
+                </div>
+                <div class="form-group mt-3">
+                    <label>Registration fee income ledger</label>
+                    <select class="form-control" name="income_head_id">
+                        <option value="">Select income ledger (required for a positive fee)</option>
+                        @foreach($incomeHeads as $head)
+                        <option value="{{ $head->id }}" @selected($head->id == (old('_group') === 'membership' ? old('income_head_id', $membership->income_head_id) : $membership->income_head_id))>{{ $head->name }}</option>
+                        @endforeach
+                    </select>
+                    <small>New members are charged once after a deposit or incoming transfer can cover the full fee while retaining the protected minimum balance.</small>
+                </div>
+                <button class="btn btn-primary" type="submit">Save Membership settings</button>
+            </form>
+        </div>
+    </div>
     @foreach(['cashout' => ['Cash Out', $cashout], 'transfer' => ['Send Money / Transfer', $transfer]] as $group => [$title, $setting])
     @php($value = fn($key) => old('_group') === $group ? old($key, $setting->{$key} ?? null) : ($setting->{$key} ?? null))
     <div class="card" id="{{ $group }}">

@@ -71,7 +71,7 @@ class Voucher extends Model
 
     public function is_locked()
     {
-        if ($this->isMembershipCashout() || $this->isMembershipTransfer()) return true;
+        if ($this->isMembershipCashout() || $this->isMembershipTransfer() || $this->isMembershipRegistrationFee()) return true;
         return 
             !empty($this->sale_order_id) || 
             !empty($this->purchase_order_id) || 
@@ -90,6 +90,11 @@ class Voucher extends Model
     public function isPackageSale(): bool
     {
         return $this->sale_order_id && \App\Models\Ecommerce\PackageOrderCheckout::where('sale_order_id', $this->sale_order_id)->exists();
+    }
+
+    public function isMembershipRegistrationFee(): bool
+    {
+        return \Illuminate\Support\Facades\DB::table('membership_registration_fees')->where('voucher_id', $this->id)->exists();
     }
 
     public function isMembershipTransfer(): bool

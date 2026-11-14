@@ -30,11 +30,12 @@ class PackageOrderService
         if ($customer->status != 1 || $customer->type !== 'Customer') {
             ProductPackageService::fail('Active customer account required.');
         }
+
         if (($data['coupon_code'] ?? null)) {
             ProductPackageService::fail('Coupons are not available for this checkout yet. Remove the coupon to continue.');
         }
-        if ($data['payment_method'] !== 'cod') {
-            ProductPackageService::fail('This checkout currently supports Cash on Delivery.');
+        if (! in_array($data['payment_method'], ['cod', 'membership'], true)) {
+            ProductPackageService::fail('Select Cash on Delivery or Membership Account.');
         }
         $shipping = CashoutService::minor((string) ($data['shipping_charge'] ?? 0));
         if (! in_array($shipping, [5000, 10000], true)) {
@@ -44,7 +45,9 @@ class PackageOrderService
         if (count(array_unique(array_column($input, 'product_id'))) !== count($input)) {
             ProductPackageService::fail('Duplicate cart products are not allowed.');
         }
-        $hash = hash('sha256', json_encode([$input, $data['billing'], $shipping, $data['payment_method']]));
+        $fingerprint = [$input, $data['billing'], $shipping, $data['payment_method']];
+        if (isset($data['expected_total'])) $fingerprint[] = CashoutService::money(CashoutService::minor($data['expected_total']));
+        $hash = hash('sha256', json_encode($fingerprint));
 
         return DB::transaction(function () use ($customer, $data, $shipping, $input, $hash) {
             Supplier::whereKey($customer->id)->lockForUpdate()->firstOrFail();
@@ -118,6 +121,10 @@ class PackageOrderService
                 ProductPackageService::fail('Fulfilment branch is inactive.');
             }
             $this->checkStock($lines, $warehouse);
+            if ($data['payment_method'] === 'membership' && isset($data['expected_total'])
+                && CashoutService::minor($data['expected_total']) !== $total + $shipping) {
+                ProductPackageService::fail('The order total changed. Refresh your cart and review the total before paying.');
+            }
             $package = $products->first(fn ($p) => $p->isPackage());
             $actor = User::where('status', 1)->find(($package ?? $products->first())->user_id);
             // Imported/older products may not have a surviving ERP creator.
@@ -130,9 +137,13 @@ class PackageOrderService
             if (! $actor) {
                 ProductPackageService::fail('No active ERP user is available for this fulfilment branch. Please contact the branch.');
             }
-            $order = SaleOrder::create(['sister_concern_id' => $branch->id, 'warehouse_id' => $warehouse->id, 'customer_id' => $customer->id, 'order_no' => ($package ? 'PKO-' : 'ESO-').Str::upper((string) Str::ulid()), 'type' => SaleType::$ECOMMERCE, 'sub_total' => CashoutService::money($total), 'discount' => 0, 'total' => CashoutService::money($total + $shipping), 'paid' => 0, 'due' => CashoutService::money($total + $shipping), 'notes' => 'Ecommerce order (COD), pending stock confirmation', 'date' => now()->toDateString(), 'status' => 0, 'user_id' => $actor->id]);
+            $order = SaleOrder::create(['sister_concern_id' => $branch->id, 'warehouse_id' => $warehouse->id, 'customer_id' => $customer->id, 'order_no' => ($package ? 'PKO-' : 'ESO-').Str::upper((string) Str::ulid()), 'type' => SaleType::$ECOMMERCE, 'sub_total' => CashoutService::money($total), 'discount' => 0, 'total' => CashoutService::money($total + $shipping), 'paid' => 0, 'due' => CashoutService::money($total + $shipping), 'notes' => 'Ecommerce order, pending stock confirmation', 'date' => now()->toDateString(), 'status' => 0, 'user_id' => $actor->id]);
 
-            return PackageOrderCheckout::create(['sale_order_id' => $order->id, 'customer_id' => $customer->id, 'warehouse_id' => $warehouse->id, 'request_key' => $data['request_key'], 'request_hash' => $hash, 'billing' => $data['billing'], 'lines' => $lines, 'shipping_charge' => CashoutService::money($shipping), 'payment_method' => 'cod']);
+            $checkout = PackageOrderCheckout::create(['sale_order_id' => $order->id, 'customer_id' => $customer->id, 'warehouse_id' => $warehouse->id, 'request_key' => $data['request_key'], 'request_hash' => $hash, 'billing' => $data['billing'], 'lines' => $lines, 'shipping_charge' => CashoutService::money($shipping), 'payment_method' => $data['payment_method']]);
+            if ($data['payment_method'] === 'membership') {
+                \App\Services\Membership\OrderPaymentService::capture($checkout, $actor->id);
+            }
+            return $checkout;
         }, 3);
     }
 
@@ -232,6 +243,37 @@ class PackageOrderService
         }, 3);
     }
 
+    public function cancel(PackageOrderCheckout $checkout, User $operator): void
+    {
+        abort_unless($operator->can('ecommerce_order_confirm'), 403);
+        DB::transaction(function () use ($checkout, $operator) {
+            $checkout = PackageOrderCheckout::whereKey($checkout->id)->lockForUpdate()->firstOrFail();
+            $order = SaleOrder::whereKey($checkout->sale_order_id)->lockForUpdate()->firstOrFail();
+            abort_unless($order->sister_concern_id == $operator->activeConcernId(), 403);
+            if ($checkout->status === 'Cancelled') return;
+            abort_unless(in_array($checkout->status, ['Pending', 'Confirmed'], true) && $order->status < 2, 422, 'Only orders not yet dispatched can be cancelled.');
+            abort_if($checkout->payment_method !== 'membership' && $order->paid > 0, 422, 'Refund collected COD payments through the collection workflow before cancelling.');
+            if ($checkout->status === 'Confirmed') {
+                foreach (SaleOrderItem::where('sale_order_id', $order->id)->orderBy('inventory_id')->get() as $item) {
+                    $inventory = Inventory::withTrashed()->whereKey($item->inventory_id)->lockForUpdate()->firstOrFail();
+                    if ($inventory->trashed()) $inventory->restore();
+                    $inventory->increment('quantity', $item->quantity);
+                    InventoryLog::create(['sister_concern_id' => $order->sister_concern_id, 'warehouse_id' => $checkout->warehouse_id,
+                        'inventory_id' => $inventory->id, 'product_id' => $item->product_id, 'product_code' => $inventory->product_code,
+                        'batch_no' => $inventory->batch_no, 'sale_order_id' => $order->id, 'type' => 1,
+                        'quantity' => $item->quantity, 'unit_price' => $item->unit_price, 'date' => now()->toDateString(),
+                        'notes' => 'Cancelled ecommerce order '.$order->order_no, 'user_id' => $operator->id]);
+                }
+                foreach (Voucher::where('sale_order_id', $order->id)->whereNull('payment_purpose')->get() as $voucher) {
+                    \App\Services\Membership\OrderPaymentService::reverseVoucher($voucher, $operator->id, \App\Services\Membership\OrderPaymentService::CANCELLATION);
+                }
+            }
+            \App\Services\Membership\OrderPaymentService::refund($checkout, $operator->id);
+            $checkout->update(['status' => 'Cancelled']);
+            $order->refresh()->update(['status' => 4, 'due' => 0]);
+        }, 3);
+    }
+
     private function post(SaleOrder $order, int $cost, User $operator): void
     {
         $receivable = AccountHead::where('supplier_id', $order->customer_id)->where('head_type', 'primary')->where('status', 1)->first();
@@ -245,6 +287,12 @@ class PackageOrderService
         $number = generateVoucherNo(1, 'vouchers', $order->sister_concern_id);
         $voucher = Voucher::create(['sale_order_id' => $order->id, 'sister_concern_id' => $order->sister_concern_id, 'voucher_type' => 1, 'voucher_no' => $number, 'voucher_no_group_sl' => (int) filter_var($number, FILTER_SANITIZE_NUMBER_INT), 'date' => $order->date, 'amount' => CashoutService::money(CashoutService::minor($order->total) + $cost), 'notes' => 'Ecommerce sale '.$order->order_no, 'user_id' => $operator->id]);
         $entries = [[$receivable->id, 1, CashoutService::minor($order->total)], [reservedAccountHeadId(ReservedAccountHead::SALES_REVENUE), 2, CashoutService::minor($order->total)]];
+        if ($order->paid > 0 && PackageOrderCheckout::where('sale_order_id', $order->id)->where('payment_method', 'membership')->exists()) {
+            $advance = \App\Services\Membership\OrderPaymentService::head(ReservedAccountHead::CUSTOMER_ADVANCE_RECEIVED, 'Credit');
+            $entries[] = [$advance, 1, CashoutService::minor($order->paid)];
+            $entries[] = [$receivable->id, 2, CashoutService::minor($order->paid)];
+            $voucher->update(['amount' => CashoutService::money(CashoutService::minor($order->total) + $cost + CashoutService::minor($order->paid))]);
+        }
         if ($cost) {
             $entries[] = [reservedAccountHeadId(ReservedAccountHead::COST_OF_GOODS_SOLD), 1, $cost];
             $entries[] = [reservedAccountHeadId(ReservedAccountHead::FINISHED_GOODS_INVENTORY), 2, $cost];

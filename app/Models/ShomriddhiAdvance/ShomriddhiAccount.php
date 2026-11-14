@@ -23,6 +23,13 @@ class ShomriddhiAccount extends Model
                     \App\Services\Membership\CashoutService::fail('Savings balance changed. Refresh and retry.', 'সঞ্চয় ব্যালেন্স পরিবর্তন হয়েছে। রিফ্রেশ করে আবার চেষ্টা করুন।');
                 }
                 $balance = \App\Services\Membership\CashoutService::minor($account->principal_balance);
+                if ($balance < \App\Services\Membership\CashoutService::minor($current->principal_balance)
+                    && $balance < \App\Services\Membership\CashoutService::minimumBalance() + \App\Models\MembershipCashout::held($account->id)) {
+                    \App\Services\Membership\CashoutService::fail(
+                        'This debit would spend the protected membership minimum balance or reserved cash-out funds.',
+                        'এই লেনদেনে সদস্যের সংরক্ষিত ন্যূনতম ব্যালেন্স অথবা ক্যাশ আউটের জন্য সংরক্ষিত টাকা খরচ হবে।'
+                    );
+                }
                 if ($balance < \App\Models\MembershipCashout::held($account->id)) {
                     \App\Services\Membership\CashoutService::fail('This savings balance is reserved for a cash-out request.', 'এই সঞ্চয়ের টাকা ক্যাশ আউট অনুরোধের জন্য সংরক্ষিত আছে।');
                 }

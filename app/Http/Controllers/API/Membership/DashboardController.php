@@ -73,6 +73,7 @@ class DashboardController extends Controller
                 'summary' => [
                     'savings_balance' => (float) $savingsBalance,
                     'available_savings_balance' => $savingsAccount ? \App\Services\Membership\CashoutService::available($savingsAccount) / 100 : 0,
+                    'minimum_savings_balance' => \App\Services\Membership\CashoutService::minimumBalance() / 100,
                     'held_savings_balance' => $savingsAccount ? \App\Models\MembershipCashout::held($savingsAccount->id) / 100 : 0,
                     'dps_balance' => (float) $totalDpsBalance,
                     'fdr_balance' => (float) $totalFdrBalance,

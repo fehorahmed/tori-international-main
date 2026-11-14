@@ -36,15 +36,7 @@ class PackageOrderController extends Controller
 
     public function cancel(PackageOrderCheckout $checkout)
     {
-        abort_unless(auth()->user()->can('ecommerce_order_confirm'), 403);
-        DB::transaction(function () use ($checkout) {
-            $checkout = PackageOrderCheckout::whereKey($checkout->id)->lockForUpdate()->firstOrFail();
-            $order = SaleOrder::whereKey($checkout->sale_order_id)->lockForUpdate()->firstOrFail();
-            abort_unless($order->sister_concern_id == auth()->user()->activeConcernId(), 403);
-            abort_unless($checkout->status === 'Pending', 422, 'Only pending package orders can be cancelled.');
-            $checkout->update(['status' => 'Cancelled']);
-            $order->update(['status' => 4]);
-        });
+        app(PackageOrderService::class)->cancel($checkout, auth()->user());
 
         return back()->with('success', 'Order cancelled.');
     }

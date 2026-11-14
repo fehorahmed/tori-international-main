@@ -47,9 +47,15 @@ class CashoutService
         throw ValidationException::withMessages(['cashout' => $message]);
     }
 
-    public static function available(ShomriddhiAccount $account): int
+    public static function minimumBalance(): int
     {
-        return max(0, self::minor($account->principal_balance) - MembershipCashout::held($account->id));
+        return max(0, self::minor(membership_transaction_setting('membership.account_hold_amount', '0.00')));
+    }
+
+    public static function available(ShomriddhiAccount $account, ?int $excludeCashoutId = null): int
+    {
+        return max(0, self::minor($account->principal_balance) - self::minimumBalance()
+            - MembershipCashout::held($account->id, $excludeCashoutId));
     }
 
     private function account(Supplier $customer, bool $lock = false): ShomriddhiAccount
@@ -220,8 +226,8 @@ class CashoutService
         if ($account->status !== 'Active' || ! $cashout->customer || $cashout->customer->status != 1) {
             self::fail('Savings account or member is inactive.');
         }
-        if (self::minor($account->principal_balance) < MembershipCashout::held($account->id, $cashout->id) + self::minor($cashout->total)) {
-            self::fail('Savings balance no longer covers held requests.');
+        if (self::available($account, $cashout->id) < self::minor($cashout->total)) {
+            self::fail('Insufficient available savings balance after minimum balance and cash-out holds.', 'ন্যূনতম ব্যালেন্স ও ক্যাশ আউটের সংরক্ষিত টাকা বাদে ব্যবহারযোগ্য সঞ্চয় পর্যাপ্ত নয়।');
         }
         $head = AccountHead::whereKey($cashout->cash_head_id)->lockForUpdate()->first();
         if (! $head || $head->status != 1 || $head->payment_mode != 2 || $head->nature !== 'Debit'

@@ -43,13 +43,13 @@ class OrderController extends Controller{
     }
 
     public function datatable(Request $request){
-        $query = SaleOrder::with(['customer', 'user']);
-        
+        $query = SaleOrder::with(['customer', 'user', 'packageCheckout']);
+
         $query->where('sister_concern_id', auth()->user()->activeConcernId());
         if ($request->input('start_date') && $request->input('end_date')) {
             $query->whereBetween('date', [Carbon::parse($request->input('start_date'))->format('Y-m-d'), Carbon::parse($request->input('end_date'))->format('Y-m-d')]);
         }
-        
+
         $query->where('type', SaleType::$ECOMMERCE);
         $query->orderBy('id', 'desc');
 
@@ -65,6 +65,20 @@ class OrderController extends Controller{
 
         return DataTables::eloquent($query)
             ->addIndexColumn()
+            ->addColumn('paid_by', function (SaleOrder $order) {
+                $checkout = $order->packageCheckout;
+                $method = $checkout?->payment_method ?? $order->payment_method;
+
+                return match ($method) {
+                    'membership' => $checkout?->status === 'Cancelled' ? 'Membership Account (Refunded)' : 'Membership Account',
+                    'cod' => 'Cash on Delivery',
+                    'cash' => 'Cash',
+                    'bkash' => 'bKash',
+                    'nagad' => 'Nagad',
+                    'card' => 'Credit/Debit Card',
+                    default => '—',
+                };
+            })
             ->addColumn('customer_name', function (SaleOrder $order) {
                 return $order->customer->name ?? '';
             })
@@ -105,23 +119,23 @@ class OrderController extends Controller{
                 return Carbon::parse($order->date)->format('d-M-Y');
             })
             ->editColumn('total', function (SaleOrder $order) {
-                return 'à§³' . number_format($order->total, 2);
+                return '৳ ' . number_format($order->total, 2);
             })
             ->editColumn('paid', function (SaleOrder $order) {
-                return 'à§³' . number_format($order->paid, 2);
+                return '৳ ' . number_format($order->paid, 2);
             })
             ->editColumn('due', function (SaleOrder $order) {
-                return 'à§³' . number_format($order->due, 2);
+                return '৳ ' . number_format($order->due, 2);
             })
             ->rawColumns(['action', 'status'])
             ->toJson();
     }
-    
+
     public function salesConfirm(SaleOrder $order){
         if ($checkout = $order->packageCheckout) return redirect()->route('package-orders.show', $checkout);
         if($order->status > 0){
             return redirect()->route('ecom_order')->with('error','Order Already Confirmed');
-        } 
+        }
         $customers = Supplier::orderBy('name')->get();
         $accounts = AccountHead::where('payment_mode', 1)->where('status', 1)->orderBy('name')->get();
         $products = Product::where('status', 1)->orderBy('name')->get();
@@ -188,7 +202,7 @@ class OrderController extends Controller{
                     ->where('batch_no', $batch_no)
                     ->where('sister_concern_id', $request->sister_concern_id)
                     ->first();
-                
+
                 if (!$inventory || $request->quantity[$key] > $inventory->quantity) {
                     $available = false;
                     $message = 'Insufficient stock for ' . (Product::find($productId)->name ?? 'Item');
@@ -209,14 +223,14 @@ class OrderController extends Controller{
             }
             SaleOrderItem::where('sale_order_id', $order->id)->delete();
             InventoryLog::where('sale_order_id', $order->id)->delete();
-            
+
             // Reverse previous accounting
             Voucher::where('sale_order_id', $order->id)->delete();
             Transaction::where('sale_order_id', $order->id)->delete();
             SalePayment::where('sale_order_id', $order->id)->delete();
 
             $totalDiscount = array_sum($request->discount_amt ?? []);
-            
+
             $order->sister_concern_id = $request->sister_concern_id;
             $order->customer_id = $request->customer;
             $order->type = $request->type;
@@ -229,7 +243,7 @@ class OrderController extends Controller{
             $order->note = $request->notes;
             $order->user_id = Auth::id();
             $order->status = 1; // Processing
-            
+
             $subTotal = 0;
             $costingTotal = 0;
 
@@ -257,9 +271,9 @@ class OrderController extends Controller{
 
                     $costingTotal += $inventory->unit_price * $request->quantity[$key];
                     $subTotal += $request->quantity[$key] * $request->unit_price[$key];
-                    
+
                     $inventory->decrement('quantity', $request->quantity[$key]);
-                    
+
                     // Inventory Log
                     $this->inventoryLog($order, $inventory, $request->quantity[$key], $request->unit_price[$key], $inventory->product_code);
                 }
@@ -437,7 +451,7 @@ private function createAccountingEntries($saleOrder, $costingTotal, $request)
         DB::beginTransaction();
         try {
             $order = SaleOrder::find($request->status_order);
-            
+
             if($request->status == '4'){
                 if($order->status > 0){
                     return response()->json(['success' => false, 'message' => "You can't cancel this Order! Only pending orders can be cancelled."]);
@@ -449,7 +463,7 @@ private function createAccountingEntries($saleOrder, $costingTotal, $request)
             if($order->status == $request->status){
                 return response()->json(['success' => false, 'message' => "Order is already in this status!"]);
             }
-            
+
             if ($order->packageCheckout && ($order->packageCheckout->status !== 'Confirmed' || !in_array((int)$request->status, [2,3], true))) { DB::rollBack(); return response()->json(['success'=>false,'message'=>'Use the Package Orders workflow.']); }
             $order->status = $request->status;
             if($request->status == '4') $order->note = $request->note;
@@ -503,7 +517,7 @@ private function createAccountingEntries($saleOrder, $costingTotal, $request)
 
         $order = SaleOrder::find($request->order_id);
         $totalPayment = (float)($request->amount ?? 0) + (float)($request->amount_two ?? 0) + (float)($request->amount_three ?? 0);
-        
+
         if ($totalPayment > $order->due) {
             return response()->json(['success' => false, 'message' => 'Total payment amount is greater than due amount!']);
         }
@@ -514,7 +528,7 @@ private function createAccountingEntries($saleOrder, $costingTotal, $request)
         DB::beginTransaction();
         try {
             $payeeId = $this->getPayeeId($order);
-            
+
             $payments = [];
             if ($request->payment_type && $request->amount > 0) {
                 $head = null;
@@ -605,7 +619,7 @@ private function createAccountingEntries($saleOrder, $costingTotal, $request)
             'shipping.city' => 'required|string',
             'shipping.zip' => 'required|string',
         ];
-        
+
         $request->validate($rules, [
             'billing.phone.regex' => 'The mobile number must start with 01 and be 11 digits long.',
             'recaptchaToken.required' => 'Please complete the reCAPTCHA.',
@@ -615,7 +629,7 @@ private function createAccountingEntries($saleOrder, $costingTotal, $request)
         try {
             $request['sister_concern_id'] = 1;
             $checkCustomer = Supplier::where('mobile_no', $request->billing['phone'])->first();
-            
+
             if($checkCustomer){
                 $userId = User::where('customer_id', $checkCustomer->id)->first()->id ?? null;
                 if(!$userId){
@@ -655,7 +669,7 @@ private function createAccountingEntries($saleOrder, $costingTotal, $request)
             $lastSaleOrder = SaleOrder::where('sister_concern_id', $request->sister_concern_id)->where('type', SaleType::$ECOMMERCE)->latest('id')->first();
             $nextCodeNumber = !empty($lastSaleOrder) ? intval(substr($lastSaleOrder->order_no, 7)) + 1 : 1;
             $newCodeOrder = 'ECOMSO-' . str_pad($nextCodeNumber, 10, '0', STR_PAD_LEFT);
-            
+
             $order = new SaleOrder();
             $order->order_no = $newCodeOrder;
             $order->sister_concern_id = $request->sister_concern_id;
@@ -736,9 +750,9 @@ private function createAccountingEntries($saleOrder, $costingTotal, $request)
                 'message' => 'Order placed successfully!',
                 'order_id' => $order->id,
                 'order_number' => $order->order_no,
-                'redirect' => route('bkash-create', ['order_id' => $order->id, 'type' => 'Ecom']) 
+                'redirect' => route('bkash-create', ['order_id' => $order->id, 'type' => 'Ecom'])
             ]);
-        } catch (\Exception $e) { 
+        } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([
                 'success' => false,

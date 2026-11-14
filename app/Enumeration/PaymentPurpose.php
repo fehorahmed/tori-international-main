@@ -40,6 +40,10 @@ class PaymentPurpose
 
     public static $MEMBERSHIP_TRANSFER = 28;
     public static $MEMBERSHIP_TRANSFER_CHARGE = 29;
+    public static $MEMBERSHIP_REGISTRATION_FEE = 30;
+    public static $MEMBERSHIP_ORDER_PAYMENT = 31;
+    public static $MEMBERSHIP_ORDER_REFUND = 32;
+    public static $ECOMMERCE_ORDER_CANCELLATION = 33;
 
     public static function names()
     {
@@ -74,6 +78,10 @@ class PaymentPurpose
             self::$SUPPLIER_RECEIPT => 'Supplier Receipt',
             self::$MEMBERSHIP_TRANSFER => 'Membership Send Money',
             self::$MEMBERSHIP_TRANSFER_CHARGE => 'Membership Send Money Charge',
+            self::$MEMBERSHIP_REGISTRATION_FEE => 'Membership Registration Fee',
+            self::$MEMBERSHIP_ORDER_PAYMENT => 'Ecommerce Account Payment',
+            self::$MEMBERSHIP_ORDER_REFUND => 'Ecommerce Account Refund',
+            self::$ECOMMERCE_ORDER_CANCELLATION => 'Ecommerce Order Cancellation',
             self::$MEMBERSHIP_CASHOUT => 'Membership Cash-out',
             self::$MEMBERSHIP_CASHOUT_CHARGE => 'Membership Cash-out Charge',
             

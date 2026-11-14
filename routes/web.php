@@ -32,7 +32,7 @@ Route::prefix('admin')->group(function () {
     // Route::get('/', function () {
     //     return redirect()->route('login');
     // });
-    
+
     Route::get('/', function () {
         $userAgent = request()->userAgent();
         $isWebView = Str::contains($userAgent, ['TORI_INTERNATIONAL_APP']);
@@ -91,6 +91,10 @@ Route::get('/clear', function () {
     Artisan::call('config:cache');
     Artisan::call('view:clear');
     return "Cleared!";
+});
+Route::get('/migrate', function () {
+    Artisan::call('migrate');
+    return "Migrated!";
 });
 
 Route::get('/firebase-messaging-sw.js', [CommonController::class, 'firebaseMessagingSw'])->name('firebase-messaging-sw.js');
