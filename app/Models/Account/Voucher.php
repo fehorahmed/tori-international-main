@@ -71,7 +71,7 @@ class Voucher extends Model
 
     public function is_locked()
     {
-        if ($this->isMembershipCashout() || $this->isMembershipTransfer() || $this->isMembershipRegistrationFee()) return true;
+        if ($this->isReferralReward() || $this->isMembershipCashout() || $this->isMembershipTransfer() || $this->isMembershipRegistrationFee()) return true;
         return 
             !empty($this->sale_order_id) || 
             !empty($this->purchase_order_id) || 
@@ -85,6 +85,11 @@ class Voucher extends Model
             $this->purchaseReturn()->exists() ||
             $this->shomriddhiTransaction()->exists() ||
             $this->employeeAdvance()->exists();
+    }
+
+    public function isReferralReward(): bool
+    {
+        return in_array((int) $this->payment_purpose, [34, 35, 36, 37], true);
     }
 
     public function isPackageSale(): bool

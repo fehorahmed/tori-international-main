@@ -76,6 +76,7 @@ class RegistrationFeeService
             DB::table('membership_registration_fees')->where('id', $fee->id)->update([
                 'voucher_id' => $voucher->id, 'paid_at' => now(), 'updated_at' => now(),
             ]);
+            ReferralRewardService::award($account->customer_id, $fee->id, $branch->id, $actor);
         }, 3);
     }
 }

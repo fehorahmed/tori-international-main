@@ -213,6 +213,9 @@ class ShomriddhiAdvanceService
      */
     public function deleteTransaction(ShomriddhiTransaction $advance): array
     {
+        if ($advance->voucher_id && Voucher::find($advance->voucher_id)?->isReferralReward()) {
+            return ['success' => false, 'message' => 'Referral redemptions cannot be deleted through ordinary withdrawals.'];
+        }
         if ($advance->voucher_id && Voucher::find($advance->voucher_id)?->isPackageSale()) {
             return ['success' => false, 'message' => 'Ecommerce payments and refunds cannot be deleted through ordinary withdrawals.'];
         }

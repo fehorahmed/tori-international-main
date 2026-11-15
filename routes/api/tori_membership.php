@@ -42,6 +42,10 @@ Route::prefix('v1')->group(function () {
             Route::post('toggle-biometric', [\App\Http\Controllers\API\Membership\AuthController::class, 'toggleBiometric']);
         });
 
+        Route::post('referrals/milestones/collect', [\App\Http\Controllers\API\Membership\ReferralController::class, 'collectMilestones'])->middleware('throttle:6,1');
+        Route::get('referrals', [\App\Http\Controllers\API\Membership\ReferralController::class, 'index']);
+        Route::post('referrals/redeem', [\App\Http\Controllers\API\Membership\ReferralController::class, 'redeem'])->middleware('throttle:6,1');
+
         // Dashboard & Profile
         Route::get('dashboard', [\App\Http\Controllers\API\Membership\DashboardController::class, 'index']);
         Route::get('profile', [\App\Http\Controllers\API\Membership\ProfileController::class, 'getProfile']);

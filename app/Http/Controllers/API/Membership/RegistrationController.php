@@ -161,6 +161,7 @@ class RegistrationController extends Controller
                 'type' => 'Customer', 'origin_sister_concern_id' => $branch->id,
                 'member_no' => generatePartyMemberNo($branch->id, 'Customer'), 'status' => 1,
                 'password' => $row->website_password, 'pin' => Hash::make($r->pin)]);
+            \App\Services\Membership\RegistrationSavingsService::ensure($customer);
             $proof = Str::random(64);
             if ($row->referrer_id) {
                 DB::table('membership_referrals')->insert(['customer_id' => $customer->id,

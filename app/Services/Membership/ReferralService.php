@@ -8,6 +8,18 @@ use Illuminate\Validation\ValidationException;
 
 class ReferralService
 {
+    public static function forCustomer(int $customerId): ?array
+    {
+        $referral = \Illuminate\Support\Facades\DB::table('membership_referrals')->where('customer_id', $customerId)->first();
+        if (! $referral) return null;
+        $referrer = match ($referral->referrer_type) {
+            'member' => Supplier::withTrashed()->find($referral->referrer_id),
+            'agent' => User::withTrashed()->find($referral->referrer_id),
+            default => null,
+        };
+        return ['type' => $referral->referrer_type, 'name' => $referrer?->name, 'code' => $referral->referral_code];
+    }
+
     public static function resolve(string $type, string $code): int
     {
         $query = $type === 'member'

@@ -59,3 +59,7 @@ Checkout snapshots gross unit prices, general/member/combined per-line discount 
 Migration: `2026_11_14_160000_add_membership_discount_settings`. Cart summary exposes `membership_discount.enabled`, `.minimum_balance` and `.eligible` for the eligibility message. Existing historical order snapshots remain unchanged; missing line discount fields are displayed as zero.
 
 Migration `2026_11_14_170000_add_member_discount_to_products` adds `member_discount_percent` default 0 without changing existing general prices, discount values, settings or historical orders. The balance threshold setting applies only to this separate member discount; disabling it leaves all general product/package discounts intact.
+
+## Referral rewards
+
+Referral Bonus & Commission now has its own section. See [referral rewards](./referral-rewards.md) for keys, point conversion, agent accrual/payment and setup. The award remains disabled until an admin configures points and accounting ledgers and enables it. Defaults: 0 member points per referral, Tk 30 per point and Tk 30 agent bonus. Settings changes do not award already collected historical fees.

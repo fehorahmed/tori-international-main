@@ -17,6 +17,14 @@ class MembershipTransactionSetting extends Model
         return [
             'membership.registration_fee' => '0.00', 'membership.account_hold_amount' => '0.00',
             'membership.income_head_id' => null,
+            'referral_milestones.enabled' => true, 'referral_milestones.tiers' => [
+                ['id' => 'bc276331-ae45-43e8-8230-000000000001', 'threshold' => 100, 'percentage' => '25.00', 'enabled' => true],
+                ['id' => 'bc276331-ae45-43e8-8230-000000000002', 'threshold' => 200, 'percentage' => '50.00', 'enabled' => true],
+                ['id' => 'bc276331-ae45-43e8-8230-000000000003', 'threshold' => 300, 'percentage' => '100.00', 'enabled' => true],
+            ],
+            'referral.enabled' => false, 'referral.member_points' => 0, 'referral.point_value' => '30.00',
+            'referral.agent_bonus' => '30.00', 'referral.expense_head_id' => null,
+            'referral.payable_head_id' => null, 'referral.posting_user_id' => null,
             'membership_discount.enabled' => true, 'membership_discount.minimum_balance' => '1000.00',
             'cashout.enabled' => false, 'cashout.minimum_amount' => '1.00', 'cashout.maximum_amount' => '0.00',
             'cashout.charge_type' => 'fixed', 'cashout.charge_rate' => '0.00',
@@ -61,9 +69,9 @@ class MembershipTransactionSetting extends Model
                 }
                 if ($field === 'enabled') {
                     $value = (bool) $value;
-                } elseif (in_array($field, ['minimum_amount', 'maximum_amount', 'minimum_balance', 'charge_rate', 'registration_fee', 'account_hold_amount'], true)) {
+                } elseif (in_array($field, ['minimum_amount', 'maximum_amount', 'minimum_balance', 'charge_rate', 'registration_fee', 'account_hold_amount', 'point_value', 'agent_bonus'], true)) {
                     $value = number_format((float) $value, 2, '.', '');
-                } elseif (in_array($field, ['hold_minutes', 'income_head_id', 'posting_user_id'], true)) {
+                } elseif (in_array($field, ['hold_minutes', 'income_head_id', 'posting_user_id', 'expense_head_id', 'payable_head_id', 'member_points'], true)) {
                     $value = $value === null || $value === '' ? null : (int) $value;
                 }
                 static::updateOrCreate(['key' => $key], ['value' => $value]);

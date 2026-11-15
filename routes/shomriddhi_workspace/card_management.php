@@ -10,8 +10,11 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('card-management')->name('card-management.')->group(function () {
     Route::prefix('transaction-settings')->name('transaction-settings.')->controller(\App\Http\Controllers\CardManagement\TransactionSettingController::class)->group(function () {
         Route::get('/', 'index')->name('index');
-        Route::post('{group}', 'update')->whereIn('group', ['cashout', 'transfer', 'membership', 'membership_discount'])->name('update');
+        Route::post('{group}', 'update')->whereIn('group', ['cashout', 'transfer', 'membership', 'membership_discount', 'referral', 'referral_milestones'])->name('update');
     });
+
+    Route::get('referrals', [\App\Http\Controllers\CardManagement\ReferralController::class, 'index'])->name('referrals.index');
+    Route::post('referrals/{reward}/pay', [\App\Http\Controllers\CardManagement\ReferralController::class, 'pay'])->whereNumber('reward')->name('referrals.pay');
 
     Route::prefix('transfers')->name('transfers.')->controller(\App\Http\Controllers\CardManagement\TransferController::class)->group(function () {
         Route::get('/', 'index')->name('index');

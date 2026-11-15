@@ -21,6 +21,27 @@ class MembershipProfileTest extends TestCase
 
     private Supplier $customer;
 
+    public function test_profile_shows_own_member_id_and_typed_referrer_without_private_fields(): void
+    {
+        \Illuminate\Support\Facades\DB::table('membership_referrals')->where('customer_id', $this->customer->id)->delete();
+        $this->getJson('/api/membership/v1/profile')->assertOk()->assertJsonPath('data.referred_by', null);
+        $member = Supplier::create(['name' => 'Referring Member', 'type' => 'Customer', 'status' => 1, 'member_no' => 'REF-PROFILE-'.uniqid()]);
+        $agent = User::firstOrFail();
+        foreach (['member' => $member, 'agent' => $agent] as $type => $referrer) {
+            $code = $type === 'member' ? $member->member_no : $agent->username;
+            \Illuminate\Support\Facades\DB::table('membership_referrals')->updateOrInsert(['customer_id' => $this->customer->id], [
+                'referrer_type' => $type, 'referrer_id' => $referrer->id, 'referral_code' => $code,
+                'created_at' => now(), 'updated_at' => now(),
+            ]);
+            $response = $this->getJson('/api/membership/v1/profile')->assertOk()
+                ->assertJsonPath('data.member_no', $this->customer->member_no)
+                ->assertJsonPath('data.referred_by.type', $type)
+                ->assertJsonPath('data.referred_by.name', $referrer->name)
+                ->assertJsonPath('data.referred_by.code', $code);
+            $this->assertEqualsCanonicalizing(['type', 'name', 'code'], array_keys($response->json('data.referred_by')));
+        }
+    }
+
     protected function setUp(): void
     {
         parent::setUp();

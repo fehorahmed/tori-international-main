@@ -45,9 +45,18 @@ class PaymentPurpose
     public static $MEMBERSHIP_ORDER_REFUND = 32;
     public static $ECOMMERCE_ORDER_CANCELLATION = 33;
 
+    public static $REFERRAL_COMMISSION = 34;
+    public static $REFERRAL_REDEMPTION = 35;
+    public static $REFERRAL_PAYMENT = 36;
+    public static $REFERRAL_MILESTONE_BONUS = 37;
+
     public static function names()
     {
         return [
+            self::$REFERRAL_COMMISSION => 'Agent Referral Commission',
+            self::$REFERRAL_REDEMPTION => 'Referral Points Redemption',
+            self::$REFERRAL_MILESTONE_BONUS => 'Referral Milestone Bonus',
+            self::$REFERRAL_PAYMENT => 'Agent Referral Payment',
             self::$ORDER_DUE_COLLECTION => 'Sales Due Collection',
             self::$OPENING_DUE_COLLECTION => 'Sales Opening Due Collection',
             self::$ADVANCE_COLLECTION => 'Sales Advance Collection',

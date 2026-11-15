@@ -65,6 +65,7 @@ class MembershipTransferTest extends TestCase
     {
         parent::setUp();
         config(['cache.default' => 'array']);
+        MembershipTransactionSetting::writeGroup('referral_milestones', ['enabled' => false]);
         MembershipTransactionSetting::writeGroup('membership', ['account_hold_amount' => '0.00', 'registration_fee' => '0.00']);
         $this->branch = SisterConcern::where('status', 1)->firstOrFail();
         $this->customer = Supplier::create(['type' => 'Customer', 'name' => 'Cashout rollback test',
@@ -170,6 +171,54 @@ class MembershipTransferTest extends TestCase
         $this->assertSame('100.00', $this->recipientAccount->fresh()->principal_balance);
         $this->assertNotNull(DB::table('membership_registration_fees')->where('customer_id', $this->recipient->id)->value('paid_at'));
         $this->assertFalse(app(ShomriddhiAdvanceService::class)->approve($deposit->fresh(), $this->cash->id)['success']);
+    }
+
+    public function test_new_app_member_can_receive_transfer_after_zero_balance_savings_provisioning(): void
+    {
+        $this->newFeePayingRecipient();
+        // Reproduce app registration's previous missing account; preserve its empty savings head.
+        $this->recipientAccount->forceDelete();
+        $this->recipientAccount = \App\Services\Membership\RegistrationSavingsService::ensure($this->recipient);
+        $this->assertSame('0.00', $this->recipientAccount->principal_balance);
+        $q = $this->transferQuote('300.00');
+        $this->transfer->send($this->customer, $q['quote'], '763921', (string) Str::uuid());
+        $this->assertSame('100.00', $this->recipientAccount->fresh()->principal_balance);
+        $this->assertNotNull(DB::table('membership_registration_fees')->where('customer_id', $this->recipient->id)->value('paid_at'));
+        $this->assertSame(10000, CashoutService::minor($this->recipientHead->getCurrentBalance($this->branch->id)));
+    }
+
+    public function test_incoming_transfer_awards_referral_points_once_after_fee_collection(): void
+    {
+        $this->newFeePayingRecipient();
+        MembershipTransactionSetting::writeGroup('referral', ['enabled' => true, 'member_points' => 3]);
+        DB::table('membership_referrals')->insert(['customer_id' => $this->recipient->id, 'referrer_type' => 'member',
+            'referrer_id' => $this->customer->id, 'referral_code' => 'TRANSFER-REFERRER', 'created_at' => now(), 'updated_at' => now()]);
+        $q = $this->transferQuote('300.00');
+        $key = (string) Str::uuid();
+        $this->transfer->send($this->customer, $q['quote'], '763921', $key);
+        $this->assertSame(3, \App\Services\Membership\ReferralRewardService::points($this->customer->id));
+        $this->transfer->send($this->customer, $q['quote'], '763921', $key);
+        $this->assertSame(3, \App\Services\Membership\ReferralRewardService::points($this->customer->id));
+        $this->assertSame('100.00', $this->recipientAccount->fresh()->principal_balance);
+    }
+
+    public function test_approved_deposit_accrues_agent_referral_commission_after_fee(): void
+    {
+        $this->newFeePayingRecipient();
+        $expense = $this->fixtureHead('Referral expense', 'Debit', 25);
+        $payable = $this->fixtureHead('Referral payable', 'Credit', 16);
+        MembershipTransactionSetting::writeGroup('referral', ['enabled' => true, 'agent_bonus' => '30.00', 'expense_head_id' => $expense->id, 'payable_head_id' => $payable->id]);
+        DB::table('membership_referrals')->insert(['customer_id' => $this->recipient->id, 'referrer_type' => 'agent',
+            'referrer_id' => $this->operator->id, 'referral_code' => 'DEPOSIT-AGENT', 'created_at' => now(), 'updated_at' => now()]);
+        $deposit = ShomriddhiTransaction::create(['customer_id' => $this->recipient->id, 'type' => 'deposit',
+            'amount' => '300.00', 'date' => now()->toDateString(), 'status' => 'Pending', 'created_by' => $this->operator->id]);
+        $result = app(ShomriddhiAdvanceService::class)->approve($deposit, $this->cash->id);
+        $this->assertTrue($result['success'], $result['message']);
+        $reward = DB::table('membership_referral_rewards')->where('referrer_type', 'agent')->where('referrer_id', $this->operator->id)->latest('id')->first();
+        $this->assertSame('30.00', $reward->amount);
+        $this->assertNull($reward->paid_at);
+        $this->assertSame(3000, CashoutService::minor($payable->getCurrentBalance($this->branch->id)));
+        $this->assertSame('100.00', $this->recipientAccount->fresh()->principal_balance);
     }
 
     public function test_fee_ledger_failure_rolls_back_incoming_transfer_and_keeps_fee_unpaid(): void

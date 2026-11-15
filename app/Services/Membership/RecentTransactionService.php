@@ -16,6 +16,7 @@ class RecentTransactionService
         $ids = $logs->pluck('voucher_id')->filter()->unique();
         $registrationFees = \Illuminate\Support\Facades\DB::table('membership_registration_fees')->where('customer_id', $customer->id)
             ->whereNotNull('paid_at')->get()->keyBy('voucher_id');
+        $redemptions = \App\Models\Account\Voucher::whereIn('id', $ids)->whereIn('payment_purpose', [ReferralRewardService::REDEMPTION, MilestoneBonusService::PURPOSE])->get()->keyBy('id');
         $orderVouchers = \App\Models\Account\Voucher::whereIn('id', $ids)->whereIn('payment_purpose', [OrderPaymentService::PAYMENT, OrderPaymentService::REFUND])->get()->keyBy('id');
         $transfers = MembershipTransfer::with(['sender', 'recipient'])->where(fn ($q) => $q->where('sender_id', $customer->id)->orWhere('recipient_id', $customer->id))->where(function ($q) use ($ids) {
             $q->whereIn('voucher_id', $ids)->orWhereIn('recipient_voucher_id', $ids)->orWhereIn('fee_voucher_id', $ids);
@@ -51,7 +52,14 @@ class RecentTransactionService
             $en = $credit ? 'Savings deposit' : 'Savings withdrawal';
             $bn = $credit ? 'সঞ্চয় জমা' : 'সঞ্চয় উত্তোলন';
             $at = $log->date;
-            if ($orderPayment = $orderVouchers[$log->voucher_id] ?? null) {
+            if ($redemption = $redemptions[$log->voucher_id] ?? null) {
+                $en = $redemption->payment_purpose == MilestoneBonusService::PURPOSE ? 'Referral milestone bonus' : 'Referral points redeemed';
+                $bn = $redemption->payment_purpose == MilestoneBonusService::PURPOSE ? 'রেফারেল মাইলস্টোন বোনাস' : 'রেফারেল পয়েন্ট রিডিম';
+                $category = 'Referral bonus';
+                $categoryBn = 'রেফারেল বোনাস';
+                $reference = $redemption->voucher_no;
+                $at = $log->created_at;
+            } elseif ($orderPayment = $orderVouchers[$log->voucher_id] ?? null) {
                 $en = $credit ? 'Ecommerce payment refund' : 'Ecommerce order payment';
                 $bn = $credit ? 'ইকমার্স পেমেন্ট ফেরত' : 'ইকমার্স অর্ডার পেমেন্ট';
                 $category = 'Ecommerce';

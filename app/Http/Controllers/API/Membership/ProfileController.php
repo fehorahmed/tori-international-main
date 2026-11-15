@@ -26,6 +26,7 @@ class ProfileController extends Controller
                 'id' => $customer->id,
                 'name' => $customer->name,
                 'member_no' => $customer->member_no,
+                'referred_by' => \App\Services\Membership\ReferralService::forCustomer($customer->id),
                 'mobile_no' => $customer->mobile_no,
                 'email' => $customer->email,
                 'image' => $kyc ? url("/api/membership/v1/kyc/{$kyc->id}/documents/selfie")

@@ -64,7 +64,7 @@ class DashboardController extends Controller
                 'customer' => [
                     'id' => $customer->id,
                     'name' => $customer->name,
-                    'member_no' => $customer->member_no ?: 'CUST-' . str_pad($customer->id, 5, '0', STR_PAD_LEFT),
+                    'member_no' => $customer->member_no,
                     'mobile_no' => $customer->mobile_no,
                     'email' => $customer->email,
                     'image' => $customer->image ? asset($customer->image) : null,

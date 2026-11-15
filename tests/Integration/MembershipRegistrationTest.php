@@ -70,6 +70,21 @@ class MembershipRegistrationTest extends TestCase
             'terms_accepted' => true, 'device_id' => 'registration-test-device', 'device_name' => 'TORI test', 'platform' => 'android'];
     }
 
+    public function test_savings_provisioning_never_reopens_closed_accounts_or_creates_duplicates(): void
+    {
+        $response = $this->postJson('/api/membership/v1/auth/register/complete', $this->verified())->assertCreated();
+        $customer = Supplier::findOrFail($response->json('data.customer.id'));
+        $account = $customer->shomriddhiAccount;
+        $account->update(['status' => 'Closed']);
+        try {
+            \App\Services\Membership\RegistrationSavingsService::ensure($customer);
+            $this->fail('A closed account must require manual branch review.');
+        } catch (\Illuminate\Validation\ValidationException) {
+            $this->assertSame('Closed', $account->fresh()->status);
+            $this->assertSame(1, $customer->shomriddhiAccount()->count());
+        }
+    }
+
     private function registrationSession(): array
     {
         $token = $this->postJson('/api/membership/v1/auth/register/initiate', $this->input)->assertOk()->json('data.registration_token');
@@ -97,7 +112,14 @@ class MembershipRegistrationTest extends TestCase
         $this->assertTrue(Hash::check($this->input['password'], $customer->password));
         $this->assertTrue(Hash::check('067891', $customer->pin));
         $this->assertNotEmpty($customer->member_no);
-        $this->assertFalse($customer->shomriddhiAccount()->exists());
+        $this->assertTrue($customer->shomriddhiAccount()->exists());
+        $account = $customer->shomriddhiAccount;
+        $this->assertSame('0.00', $account->principal_balance);
+        $this->assertSame('Active', $account->status);
+        $this->assertNotEmpty($account->account_number);
+        $this->assertSame(1, \App\Models\Account\AccountHead::where('supplier_id', $customer->id)->where('head_type', 'savings')->where('nature', 'Credit')->where('status', 1)->count());
+        $this->assertSame($account->id, \App\Services\Membership\RegistrationSavingsService::ensure($customer)->id);
+        $this->assertSame(1, $customer->shomriddhiAccount()->count());
         $this->assertFalse($customer->cards()->exists());
         $this->assertDatabaseMissing('membership_referrals', ['customer_id' => $customer->id]);
         $this->assertDatabaseHas('membership_registration_requests', ['customer_id' => $customer->id, 'website_password' => '', 'verification_hash' => null]);
