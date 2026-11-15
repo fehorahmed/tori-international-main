@@ -361,4 +361,13 @@ class MembershipReferralRewardTest extends TestCase
         $this->assertSame('750.00', $this->account->fresh()->principal_balance);
     }
 
+    public function test_dashboard_shows_current_unredeemed_referral_points(): void
+    {
+        $this->collect($this->referred());
+        Sanctum::actingAs($this->member);
+        $this->getJson('/api/membership/v1/dashboard')->assertOk()->assertJsonPath('data.summary.referral_points', 2);
+        Rewards::redeem($this->member, 1, '30.00', '763921', (string) Str::uuid());
+        $this->getJson('/api/membership/v1/dashboard')->assertOk()->assertJsonPath('data.summary.referral_points', 1);
+    }
+
 }

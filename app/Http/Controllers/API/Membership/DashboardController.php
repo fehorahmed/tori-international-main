@@ -71,6 +71,7 @@ class DashboardController extends Controller
                     'is_verified' => true,
                 ],
                 'summary' => [
+                    'referral_points' => \App\Services\Membership\ReferralRewardService::points($customer->id),
                     'savings_balance' => (float) $savingsBalance,
                     'available_savings_balance' => $savingsAccount ? \App\Services\Membership\CashoutService::available($savingsAccount) / 100 : 0,
                     'minimum_savings_balance' => \App\Services\Membership\CashoutService::minimumBalance() / 100,
