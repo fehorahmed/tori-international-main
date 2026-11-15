@@ -45,6 +45,7 @@ class ProductPackageTest extends TestCase
         parent::setUp();
         config(['cache.default' => 'array']);
         \App\Models\MembershipTransactionSetting::writeGroup('membership', ['registration_fee' => '0.00', 'account_hold_amount' => '100.00']);
+        \App\Models\MembershipTransactionSetting::writeGroup('membership_discount', ['enabled' => true, 'minimum_balance' => '1000.00']);
         $this->warehouse = Warehouse::where('status', 1)->whereHas('sisterConcern', fn ($q) => $q->where('status', 1))->firstOrFail();
         $this->operator = User::firstOrFail();
         $this->operator->givePermissionTo(['ecommerce_product', 'ecommerce_product_create', 'ecommerce_product_edit', 'ecommerce_order', 'ecommerce_order_confirm', 'ecommerce_order_confirm']);
@@ -227,6 +228,154 @@ class ProductPackageTest extends TestCase
         $rows = collect($response->getData(true)['data'])->keyBy('id');
         $this->assertSame('Cash on Delivery', $rows[$cod->sale_order_id]['paid_by']);
         $this->assertSame('Membership Account', $rows[$paid->sale_order_id]['paid_by']);
+    }
+
+    public function test_discount_uses_pre_payment_balance_and_snapshot_survives_lower_balance_and_settings_changes(): void
+    {
+        $account = $this->fundedSavings();
+        $this->a->update(['old_selling_price' => '100.00', 'selling_price' => '100.00', 'discount' => '0.00', 'discount_percent' => 0, 'member_discount_percent' => 20]);
+        $data = array_replace($this->data(), ['payment_method' => 'membership', 'expected_total' => '130.00', 'items' => [['product_id' => $this->a->id, 'quantity' => 1]]]);
+        $service = app(PackageOrderService::class);
+        $checkout = $service->checkout($this->customer, $data);
+        $this->assertEquals(100, $checkout->saleOrder->sub_total);
+        $this->assertEquals(20, $checkout->saleOrder->discount);
+        $this->assertEquals(130, $checkout->saleOrder->paid);
+        $this->assertSame('870.00', $account->fresh()->principal_balance);
+        $this->assertSame('80.00', $checkout->lines[0]['line_total']);
+        $this->assertTrue($checkout->lines[0]['membership_discount_eligible']);
+        $this->assertSame($checkout->id, $service->checkout($this->customer, $data)->id);
+        \App\Models\MembershipTransactionSetting::writeGroup('membership_discount', ['minimum_balance' => '5000.00', 'enabled' => false]);
+        $this->a->update(['selling_price' => '90.00']);
+        $service->confirm($checkout, $this->operator);
+        $this->assertSame('80.00', $checkout->fresh()->lines[0]['line_total']);
+        $this->assertEquals(80, SaleOrderItem::where('sale_order_id', $checkout->sale_order_id)->sum('selling_price'));
+        $service->cancel($checkout, $this->operator);
+        $this->assertSame('1000.00', $account->fresh()->principal_balance);
+    }
+
+    public function test_cart_reprices_existing_product_and_package_discounts_at_dynamic_balance_boundary(): void
+    {
+        $account = $this->fundedSavings();
+        $this->a->update(['old_selling_price' => '100.00', 'selling_price' => '80.00', 'discount' => '20.00', 'discount_percent' => 20, 'member_discount_percent' => 30]);
+        $this->package->update(['old_selling_price' => '225.01', 'selling_price' => '200.00', 'discount' => '25.01', 'discount_percent' => 11.12, 'member_discount_percent' => 20]);
+        $this->actingAs($this->customer, 'customer');
+        $cart = app(CartService::class);
+        $cart->add($this->a->id, 1, 99999);
+        $cart->add($this->package->id, 1, 99999);
+        $this->assertEquals(325.01, $cart->subtotal());
+        $this->assertEquals(75.00, $cart->productDiscount());
+        $this->assertEquals(250.01, $cart->total());
+        $account->update(['principal_balance' => '999.99']);
+        $this->assertEquals(45.01, $cart->productDiscount());
+        $this->assertEquals(280, $cart->total());
+        \App\Models\MembershipTransactionSetting::writeGroup('membership_discount', ['minimum_balance' => '999.99']);
+        $this->assertEquals(75.00, $cart->productDiscount());
+        \App\Models\MembershipTransactionSetting::writeGroup('membership_discount', ['enabled' => false]);
+        $this->assertEquals(45.01, $cart->productDiscount());
+    }
+
+    public function test_catalog_prices_are_regular_for_guests_and_discounted_for_eligible_members(): void
+    {
+        $this->fundedSavings();
+        $this->a->update(['old_selling_price' => '100.00', 'selling_price' => '80.00', 'discount' => '20.00', 'discount_percent' => 20, 'member_discount_percent' => 30]);
+        $this->getJson('/api/get-product-details-data/'.$this->a->slug)->assertOk()->assertJsonPath('product.selling_price', '80.00')->assertJsonPath('product.discount_percent', 20);
+        $this->actingAs($this->customer, 'customer')->getJson('/api/get-product-details-data/'.$this->a->slug)->assertOk()->assertJsonPath('product.selling_price', '70.00');
+    }
+
+    public function test_balance_drop_after_cart_review_requires_a_new_total_without_charging(): void
+    {
+        $account = $this->fundedSavings();
+        $this->a->update(['old_selling_price' => '100.00', 'selling_price' => '80.00', 'discount' => '20.00', 'discount_percent' => 20, 'member_discount_percent' => 30]);
+        $account->update(['principal_balance' => '999.99']);
+        $data = array_replace($this->data(), ['payment_method' => 'membership', 'expected_total' => '120.00', 'items' => [['product_id' => $this->a->id, 'quantity' => 1]]]);
+        $this->actingAs($this->customer, 'customer')->postJson('/api/order', $data)->assertUnprocessable();
+        $this->assertSame('999.99', $account->fresh()->principal_balance);
+        $this->assertSame(0, \Illuminate\Support\Facades\DB::table('membership_order_payments')->where('customer_id', $this->customer->id)->count());
+    }
+
+    public function test_cod_without_an_eligible_account_gets_regular_price_even_with_forged_discount(): void
+    {
+        $this->a->update(['old_selling_price' => '100.00', 'selling_price' => '80.00', 'discount' => '20.00', 'discount_percent' => 20, 'member_discount_percent' => 30]);
+        $data = array_replace($this->data(), ['items' => [['product_id' => $this->a->id, 'quantity' => 1, 'discount' => 99999]]]);
+        $checkout = app(PackageOrderService::class)->checkout($this->customer, $data);
+        $this->assertEquals(130, $checkout->saleOrder->total);
+        $this->assertEquals(20, $checkout->saleOrder->discount);
+        $this->actingAs($this->customer, 'customer')->postJson('/api/buy-now', $data)->assertCreated()->assertJsonPath('order.total', 130);
+    }
+
+    public function test_package_admin_preserves_existing_discount_and_can_update_it(): void
+    {
+        $data = ['name' => 'Discount package', 'category_id' => $this->package->category_id, 'unit_id' => $this->package->unit_id,
+            'package_warehouse_id' => $this->warehouse->id, 'selling_price' => '300.00', 'discount' => '10.00', 'member_discount_percent' => '15.00',
+            'status' => 1, 'is_show' => 1, 'items' => [['product_id' => $this->a->id, 'quantity' => 2], ['product_id' => $this->b->id, 'quantity' => 1]]];
+        $controller = app(\App\Http\Controllers\Ecommerce\ProductPackageController::class);
+        $controller->update(Request::create('/', 'PUT', $data), $this->package, app(ProductPackageService::class));
+        $this->assertEquals(270, $this->package->fresh()->selling_price);
+        $this->assertEquals(300, $this->package->fresh()->old_selling_price);
+        $this->assertEquals(15, $this->package->fresh()->member_discount_percent);
+        unset($data['discount'], $data['member_discount_percent']);
+        $controller->update(Request::create('/', 'PUT', $data), $this->package->fresh(), app(ProductPackageService::class));
+        $this->assertEquals(270, $this->package->fresh()->selling_price);
+        $this->assertEquals(10, $this->package->fresh()->discount_percent);
+        $this->assertEquals(15, $this->package->fresh()->member_discount_percent);
+    }
+
+    public function test_single_product_admin_saves_general_and_member_rates_independently(): void
+    {
+        $request = Request::create('/', 'POST', ['name' => $this->a->name, 'slug' => $this->a->slug,
+            'category' => $this->a->category_id, 'unit' => $this->a->unit_id, 'alert_quantity' => 1, 'selling_price' => '100.00',
+            'discount' => 20, 'member_discount_percent' => '30.00', 'sort' => 1, 'status' => 1, 'is_show' => 1,
+            'is_featured' => 0, 'is_trending' => 0, 'is_best_selling' => 0, 'is_new_arrival' => 0]);
+        app(\App\Http\Controllers\Ecommerce\EcomProductController::class)->editPost($this->a, $request);
+        $this->assertEquals(80, $this->a->fresh()->selling_price);
+        $this->assertEquals(20, $this->a->fresh()->discount_percent);
+        $this->assertEquals(30, $this->a->fresh()->member_discount_percent);
+        foreach ([10, 20] as $invalidRate) {
+            $request->merge(['member_discount_percent' => $invalidRate]);
+            try {
+                app(\App\Http\Controllers\Ecommerce\EcomProductController::class)->editPost($this->a->fresh(), $request);
+                $this->fail('Member discount must be greater than general discount or zero.');
+            } catch (ValidationException $e) {
+                $this->assertArrayHasKey('member_discount_percent', $e->errors());
+                $this->assertEquals(30, $this->a->fresh()->member_discount_percent);
+            }
+        }
+        $request->merge(['member_discount_percent' => 0]);
+        app(\App\Http\Controllers\Ecommerce\EcomProductController::class)->editPost($this->a->fresh(), $request);
+        $this->assertEquals(0, $this->a->fresh()->member_discount_percent);
+        $request->merge(['member_discount_percent' => 101]);
+        $this->expectException(ValidationException::class);
+        app(\App\Http\Controllers\Ecommerce\EcomProductController::class)->editPost($this->a->fresh(), $request);
+    }
+
+    public function test_member_discount_replaces_general_on_original_price_and_never_stacks(): void
+    {
+        $product = ['old_selling_price' => '100.00', 'selling_price' => '80.00', 'discount_percent' => 20, 'member_discount_percent' => 30];
+        $price = \App\Services\Membership\DiscountService::price($product, true);
+        $this->assertSame(7000, $price['net']);
+        $this->assertSame(0, $price['general_discount']);
+        $this->assertSame(3000, $price['member_discount']);
+        $this->assertSame(8000, \App\Services\Membership\DiscountService::price($product, false)['net']);
+        foreach ([0, 10, 20] as $rate) {
+            $product['member_discount_percent'] = $rate;
+            $fallback = \App\Services\Membership\DiscountService::price($product, true);
+            $this->assertSame(8000, $fallback['net']);
+            $this->assertSame(0, $fallback['member_discount']);
+        }
+    }
+
+    public function test_eligible_package_discount_posts_net_components_and_refunds_exact_paid_total(): void
+    {
+        $account = $this->fundedSavings();
+        $this->package->update(['old_selling_price' => '225.01', 'selling_price' => '200.00', 'discount' => '25.01', 'discount_percent' => 11.12, 'member_discount_percent' => 20]);
+        $service = app(PackageOrderService::class);
+        $checkout = $service->checkout($this->customer, array_replace($this->data(), ['payment_method' => 'membership', 'expected_total' => '230.01']));
+        $this->assertEquals(45.00, $checkout->saleOrder->discount);
+        $this->assertSame('769.99', $account->fresh()->principal_balance);
+        $service->confirm($checkout, $this->operator);
+        $this->assertEquals(180.01, SaleOrderItem::where('sale_order_id', $checkout->sale_order_id)->get()->sum(fn ($i) => $i->selling_price * $i->quantity));
+        $service->cancel($checkout, $this->operator);
+        $this->assertSame('1000.00', $account->fresh()->principal_balance);
     }
 
     public function test_product_details_returns_cart_id_and_images_for_singles_and_packages(): void

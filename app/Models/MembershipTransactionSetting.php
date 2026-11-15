@@ -17,6 +17,7 @@ class MembershipTransactionSetting extends Model
         return [
             'membership.registration_fee' => '0.00', 'membership.account_hold_amount' => '0.00',
             'membership.income_head_id' => null,
+            'membership_discount.enabled' => true, 'membership_discount.minimum_balance' => '1000.00',
             'cashout.enabled' => false, 'cashout.minimum_amount' => '1.00', 'cashout.maximum_amount' => '0.00',
             'cashout.charge_type' => 'fixed', 'cashout.charge_rate' => '0.00',
             'cashout.hold_minutes' => 10, 'cashout.income_head_id' => null,
@@ -60,7 +61,7 @@ class MembershipTransactionSetting extends Model
                 }
                 if ($field === 'enabled') {
                     $value = (bool) $value;
-                } elseif (in_array($field, ['minimum_amount', 'maximum_amount', 'charge_rate', 'registration_fee', 'account_hold_amount'], true)) {
+                } elseif (in_array($field, ['minimum_amount', 'maximum_amount', 'minimum_balance', 'charge_rate', 'registration_fee', 'account_hold_amount'], true)) {
                     $value = number_format((float) $value, 2, '.', '');
                 } elseif (in_array($field, ['hold_minutes', 'income_head_id', 'posting_user_id'], true)) {
                     $value = $value === null || $value === '' ? null : (int) $value;

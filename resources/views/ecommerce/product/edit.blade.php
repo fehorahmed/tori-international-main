@@ -171,13 +171,21 @@
                             </div>
                         </div>
                         <div class="form-group row">
-                            <label class="col-sm-2 col-form-label">Discount(%)</label>
+                            <label class="col-sm-2 col-form-label">General Discount (%)</label>
                             <div class="col-sm-10 form-group {{ $errors->has('discount') ? 'has-error' :'' }}">
                                 <input type="number" class="form-control" placeholder="Enter Discount"
                                        name="discount" value="{{ old('discount',$product->discount_percent) }}">
                                 @error('discount')
                                 <span class="help-block">{{ $message }}</span>
                                 @enderror
+                            </div>
+                        </div>
+                        <div class="form-group row">
+                            <label class="col-sm-2 col-form-label">Member Discount (%)</label>
+                            <div class="col-sm-10 form-group">
+                                <input type="number" name="member_discount_percent" class="form-control" min="0" max="99.99" step="0.01" value="{{ old('member_discount_percent',$product->member_discount_percent ?? 0) }}">
+                                <small>Calculated on the original Selling Price instead of general discount. Must be 0 or greater than general discount; requires the minimum savings balance.</small>
+                                @error('member_discount_percent')<span class="help-block">{{ $message }}</span>@enderror
                             </div>
                         </div>
                         <div class="form-group row">

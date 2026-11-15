@@ -59,10 +59,12 @@ class PackageOrderService
 
                 return $old;
             }
+            $discountEligible = \App\Services\Membership\DiscountService::eligible($customer, true);
             $products = Product::whereIn('id', array_column($input, 'product_id'))->orderBy('id')->lockForUpdate()->get()->keyBy('id');
             $warehouseId = null;
             $lines = [];
             $total = 0;
+            $gross = 0;
             foreach ($input as $item) {
                 $product = $products->get($item['product_id']);
                 if (! $product || $product->status != 1 || ! $product->is_show) {
@@ -87,12 +89,14 @@ class PackageOrderService
                 } else {
                     $parts = [['product_id' => $product->id, 'name' => $product->name, 'quantity' => 1, 'weight' => 1]];
                 }
-                $price = CashoutService::minor($product->selling_price);
+                $pricing = \App\Services\Membership\DiscountService::price($product, $discountEligible);
+                $price = $pricing['net'];
                 if ($price < 1) {
                     ProductPackageService::fail('Product price is invalid.');
                 }
-                $lines[] = ['product_id' => $product->id, 'name' => $product->name, 'code' => $product->code, 'catalog_type' => $product->catalog_type, 'quantity' => $item['quantity'], 'unit_price' => CashoutService::money($price), 'line_total' => CashoutService::money($price * $item['quantity']), 'components' => $parts];
+                $lines[] = ['product_id' => $product->id, 'name' => $product->name, 'code' => $product->code, 'catalog_type' => $product->catalog_type, 'quantity' => $item['quantity'], 'unit_price' => CashoutService::money($pricing['regular']), 'discount_total' => CashoutService::money($pricing['discount'] * $item['quantity']), 'general_discount_total' => CashoutService::money($pricing['general_discount'] * $item['quantity']), 'member_discount_total' => CashoutService::money($pricing['member_discount'] * $item['quantity']), 'member_discount_percent' => $product->member_discount_percent, 'membership_discount_eligible' => $discountEligible, 'line_total' => CashoutService::money($price * $item['quantity']), 'components' => $parts];
                 $total += $price * $item['quantity'];
+                $gross += $pricing['regular'] * $item['quantity'];
             }
             if (! $warehouseId) {
                 // Ordinary products use one active warehouse that can fulfil the full order.
@@ -137,7 +141,7 @@ class PackageOrderService
             if (! $actor) {
                 ProductPackageService::fail('No active ERP user is available for this fulfilment branch. Please contact the branch.');
             }
-            $order = SaleOrder::create(['sister_concern_id' => $branch->id, 'warehouse_id' => $warehouse->id, 'customer_id' => $customer->id, 'order_no' => ($package ? 'PKO-' : 'ESO-').Str::upper((string) Str::ulid()), 'type' => SaleType::$ECOMMERCE, 'sub_total' => CashoutService::money($total), 'discount' => 0, 'total' => CashoutService::money($total + $shipping), 'paid' => 0, 'due' => CashoutService::money($total + $shipping), 'notes' => 'Ecommerce order, pending stock confirmation', 'date' => now()->toDateString(), 'status' => 0, 'user_id' => $actor->id]);
+            $order = SaleOrder::create(['sister_concern_id' => $branch->id, 'warehouse_id' => $warehouse->id, 'customer_id' => $customer->id, 'order_no' => ($package ? 'PKO-' : 'ESO-').Str::upper((string) Str::ulid()), 'type' => SaleType::$ECOMMERCE, 'sub_total' => CashoutService::money($gross), 'discount' => CashoutService::money($gross - $total), 'total' => CashoutService::money($total + $shipping), 'paid' => 0, 'due' => CashoutService::money($total + $shipping), 'notes' => 'Ecommerce order, pending stock confirmation', 'date' => now()->toDateString(), 'status' => 0, 'user_id' => $actor->id]);
 
             $checkout = PackageOrderCheckout::create(['sale_order_id' => $order->id, 'customer_id' => $customer->id, 'warehouse_id' => $warehouse->id, 'request_key' => $data['request_key'], 'request_hash' => $hash, 'billing' => $data['billing'], 'lines' => $lines, 'shipping_charge' => CashoutService::money($shipping), 'payment_method' => $data['payment_method']]);
             if ($data['payment_method'] === 'membership') {
@@ -308,6 +312,6 @@ class PackageOrderService
     {
         $order = $checkout->saleOrder;
 
-        return ['is_package_order' => collect($checkout->lines)->contains(fn ($line) => $line['catalog_type'] === 'package'), 'is_snapshot_order' => true, 'id' => $order->id, 'order_no' => $order->order_no, 'date' => $order->date, 'status' => $order->status, 'package_status' => $checkout->status, 'billing_name' => $checkout->billing['name'], 'billing_mobile_no' => $checkout->billing['phone'], 'billing_address' => $checkout->billing['address'], 'payment_method' => $checkout->payment_method, 'shipping_charge' => $checkout->shipping_charge, 'sub_total' => $order->sub_total, 'discount' => 0, 'total' => $order->total, 'paid' => $order->paid, 'due' => $order->due, 'products' => array_map(fn ($line) => $line + ['discount_amt' => 0], $checkout->lines)];
+        return ['is_package_order' => collect($checkout->lines)->contains(fn ($line) => $line['catalog_type'] === 'package'), 'is_snapshot_order' => true, 'id' => $order->id, 'order_no' => $order->order_no, 'date' => $order->date, 'status' => $order->status, 'package_status' => $checkout->status, 'billing_name' => $checkout->billing['name'], 'billing_mobile_no' => $checkout->billing['phone'], 'billing_address' => $checkout->billing['address'], 'payment_method' => $checkout->payment_method, 'shipping_charge' => $checkout->shipping_charge, 'sub_total' => $order->sub_total, 'discount' => $order->discount, 'total' => $order->total, 'paid' => $order->paid, 'due' => $order->due, 'products' => array_map(fn ($line) => $line + ['discount_amt' => $line['discount_total'] ?? '0.00'], $checkout->lines)];
     }
 }

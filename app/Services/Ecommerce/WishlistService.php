@@ -26,14 +26,22 @@ class WishlistService
      */
     public function all()
     {
+        $eligible = \App\Services\Membership\DiscountService::eligible(Auth::guard('customer')->user());
         if (Auth::guard('customer')->check()) {
-            return Wishlist::with('product')
-                ->where('customer_id', Auth::guard('customer')->id())
-                ->get()->toArray();
+            return Wishlist::with('product')->where('customer_id', Auth::guard('customer')->id())->get()->map(function ($item) use ($eligible) {
+                $row = $item->toArray();
+                if ($row['product']) $row['product'] = \App\Services\Membership\DiscountService::present($row['product'], $eligible);
+                return $row;
+            })->all();
         }
 
         // Guest wishlist as collection
-        return $this->getWishlistSession();
+        $rows = $this->getWishlistSession();
+        $products = Product::whereIn('id', $rows->pluck('product_id'))->get()->keyBy('id');
+        return $rows->map(function ($row) use ($products, $eligible) {
+            if ($product = $products->get($row['product_id'])) $row['price'] = \App\Services\Membership\CashoutService::money(\App\Services\Membership\DiscountService::price($product, $eligible)['net']);
+            return $row;
+        });
     }
 
     /**

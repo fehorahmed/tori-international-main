@@ -9,6 +9,7 @@ export default {
     subtotal: 0,
     cartDiscount: 0,
     productDiscount: 0,
+    membershipDiscount: null,
     couponDiscount: 0,
     tax: 0,
     total: 0,
@@ -21,6 +22,7 @@ export default {
       state.subtotal = payload.subtotal;
       state.cartDiscount = payload.discount;
       state.productDiscount = payload.productDiscount;
+      state.membershipDiscount = payload.membership_discount ?? null;
       state.couponDiscount = payload.couponDiscount;
       state.tax = payload.tax;
       state.total = payload.total;
@@ -36,6 +38,7 @@ export default {
       state.error = null;
     },
     clearCart(state) {
+      state.membershipDiscount = null;
       state.items = [];
       state.subtotal = 0;
       state.cartDiscount = 0;
@@ -150,6 +153,7 @@ export default {
     cartDiscount: state => state.cartDiscount,
     couponDiscount: state => state.couponDiscount,
     productDiscount: state => state.productDiscount,
+    membershipDiscount: state => state.membershipDiscount,
     cartTax: state => state.tax,
     cartTotal: state => state.total,
     cartCoupon: state => state.coupon,

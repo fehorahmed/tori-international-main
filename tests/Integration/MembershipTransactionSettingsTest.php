@@ -17,6 +17,17 @@ class MembershipTransactionSettingsTest extends TestCase
 {
     use DatabaseTransactions;
 
+    public function test_admin_can_save_discount_minimum_through_its_route(): void
+    {
+        $admin = User::firstOrFail();
+        $admin->forceFill(['role' => 'Admin'])->save();
+        $this->actingAs($admin)->post('/admin/card-management/transaction-settings/membership_discount', ['enabled' => 1, 'minimum_balance' => '1250.50'])
+            ->assertRedirect(route('card-management.transaction-settings.index').'#membership-discount');
+        $this->assertSame('1250.50', membership_transaction_setting('membership_discount.minimum_balance'));
+        $this->assertTrue(membership_transaction_setting('membership_discount.enabled'));
+        $this->postJson('/admin/card-management/transaction-settings/membership_discount', ['minimum_balance' => '-1'])->assertUnprocessable();
+    }
+
     private function registrationIncomeHead(): int
     {
         return \App\Models\Account\AccountHead::with('accountGroup')->where('nature', 'Credit')->whereNull('sister_concern_id')->where('status', 1)->get()->first(fn ($head) => $head->accountGroup?->top_reserved_id == 4)->id;

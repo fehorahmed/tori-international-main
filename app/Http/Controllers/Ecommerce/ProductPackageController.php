@@ -70,7 +70,8 @@ class ProductPackageController extends Controller
 
     private function save(Request $r, Product $package, ProductPackageService $service)
     {
-        $data = $r->validate(['name' => 'required|string|max:255', 'category_id' => 'required|exists:categories,id', 'unit_id' => 'required|exists:units,id', 'package_warehouse_id' => 'required|exists:warehouses,id', 'selling_price' => 'required|numeric|decimal:0,2|min:0.01|max:10000000', 'description' => 'nullable|string|max:10000', 'image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120', 'status' => 'required|boolean', 'is_show' => 'required|boolean', 'items' => 'required|array|min:2|max:50', 'items.*.product_id' => 'required|integer|distinct|exists:products,id', 'items.*.quantity' => 'required|integer|min:1|max:10000']);
+        $data = $r->validate(['name' => 'required|string|max:255', 'category_id' => 'required|exists:categories,id', 'unit_id' => 'required|exists:units,id', 'package_warehouse_id' => 'required|exists:warehouses,id', 'selling_price' => 'required|numeric|decimal:0,2|min:0.01|max:10000000', 'discount' => 'nullable|numeric|decimal:0,2|min:0|max:100', 'member_discount_percent' => 'nullable|numeric|decimal:0,2|min:0|max:99.99', 'description' => 'nullable|string|max:10000', 'image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120', 'status' => 'required|boolean', 'is_show' => 'required|boolean', 'items' => 'required|array|min:2|max:50', 'items.*.product_id' => 'required|integer|distinct|exists:products,id', 'items.*.quantity' => 'required|integer|min:1|max:10000']);
+        \App\Services\Membership\DiscountService::validateRates($data['discount'] ?? $package->discount_percent ?? 0, $data['member_discount_percent'] ?? $package->member_discount_percent ?? 0);
         $warehouse = Warehouse::with('sisterConcern')->findOrFail($data['package_warehouse_id']);
         abort_unless($warehouse->status == 1 && $warehouse->sisterConcern?->status == 1 && (auth()->user()->role === 'Admin' || $warehouse->sister_concern_id == auth()->user()->activeConcernId()), 403);
         DB::transaction(function () use ($package, $r, $data, $service) {
@@ -82,13 +83,21 @@ class ProductPackageController extends Controller
             if ($r->hasFile('image')) {
                 $image = $this->uploadImage($r->file('image'), 'product/image');
             }
+            if (array_key_exists('member_discount_percent', $data)) $data['member_discount_percent'] ??= 0;
             $package->fill(collect($data)->except(['items', 'image'])->all());
             $package->catalog_type = 'package';
             $package->product_type = $category->product_type ?? 2;
             $package->image = $image;
             $package->old_selling_price = $data['selling_price'];
-            $package->discount = 0;
-            $package->discount_percent = 0;
+            $percent = $data['discount'] ?? $package->discount_percent ?? 0;
+            $base = \App\Services\Membership\CashoutService::minor($data['selling_price']);
+            $reduction = intdiv($base * \App\Services\Membership\CashoutService::minor($percent) + 5000, 10000);
+            if ($base - $reduction < 1) {
+                \App\Services\Packages\ProductPackageService::fail('Discount must leave a positive package price.');
+            }
+            $package->discount = \App\Services\Membership\CashoutService::money($reduction);
+            $package->discount_percent = $percent;
+            $package->selling_price = \App\Services\Membership\CashoutService::money($base - $reduction);
             if (! $package->exists) {
                 $package->code = 'PKG-'.Str::upper(Str::random(10));
                 $package->slug = Str::slug($data['name']).'-'.strtolower(Str::random(8));

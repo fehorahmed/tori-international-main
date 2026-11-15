@@ -35,7 +35,7 @@ class CartItem extends Model
     // Link to the Product
     public function product()
     {
-        return $this->belongsTo(Product::class)->select('id','name','image','catalog_type','package_warehouse_id','status');
+        return $this->belongsTo(Product::class)->select('id','name','image','catalog_type','package_warehouse_id','status','selling_price','old_selling_price','discount','discount_percent','member_discount_percent');
     }
 }
 

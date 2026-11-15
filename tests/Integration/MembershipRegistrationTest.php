@@ -16,6 +16,50 @@ class MembershipRegistrationTest extends TestCase
     use DatabaseTransactions;
     private array $input;
 
+    public function test_member_and_agent_selection_resolves_same_code_in_different_tables(): void
+    {
+        $code = 'RF-'.bin2hex(random_bytes(6));
+        $member = Supplier::create(['name' => 'Referral member', 'type' => 'Customer', 'status' => 1, 'member_no' => $code]);
+        $agent = \App\Models\User::firstOrFail();
+        $agent->forceFill(['username' => $code, 'status' => 1])->save();
+        foreach (['member' => $member->id, 'agent' => $agent->id] as $type => $id) {
+            $this->input['mobile_no'] = '019'.random_int(10000000, 99999999);
+            $this->input['referral_type'] = $type;
+            $this->input['referral_code'] = ' '.$code.' ';
+            $data = $this->verified();
+            $response = $this->postJson('/api/membership/v1/auth/register/complete', $data)->assertCreated();
+            $customer = $response->json('data.customer.id');
+            $this->assertDatabaseHas('membership_referrals', ['customer_id' => $customer, 'referrer_type' => $type, 'referrer_id' => $id, 'referral_code' => $code]);
+            $this->postJson('/api/membership/v1/auth/register/complete', $data)->assertStatus(409);
+            $this->assertSame(1, DB::table('membership_referrals')->where('customer_id', $customer)->count());
+        }
+    }
+
+    public function test_referral_type_invalid_code_inactive_and_duplicate_members_are_rejected(): void
+    {
+        $code = 'RF-'.bin2hex(random_bytes(6));
+        $member = Supplier::create(['name' => 'Referral member', 'type' => 'Customer', 'status' => 1, 'member_no' => $code]);
+        $url = '/api/membership/v1/auth/register/initiate';
+        $this->postJson($url, $this->input + ['referral_code' => $code])->assertUnprocessable()->assertJsonValidationErrors('referral_type');
+        $this->postJson($url, $this->input + ['referral_type' => 'agent', 'referral_code' => $code])->assertUnprocessable()->assertJsonValidationErrors('referral_code');
+        $member->update(['status' => 0]);
+        $this->postJson($url, $this->input + ['referral_type' => 'member', 'referral_code' => $code])->assertUnprocessable();
+        $member->update(['status' => 1]);
+        Supplier::create(['name' => 'Ambiguous referrer', 'type' => 'Customer', 'status' => 1, 'member_no' => $code]);
+        $this->postJson($url, $this->input + ['referral_type' => 'member', 'referral_code' => $code])->assertUnprocessable()->assertJsonValidationErrors('referral_code');
+        $this->assertDatabaseMissing('membership_registration_requests', ['mobile_no' => $this->input['mobile_no']]);
+    }
+
+    public function test_referrer_is_rechecked_before_registration_completes(): void
+    {
+        $member = Supplier::create(['name' => 'Referral member', 'type' => 'Customer', 'status' => 1, 'member_no' => 'RF-'.bin2hex(random_bytes(6))]);
+        $this->input += ['referral_type' => 'member', 'referral_code' => $member->member_no];
+        $data = $this->verified();
+        $member->update(['status' => 0]);
+        $this->postJson('/api/membership/v1/auth/register/complete', $data)->assertUnprocessable()->assertJsonValidationErrors('referral_code');
+        $this->assertDatabaseMissing('suppliers', ['mobile_no' => $this->input['mobile_no']]);
+    }
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -55,6 +99,7 @@ class MembershipRegistrationTest extends TestCase
         $this->assertNotEmpty($customer->member_no);
         $this->assertFalse($customer->shomriddhiAccount()->exists());
         $this->assertFalse($customer->cards()->exists());
+        $this->assertDatabaseMissing('membership_referrals', ['customer_id' => $customer->id]);
         $this->assertDatabaseHas('membership_registration_requests', ['customer_id' => $customer->id, 'website_password' => '', 'verification_hash' => null]);
         $this->postJson('/api/membership/v1/auth/initiate', ['mobile_no' => $customer->mobile_no,
             'device_id' => $this->input['device_id'], 'device_token' => $response->json('data.device_token')])

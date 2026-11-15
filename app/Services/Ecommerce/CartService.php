@@ -40,13 +40,25 @@ class CartService
     /** Get all items */
     public function all()
     {
-        return $this->getCart()->items()->with('product')->get();
+        $eligible = \App\Services\Membership\DiscountService::eligible(Auth::guard('customer')->user());
+        return $this->getCart()->items()->with('product')->get()->map(function ($item) use ($eligible) {
+            if ($item->product) {
+                $price = \App\Services\Membership\DiscountService::price($item->product, $eligible);
+                $item->old_price = \App\Services\Membership\CashoutService::money($price['regular']);
+                $item->price = \App\Services\Membership\CashoutService::money($price['net']);
+                $item->discount = \App\Services\Membership\CashoutService::money($price['discount']);
+                $item->setAttribute('general_discount', \App\Services\Membership\CashoutService::money($price['general_discount']));
+                $item->setAttribute('member_discount', \App\Services\Membership\CashoutService::money($price['member_discount']));
+            }
+            return $item;
+        });
     }
 
     /** Add product to cart */
     public function add($productId, $quantity = 1, $discount = 0)
     {
         $cart = $this->getCart();
+        $discount = 0; // Request discounts are never trusted. Summary reprices from current server data.
         $product = Product::findOrFail($productId);
         if ($product->isPackage()) {
             if ($product->status != 1 || !$product->is_show) \App\Services\Packages\ProductPackageService::fail('This package is unavailable.');
@@ -105,13 +117,13 @@ class CartService
     /** Subtotal */
     public function subtotal()
     {
-        $items = $this->getCart()->items()->get(); // fetch as Collection
-        return $items->sum(fn($item) => $item->old_price * $item->quantity);
+        $items = $this->all();
+        return $items->sum(fn($item) => \App\Services\Membership\CashoutService::minor($item->old_price) * $item->quantity) / 100;
     }
     public function productDiscount()
     {
-        $items = $this->getCart()->items()->get(); // fetch as Collection
-        $cartDiscount = $items->sum(fn($item) => $item->discount * $item->quantity);
+        $items = $this->all();
+        $cartDiscount = $items->sum(fn($item) => \App\Services\Membership\CashoutService::minor($item->discount) * $item->quantity) / 100;
 
         return $cartDiscount;
     }
@@ -147,7 +159,7 @@ class CartService
     /** Total */
     public function total($taxPercent = 0)
     {
-        return $this->subtotal() - $this->discount() + $this->tax($taxPercent);
+        return round($this->subtotal() - $this->discount() + $this->tax($taxPercent), 2);
     }
 
     /** Coupon */

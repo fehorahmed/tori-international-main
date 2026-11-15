@@ -16,16 +16,23 @@ class TransactionSettingController extends Controller
         $cashout = membership_transaction_settings('cashout');
         $transfer = membership_transaction_settings('transfer');
         $membership = membership_transaction_settings('membership');
+        $membershipDiscount = membership_transaction_settings('membership_discount');
         $incomeHeads = AccountHead::with('accountGroup')->where('nature', 'Credit')->whereNull('sister_concern_id')
             ->where('status', 1)->get()->filter(fn ($head) => $head->accountGroup?->top_reserved_id == 4);
 
-        return view('card_management.transaction_settings.index', compact('cashout', 'transfer', 'membership', 'incomeHeads'));
+        return view('card_management.transaction_settings.index', compact('cashout', 'transfer', 'membership', 'membershipDiscount', 'incomeHeads'));
     }
 
     public function update(Request $request, string $group)
     {
         abort_unless(auth()->user()->role === 'Admin', 403);
-        abort_unless(in_array($group, ['cashout', 'transfer', 'membership'], true), 404);
+        abort_unless(in_array($group, ['cashout', 'transfer', 'membership', 'membership_discount'], true), 404);
+        if ($group === 'membership_discount') {
+            $data = $request->validate(['minimum_balance' => 'required|numeric|decimal:0,2|min:0|max:10000000', 'enabled' => 'sometimes|boolean']);
+            $data['enabled'] = $request->boolean('enabled');
+            MembershipTransactionSetting::writeGroup($group, $data);
+            return redirect()->to(route('card-management.transaction-settings.index').'#membership-discount')->with('success', 'Membership discount settings saved.');
+        }
         if ($group === 'membership') {
             $data = $request->validate([
                 'registration_fee' => 'required|numeric|decimal:0,2|min:0|max:10000000',

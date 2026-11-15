@@ -89,7 +89,7 @@
                                     ৳{{ item.discount_amt }}
                                 </td>
                                 <td class="py-2 px-3 font-bold">
-                                    ৳{{ item.unit_price * item.quantity }}
+                                    ৳{{ item.line_total ?? item.unit_price * item.quantity }}
                                 </td>
                             </tr>
                         </tbody>

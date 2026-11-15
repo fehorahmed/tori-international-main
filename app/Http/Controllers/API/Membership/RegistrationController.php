@@ -57,18 +57,22 @@ class RegistrationController extends Controller
 
     public function initiate(Request $r)
     {
+        $code = $r->input('referral_code');
+        if (is_string($code)) $r->merge(['referral_code' => trim($code) === '' ? null : trim($code)]);
         $r->merge(['mobile_no' => $this->mobile((string) $r->input('mobile_no'))]);
         $d = $r->validate([
             'name' => 'required|string|max:255', 'mobile_no' => ['required', 'regex:/^01[3-9][0-9]{8}$/'],
             'email' => 'nullable|email|max:255', 'branch_id' => 'required|integer|exists:sister_concerns,id',
             'password' => 'required|string|min:8|max:128|confirmed', 'terms_accepted' => 'required|accepted',
             'referral_code' => 'nullable|string|max:64', 'device_id' => 'required|string|max:128',
+            'referral_type' => 'required_with:referral_code|nullable|in:member,agent',
             'device_name' => 'nullable|string|max:255', 'platform' => 'nullable|string|max:32',
         ]);
         $this->ensureNew($r, $d['mobile_no'], $d['email'] ?? null);
+        $referrerId = ($d['referral_code'] ?? null) !== null ? \App\Services\Membership\ReferralService::resolve($d['referral_type'], $d['referral_code']) : null;
         $token = Str::random(64);
         $otp = app()->environment('local') ? '123456' : (string) random_int(100000, 999999);
-        DB::transaction(function () use ($r, $d, $token, $otp) {
+        DB::transaction(function () use ($r, $d, $token, $otp, $referrerId) {
             $branch = SisterConcern::whereKey($d['branch_id'])->where('status', 1)->lockForUpdate()->first();
             if (! $branch) $this->fail($r, 'Select an active branch.', 'সক্রিয় শাখা নির্বাচন করুন।', 'branch_id');
             $old = DB::table('membership_registration_requests')->where('mobile_no', $d['mobile_no'])->lockForUpdate()->first();
@@ -79,6 +83,7 @@ class RegistrationController extends Controller
                 'device_name' => $d['device_name'] ?? null, 'platform' => $d['platform'] ?? null,
                 'branch_id' => $branch->id, 'name' => trim($d['name']), 'email' => $d['email'] ?? null,
                 'website_password' => Hash::make($d['password']), 'referral_code' => $d['referral_code'] ?? null,
+                'referral_type' => $referrerId ? $d['referral_type'] : null, 'referrer_id' => $referrerId,
                 'terms_accepted_at' => now(), 'otp_hash' => Hash::make($otp), 'otp_attempts' => 0,
                 'otp_expires_at' => now()->addMinutes(3), 'otp_sent_at' => now(),
                 'verification_hash' => null, 'verified_until' => null, 'customer_id' => null,
@@ -146,11 +151,22 @@ class RegistrationController extends Controller
             $branch = SisterConcern::whereKey($row->branch_id)->where('status', 1)->lockForUpdate()->first();
             if (! $branch) $this->fail($r, 'The selected branch is inactive.', 'নির্বাচিত শাখা নিষ্ক্রিয়।');
             $this->ensureNew($r, $row->mobile_no, $row->email);
+            if ($row->referral_code !== null && $row->referral_code !== '') {
+                if (! in_array($row->referral_type, ['member', 'agent'], true) || ! $row->referrer_id) {
+                    $this->fail($r, 'Select Member or Agent and restart registration.', 'Member অথবা Agent নির্বাচন করে আবার নিবন্ধন শুরু করুন।', 'referral_type');
+                }
+                \App\Services\Membership\ReferralService::ensureActive($row->referral_type, $row->referrer_id);
+            }
             $customer = Supplier::create(['name' => $row->name, 'mobile_no' => $row->mobile_no, 'email' => $row->email,
                 'type' => 'Customer', 'origin_sister_concern_id' => $branch->id,
                 'member_no' => generatePartyMemberNo($branch->id, 'Customer'), 'status' => 1,
                 'password' => $row->website_password, 'pin' => Hash::make($r->pin)]);
             $proof = Str::random(64);
+            if ($row->referrer_id) {
+                DB::table('membership_referrals')->insert(['customer_id' => $customer->id,
+                    'referrer_type' => $row->referral_type, 'referrer_id' => $row->referrer_id,
+                    'referral_code' => $row->referral_code, 'created_at' => now(), 'updated_at' => now()]);
+            }
             CustomerDevice::create(['customer_id' => $customer->id, 'device_id' => $row->device_id,
                 'device_name' => $row->device_name, 'platform' => $row->platform,
                 'trusted_token_hash' => hash('sha256', $proof), 'last_active_at' => now()]);

@@ -32,6 +32,7 @@
                       <h6 class="text-gray-800 font-semibold">{{ item?.product?.name }}</h6>
                       <div class="text-sm text-gray-500 mt-1">Unit Price: ৳{{ item.old_price }}</div>
                       <div class="text-sm text-primary_color mt-1">Discount: {{ item.discount_percent }}% (৳{{ item.discount }})</div>
+                      <div v-if="Number(item.member_discount) > 0" class="text-sm text-primary_color">Member discount: ৳{{ item.member_discount }} per unit</div>
                     </div>
 
                     <!-- Quantity & Total -->
@@ -169,6 +170,11 @@
                 <p v-if="paymentMethod === 'membership'" class="text-sm text-gray-600">The full order total, including delivery, will be deducted immediately. The protected minimum balance is unavailable. Cancelled orders are refunded to the same savings account.</p>
 
                 <!-- Coupon -->
+                <p v-if="$store.getters['cart/membershipDiscount']?.enabled" class="text-sm text-gray-600">
+                  Membership discount requires a total savings balance of Tk {{ $store.getters['cart/membershipDiscount'].minimum_balance }} before payment.
+                  {{ $store.getters['cart/membershipDiscount'].eligible ? 'Eligible member pricing is applied where better than general discount.' : 'General product discounts still apply; member discounts are unavailable.' }}
+                </p>
+
                 <div>
                   <label class="block text-sm font-medium text-gray-700 mb-1">Coupon Code </label>
                   <div class="flex flex-wrap gap-2">
@@ -273,6 +279,7 @@ export default {
     }
   },
   mounted() {
+    this.$store.dispatch('cart/fetchCart');
     if (this.isLoggedIn) {
       axios.get('/api/user').then(({ data }) => { this.membershipSavings = data.savings; }).catch(() => { this.membershipSavings = null; });
       this.form.name = this.loginUser.name || "";

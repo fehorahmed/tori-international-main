@@ -115,7 +115,8 @@ class EcomProductController extends Controller
             'unit' => 'required',
             'alert_quantity' => 'required',
             'selling_price' => 'required|min:0',
-            'discount' => 'required|min:0',
+            'discount' => 'required|numeric|decimal:0,2|min:0|max:100',
+            'member_discount_percent' => 'nullable|numeric|decimal:0,2|min:0|max:99.99',
             'is_featured' => 'nullable',
             'is_trending' => 'nullable',
             'is_best_selling' => 'nullable',
@@ -145,6 +146,7 @@ class EcomProductController extends Controller
         if ($request->hasFile('image')){
             $image = $this->uploadImage($request->file('image'), 'product/image');
         }
+        \App\Services\Membership\DiscountService::validateRates($request->discount, $request->input('member_discount_percent', 0));
         DB::beginTransaction();
         try{
             $slug = $request->slug ?: Str::slug($request->name);
@@ -160,6 +162,7 @@ class EcomProductController extends Controller
             $product->description = $request->description;
             $product->short_description = $request->short_description;
             $product->image = $image;
+            $product->member_discount_percent = ($request->input('member_discount_percent') ?? $product->member_discount_percent ?? 0);
             $product->old_selling_price = $request->selling_price; 
             if($request->discount > 0){
                 $discount_amount = floor($request->selling_price * ($request->discount / 100));
@@ -215,7 +218,8 @@ class EcomProductController extends Controller
             'unit' => 'required',
             'alert_quantity' => 'required',
             'selling_price' => 'required|min:0',
-            'discount' => 'required|min:0',
+            'discount' => 'required|numeric|decimal:0,2|min:0|max:100',
+            'member_discount_percent' => 'nullable|numeric|decimal:0,2|min:0|max:99.99',
             'is_featured' => 'nullable',
             'is_trending' => 'nullable',
             'is_best_selling' => 'nullable',
@@ -228,6 +232,7 @@ class EcomProductController extends Controller
 
         ]);
 
+        \App\Services\Membership\DiscountService::validateRates($request->discount, $request->input('member_discount_percent') ?? $product->member_discount_percent ?? 0);
         $image = $product->image;
         if ($request->hasFile('image')){
             $this->deleteFile($product->image);
@@ -246,6 +251,7 @@ class EcomProductController extends Controller
             $product->short_description = $request->short_description;
             $product->description = $request->description;
             $product->image = $image;
+            $product->member_discount_percent = ($request->input('member_discount_percent') ?? $product->member_discount_percent ?? 0);
             $product->old_selling_price = $request->selling_price;
             if($request->discount > 0){
                 // dd('dd');

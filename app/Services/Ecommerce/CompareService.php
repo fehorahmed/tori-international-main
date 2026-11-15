@@ -20,7 +20,13 @@ class CompareService
     /** Get all compared products */
     public function all()
     {
-        return $this->getCompare();
+        $rows = $this->getCompare();
+        $eligible = \App\Services\Membership\DiscountService::eligible(\Illuminate\Support\Facades\Auth::guard('customer')->user());
+        $products = Product::whereIn('id', array_column($rows, 'product_id'))->get()->keyBy('id');
+        return array_map(function ($row) use ($products, $eligible) {
+            if ($product = $products->get($row['product_id'])) $row['price'] = \App\Services\Membership\CashoutService::money(\App\Services\Membership\DiscountService::price($product, $eligible)['net']);
+            return $row;
+        }, $rows);
     }
 
     /** Add product to compare */

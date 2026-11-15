@@ -11,9 +11,9 @@
 @else
 <p>Payment: Cash on Delivery. Stock is checked again at confirmation; payment is recorded separately after collection.</p>
 @endif
-<table class="table table-bordered"><thead><tr><th>Item</th><th>Contents per item</th><th>Qty</th><th>Unit price</th><th>Total</th></tr></thead><tbody>
-@foreach($order['products'] as $line)<tr><td>{{ $line['name'] }}</td><td>@foreach($line['components'] as $part){{ $part['name'] }} × {{ $part['quantity'] }}<br>@endforeach</td><td>{{ $line['quantity'] }}</td><td>{{ $line['unit_price'] }}</td><td>{{ $line['line_total'] }}</td></tr>@endforeach
-</tbody></table><p>Products: Tk {{ $order['sub_total'] }} | Delivery: Tk {{ $order['shipping_charge'] }} | Total: Tk {{ $order['total'] }} | Due: Tk {{ $order['due'] }}</p>
+<table class="table table-bordered"><thead><tr><th>Item</th><th>Contents per item</th><th>Qty</th><th>Unit price</th><th>Discount</th><th>Total</th></tr></thead><tbody>
+@foreach($order['products'] as $line)<tr><td>{{ $line['name'] }}</td><td>@foreach($line['components'] as $part){{ $part['name'] }} × {{ $part['quantity'] }}<br>@endforeach</td><td>{{ $line['quantity'] }}</td><td>{{ $line['unit_price'] }}</td><td>{{ $line['discount_total'] ?? '0.00' }}</td><td>{{ $line['line_total'] }}</td></tr>@endforeach
+</tbody></table><p>Products: Tk {{ $order['sub_total'] }} | Discount: Tk {{ $order['discount'] }} / Delivery: Tk {{ $order['shipping_charge'] }} | Total: Tk {{ $order['total'] }} | Due: Tk {{ $order['due'] }}</p>
 @if($checkout->status === 'Pending')
 @can('ecommerce_order_confirm')<form method="POST" action="{{ route('package-orders.confirm',$checkout) }}" onsubmit="return confirm('Confirm this order and deduct stock?')">@csrf<button class="btn btn-success" type="submit">Confirm order &amp; deduct stock</button></form>@endcan
 

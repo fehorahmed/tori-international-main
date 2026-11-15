@@ -5,7 +5,7 @@ The membership app now registers new customers through public, rate-limited `/ap
 ## Flow
 
 1. `GET auth/registration/options`: active branch `id`, `name`, `code`.
-2. `POST auth/register/initiate`: `name`, normalized BD `mobile_no`, active `branch_id`, `password`, `password_confirmation`, accepted `terms_accepted`, installation `device_id`; optional `email`, `referral_code`, `device_name`, `platform`.
+2. `POST auth/register/initiate`: `name`, normalized BD `mobile_no`, active `branch_id`, `password`, `password_confirmation`, accepted `terms_accepted`, installation `device_id`; optional `email`, `referral_code`, `device_name`, `platform`. A nonblank referral code requires `referral_type` (`member` or `agent`).
 3. `POST auth/register/verify-otp`: `registration_token`, same `device_id`, 6-digit `otp`; returns `verification_token` valid for 15 minutes.
 4. `POST auth/register/complete`: both tokens, same device, 6-digit `pin` and `pin_confirmation`; creates the customer, branch member number, trusted device, and Sanctum token atomically. Returns HTTP 201 with `data.token`, `data.device_token`, `data.customer`.
 
@@ -13,13 +13,13 @@ The membership app now registers new customers through public, rate-limited `/ap
 
 ## Account behaviour
 
-Registration creates an active `Customer` so the user can log in and submit profile/KYC. It does **not** automatically issue a membership card, create a savings account, credit balance, verify KYC, or make a referral reward payment. Branch staff continue existing savings/card workflows. Referral text is retained in the registration audit record; it is not validated as an agent relationship or used to post commissions.
+Registration creates an active `Customer` so the user can log in and submit profile/KYC. It does **not** automatically issue a membership card, create a savings account, credit balance, verify KYC, or make a referral reward payment. Branch staff continue existing savings/card workflows. The optional referral is validated against the selected source and persisted as a typed relationship in `membership_referrals`; no commission is posted. Member uses active Customer `suppliers.member_no`; Agent uses active `users.username`, regardless of employee linkage or role. Blank code means no referral. Duplicate active Member codes are rejected rather than selecting an arbitrary record. At completion the originally resolved ID is rechecked for active status under lock; it is not reassigned if a code changes owner. The one-row-per-customer constraint and registration replay guard prevent duplicate referrals. Old in-flight drafts with code but no resolved type/ID must restart registration.
 
 KYC remains a separate existing flow: selfie from camera; front/back NID from camera/gallery; documents reviewed by admin. No DOB/profile-schema changes were introduced by registration.
 
 ## Storage and credentials
 
-Apply `2026_11_13_100000_create_membership_registration_requests.php` before deploying the new endpoints. This table holds the draft, normalized unique mobile, hashed website password, hashed OTP, hashed registration/verification tokens, consent time, optional referral, and eventual customer ID. No customer exists before successful completion. After completion the draft's password hash and verification/OTP hashes are cleared; the customer's password and PIN remain individually hashed.
+Apply `2026_11_13_100000_create_membership_registration_requests.php` and `2026_11_15_090000_add_membership_referrals.php` before deploying the endpoints. This table holds the draft, normalized unique mobile, hashed website password, hashed OTP, hashed registration/verification tokens, consent time, optional referral, and eventual customer ID. No customer exists before successful completion. After completion the draft's password hash and verification/OTP hashes are cleared; the customer's password and PIN remain individually hashed.
 
 Existing normalized phone/email matches (including soft-deleted customers) are rejected rather than creating/replacing their accounts. Request-row locking and branch locking serialize completion/member numbering for this flow. Existing ERP/admin/website account creation paths retain their own legacy uniqueness rules; the entire shared suppliers table was not given a new global normalized-phone unique constraint.
 

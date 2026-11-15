@@ -321,14 +321,14 @@ class FrontendController extends Controller
         ]);
     }
     public function getTopNicheProducts(){
-        $top_sale_products = Product::select('id','name','slug','image','youtube_video_link','catalog_type','package_warehouse_id','selling_price','old_selling_price','discount','discount_percent','status','total_review','rating','is_new_arrival','is_show','sort')->where('is_show',1)->where('status',1)->where('is_best_selling',1)->orderBy('sort','asc')->take(5)->get();
-        $top_rating_products = Product::select('id','name','slug','image','youtube_video_link','catalog_type','package_warehouse_id','selling_price','old_selling_price','discount','discount_percent','status','total_review','rating','is_trending','is_show','sort')->where('is_show',1)->where('status',1)->orderBy('rating','desc')->take(5)->get();
-        $top_discount_products = Product::select('id','name','slug','image','youtube_video_link','catalog_type','package_warehouse_id','selling_price','old_selling_price','discount','discount_percent','status','total_review','rating','is_featured','is_show','sort')->where('is_show',1)->where('status',1)->orderBy('discount_percent','desc')->take(5)->get();
+        $top_sale_products = Product::select('id','name','slug','image','youtube_video_link','catalog_type','package_warehouse_id','selling_price','old_selling_price','discount','discount_percent','member_discount_percent','status','total_review','rating','is_new_arrival','is_show','sort')->where('is_show',1)->where('status',1)->where('is_best_selling',1)->orderBy('sort','asc')->take(5)->get();
+        $top_rating_products = Product::select('id','name','slug','image','youtube_video_link','catalog_type','package_warehouse_id','selling_price','old_selling_price','discount','discount_percent','member_discount_percent','status','total_review','rating','is_trending','is_show','sort')->where('is_show',1)->where('status',1)->orderBy('rating','desc')->take(5)->get();
+        $top_discount_products = Product::select('id','name','slug','image','youtube_video_link','catalog_type','package_warehouse_id','selling_price','old_selling_price','discount','discount_percent','member_discount_percent','status','total_review','rating','is_featured','is_show','sort')->where('is_show',1)->where('status',1)->orderBy('discount_percent','desc')->take(5)->get();
 
         return response()->json([
-            'top_sale_products' => $top_sale_products,
-            'top_rating_products' => $top_rating_products,
-            'top_discount_products' => $top_discount_products,
+            'top_sale_products' => $this->memberPrices($top_sale_products),
+            'top_rating_products' => $this->memberPrices($top_rating_products),
+            'top_discount_products' => $this->memberPrices($top_discount_products),
         ]);
     }
     public function getNewProducts(Request $request)
@@ -336,7 +336,7 @@ class FrontendController extends Controller
         $limit = $request->input('limit', 10); // default 10
         $offset = $request->input('offset', 0);
         
-        $products = Product::select('id','name','slug','image','youtube_video_link','catalog_type','package_warehouse_id','selling_price','old_selling_price','discount','discount_percent','status','total_review','rating','is_new_arrival','sort')
+        $products = Product::select('id','name','slug','image','youtube_video_link','catalog_type','package_warehouse_id','selling_price','old_selling_price','discount','discount_percent','member_discount_percent','status','total_review','rating','is_new_arrival','sort')
             ->where('status',1)
             ->where('is_new_arrival',1)
             ->orderBy('sort','asc')
@@ -348,34 +348,34 @@ class FrontendController extends Controller
         $total = Product::select('id','status','is_new_arrival')->where('status',1)->where('is_new_arrival',1)->count();
 
         return response()->json([
-            'products' => $products,
+            'products' => $this->memberPrices($products),
             'total' => $total,
         ]);
     }
     public function getHomeData(){
         $banners = Banner::select('type','sort','image','status')->where('type', 1)->where('status', 1)->orderBy('sort')->get();
-        $new_products = Product::select('id','name','slug','image','youtube_video_link','catalog_type','package_warehouse_id','selling_price','old_selling_price','discount','discount_percent','status','total_review','rating','is_new_arrival','sort')->where('status',1)->where('is_new_arrival',1)->orderBy('sort','asc')->get();
-        $trending_products = Product::select('id','name','slug','image','youtube_video_link','catalog_type','package_warehouse_id','selling_price','old_selling_price','discount','discount_percent','status','total_review','rating','is_trending','sort')->where('status',1)->where('is_trending',1)->orderBy('sort','asc')->get();
-        $featured_products = Product::select('id','name','slug','image','youtube_video_link','catalog_type','package_warehouse_id','selling_price','old_selling_price','discount','discount_percent','status','total_review','rating','is_featured','sort')->where('status',1)->where('is_featured',1)->orderBy('sort','asc')->get();
-        $used_products = Product::select('id','name','slug','image','youtube_video_link','catalog_type','package_warehouse_id','selling_price','old_selling_price','discount','discount_percent','status','total_review','rating','is_used','sort')->where('status',1)->where('is_used',1)->orderBy('sort','asc')->get();
+        $new_products = Product::select('id','name','slug','image','youtube_video_link','catalog_type','package_warehouse_id','selling_price','old_selling_price','discount','discount_percent','member_discount_percent','status','total_review','rating','is_new_arrival','sort')->where('status',1)->where('is_new_arrival',1)->orderBy('sort','asc')->get();
+        $trending_products = Product::select('id','name','slug','image','youtube_video_link','catalog_type','package_warehouse_id','selling_price','old_selling_price','discount','discount_percent','member_discount_percent','status','total_review','rating','is_trending','sort')->where('status',1)->where('is_trending',1)->orderBy('sort','asc')->get();
+        $featured_products = Product::select('id','name','slug','image','youtube_video_link','catalog_type','package_warehouse_id','selling_price','old_selling_price','discount','discount_percent','member_discount_percent','status','total_review','rating','is_featured','sort')->where('status',1)->where('is_featured',1)->orderBy('sort','asc')->get();
+        $used_products = Product::select('id','name','slug','image','youtube_video_link','catalog_type','package_warehouse_id','selling_price','old_selling_price','discount','discount_percent','member_discount_percent','status','total_review','rating','is_used','sort')->where('status',1)->where('is_used',1)->orderBy('sort','asc')->get();
 
         $setting = Setting::first();
 
         return response()->json([
             'banners' => $banners,
-            'new_products' => $new_products,
-            'trending_products' => $trending_products,
-            'featured_products' => $featured_products,
-            'used_products' => $used_products,
+            'new_products' => $this->memberPrices($new_products),
+            'trending_products' => $this->memberPrices($trending_products),
+            'featured_products' => $this->memberPrices($featured_products),
+            'used_products' => $this->memberPrices($used_products),
             'setting' => $setting,
         ]);
     }
     // public function getProductData(){
     //     dd(request()->all());
-    //     $products = Product::select('id','name','slug','image','youtube_video_link','catalog_type','package_warehouse_id','selling_price','old_selling_price','discount','discount_percent','status','total_review','is_new_arrival','sort')->where('status',1)->orderBy('sort','asc')->get()->toArray();
+    //     $products = Product::select('id','name','slug','image','youtube_video_link','catalog_type','package_warehouse_id','selling_price','old_selling_price','discount','discount_percent','member_discount_percent','status','total_review','is_new_arrival','sort')->where('status',1)->orderBy('sort','asc')->get()->toArray();
 
     //     return response()->json([
-    //         'products' => $products,
+    //         'products' => $this->memberPrices($products),
     //     ]);
     // }
     public function getFilters(Request $request)
@@ -413,9 +413,12 @@ class FrontendController extends Controller
     }
     public function getProductData()
     { 
-        $query = Product::select('id','name','slug','image','youtube_video_link','catalog_type','package_warehouse_id','selling_price','old_selling_price','discount','discount_percent','status','total_review','rating','is_new_arrival','is_show','sort')
+        $query = Product::select('id','name','slug','image','youtube_video_link','catalog_type','package_warehouse_id','selling_price','old_selling_price','discount','discount_percent','member_discount_percent','status','total_review','rating','is_new_arrival','is_show','sort')
             ->where('is_show',1)->where('status', 1)
             ->where('catalog_type', request('catalog_type') === 'package' ? 'package' : 'single');
+
+        $priceColumn = \App\Services\Membership\DiscountService::eligible(Auth::guard('customer')->user())
+            ? DB::raw('CASE WHEN member_discount_percent > COALESCE(discount_percent, 0) THEN LEAST(selling_price, GREATEST(0.01, GREATEST(selling_price, COALESCE(old_selling_price, 0)) - ROUND(GREATEST(selling_price, COALESCE(old_selling_price, 0)) * member_discount_percent / 100, 2))) ELSE selling_price END') : 'selling_price';
 
         // Filters
 
@@ -439,7 +442,7 @@ class FrontendController extends Controller
         $minPrice = request('minPrice');
         $maxPrice = request('maxPrice');
         if ($minPrice && $maxPrice) {
-            $query->whereBetween('selling_price', [$minPrice, $maxPrice]);
+            $query->whereBetween($priceColumn, [$minPrice, $maxPrice]);
         }
 
         // Sorting
@@ -452,10 +455,10 @@ class FrontendController extends Controller
                 $query->orderBy('name', 'desc');
                 break;
             case 'price_low_high':
-                $query->orderBy('selling_price', 'asc');
+                $query->orderBy($priceColumn, 'asc');
                 break;
             case 'price_high_low':
-                $query->orderBy('selling_price', 'desc');
+                $query->orderBy($priceColumn, 'desc');
                 break;
             default:
                 $query->orderBy('sort', 'asc');
@@ -474,19 +477,29 @@ class FrontendController extends Controller
         $products = $query->skip(($page - 1) * $perPage)->take($perPage)->get()->toArray();
 
         return response()->json([
-            'products' => $products,
+            'products' => $this->memberPrices($products),
         ]);
     }
 
     public function getProductDetailsData($slug){
         $product = Product::with('brand')->where('slug',$slug)->where('status',1)->firstOrFail();
         $product->setRelation('images', collect());
-        $relatedProducts = Product::select('id','name','slug','image','youtube_video_link','catalog_type','package_warehouse_id','selling_price','old_selling_price','discount','discount_percent','status','total_review','rating','is_show','is_new_arrival','sort')->where('category_id', $product->category_id)->where('id', '!=', $product->id)->where('is_show',1)->where('status', 1)->get();
+        $relatedProducts = Product::select('id','name','slug','image','youtube_video_link','catalog_type','package_warehouse_id','selling_price','old_selling_price','discount','discount_percent','member_discount_percent','status','total_review','rating','is_show','is_new_arrival','sort')->where('category_id', $product->category_id)->where('id', '!=', $product->id)->where('is_show',1)->where('status', 1)->get();
         return response()->json([
-            'product' => $product,
-            'relatedProducts' => $relatedProducts,
+            'product' => $this->memberPrices($product),
+            'relatedProducts' => $this->memberPrices($relatedProducts),
         ]);
     }
+    private function memberPrices($value): array
+    {
+        $eligible = \App\Services\Membership\DiscountService::eligible(Auth::guard('customer')->user());
+        if ($value instanceof Product) {
+            return \App\Services\Membership\DiscountService::present($value->toArray(), $eligible);
+        }
+        $rows = is_array($value) ? $value : $value->toArray();
+        return array_map(fn ($row) => \App\Services\Membership\DiscountService::present($row, $eligible), $rows);
+    }
+
     public function checkCoupon(Request $request)
     {
         $request->validate([

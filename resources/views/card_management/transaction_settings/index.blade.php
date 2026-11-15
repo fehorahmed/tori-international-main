@@ -36,6 +36,17 @@
             </form>
         </div>
     </div>
+    <div class="card" id="membership-discount">
+        <div class="card-header"><h4 class="card-title">Membership Discount</h4></div>
+        <div class="card-body"><form method="POST" action="{{ route('card-management.transaction-settings.update', 'membership_discount') }}">
+            @csrf<input type="hidden" name="_group" value="membership_discount">
+            <label><input type="checkbox" name="enabled" value="1" @checked(old('_group') === 'membership_discount' ? old('enabled', false) : $membershipDiscount->enabled)> Enable membership discount</label>
+            <div class="form-group"><label>Minimum account balance for discount (Tk)</label>
+            <input class="form-control" name="minimum_balance" type="number" min="0" max="10000000" step="0.01" required value="{{ old('_group') === 'membership_discount' ? old('minimum_balance', $membershipDiscount->minimum_balance) : $membershipDiscount->minimum_balance }}"></div>
+            <p>Applies only to the separate member discount. General product/package discounts are available to everyone. Total active savings balance is checked before order payment. This is separate from the protected account hold amount.</p>
+            <button class="btn btn-primary" type="submit">Save Membership Discount settings</button>
+        </form></div>
+    </div>
     @foreach(['cashout' => ['Cash Out', $cashout], 'transfer' => ['Send Money / Transfer', $transfer]] as $group => [$title, $setting])
     @php($value = fn($key) => old('_group') === $group ? old($key, $setting->{$key} ?? null) : ($setting->{$key} ?? null))
     <div class="card" id="{{ $group }}">
