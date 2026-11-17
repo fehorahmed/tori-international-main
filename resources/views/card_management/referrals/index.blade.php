@@ -10,9 +10,9 @@
     <button class="btn btn-primary">Filter</button>
 </form>
 <div class="card"><div class="card-header">Referrer summary</div><div class="card-body table-responsive">
-<table class="table table-bordered"><thead><tr><th>Referrer</th><th>New members</th><th>Fee paid / pending</th><th>Points earned / redeemed / available</th><th>Agent commission earned / paid / pending (Tk)</th><th>Milestone cash paid / pending (Tk)</th></tr></thead><tbody>
+<table class="table table-bordered"><thead><tr><th>Referrer</th><th>New members</th><th>Fee paid / pending</th><th>Points earned / redeemed / shopping (net) / available</th><th>Agent commission earned / paid / pending (Tk)</th><th>Milestone cash paid / pending (Tk)</th></tr></thead><tbody>
 @forelse($summary as $s)
-<tr><td>{{ ucfirst($s->referrer_type) }} #{{ $s->referrer_id }} — {{ $s->referrer?->name ?? 'Unavailable' }}<br>{{ $s->referrer_type === 'agent' ? $s->referrer?->username : $s->referrer?->member_no }}</td><td>{{ $s->referrals }}</td><td>{{ $s->fee_paid }} / {{ $s->fee_pending }}</td><td>{{ $s->points }} / {{ $s->redeemed_points }} / {{ $s->points - $s->redeemed_points }}</td><td>{{ number_format($s->commission, 2) }} / {{ number_format($s->paid, 2) }} / {{ number_format($s->commission - $s->paid, 2) }}</td><td>{{ number_format($s->milestone_paid, 2) }} / {{ number_format($s->milestone_pending, 2) }}</td></tr>
+<tr><td>{{ ucfirst($s->referrer_type) }} #{{ $s->referrer_id }} — {{ $s->referrer?->name ?? 'Unavailable' }}<br>{{ $s->referrer_type === 'agent' ? $s->referrer?->username : $s->referrer?->member_no }}</td><td>{{ $s->referrals }}</td><td>{{ $s->fee_paid }} / {{ $s->fee_pending }}</td><td>{{ $s->points }} / {{ $s->redeemed_points }} / {{ $s->points - $s->redeemed_points - $s->available_points }} / {{ $s->available_points }}</td><td>{{ number_format($s->commission, 2) }} / {{ number_format($s->paid, 2) }} / {{ number_format($s->commission - $s->paid, 2) }}</td><td>{{ number_format($s->milestone_paid, 2) }} / {{ number_format($s->milestone_pending, 2) }}</td></tr>
 @empty<tr><td colspan="6">No referrals found.</td></tr>@endforelse
 </tbody></table>{{ $summary->withQueryString()->links() }}</div></div>
 <div class="card"><div class="card-header">Registration details & agent payments</div><div class="card-body table-responsive">

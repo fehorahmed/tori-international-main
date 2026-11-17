@@ -14,6 +14,13 @@ class ReferralController extends Controller
         return response()->json(['success' => true, 'data' => ReferralRewardService::summary($c->id)]);
     }
 
+    public function history(Request $r)
+    {
+        $c = KycController::customer($r);
+        $r->validate(['page' => 'nullable|integer|min:1|max:1000000', 'period' => 'nullable|in:all,today,weekly,monthly']);
+        return response()->json(['success' => true, 'data' => ReferralRewardService::history($c->id, $r->integer('page', 1), $r->input('period') ?: 'all')]);
+    }
+
     public function collectMilestones(Request $r)
     {
         $c = KycController::customer($r);

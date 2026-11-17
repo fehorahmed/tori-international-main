@@ -50,14 +50,63 @@ class ReferralRewardService
         if ($points > 0) MilestoneBonusService::collect($referral->referrer_id);
     }
 
-    public static function points(int $customer, bool $locked = false): int
+    public static function pointUnits(int $customer, bool $locked = false): int
     {
         $earned = DB::table('membership_referral_rewards')->where('referrer_type', 'member')->where('referrer_id', $customer);
         $spent = DB::table('membership_point_redemptions')->where('customer_id', $customer);
-        // Current reads after the member lock: funding transactions may already have an older MySQL snapshot.
-        if ($locked) return (int) $earned->orderBy('id')->lockForUpdate()->get(['points'])->sum('points')
-            - (int) $spent->orderBy('id')->lockForUpdate()->get(['points'])->sum('points');
-        return (int) $earned->sum('points') - (int) $spent->sum('points');
+        $orders = DB::table('membership_point_transactions')->where('customer_id', $customer);
+        if ($locked) {
+            $earning = (int) $earned->orderBy('id')->lockForUpdate()->get(['points'])->sum('points');
+            $redeemed = (int) $spent->orderBy('id')->lockForUpdate()->get(['points'])->sum('points');
+            $entries = $orders->orderBy('id')->lockForUpdate()->get(['points', 'type']);
+        } else {
+            $earning = (int) $earned->sum('points');
+            $redeemed = (int) $spent->sum('points');
+            $entries = $orders->get(['points', 'type']);
+        }
+        $units = ($earning - $redeemed) * PointOrderPaymentService::SCALE;
+        foreach ($entries as $entry) $units += ($entry->type === 'Refund' ? 1 : -1) * PointOrderPaymentService::units($entry->points);
+        return $units;
+    }
+
+    public static function points(int $customer, bool $locked = false): int|float
+    {
+        $units = self::pointUnits($customer, $locked);
+        return $units % PointOrderPaymentService::SCALE === 0 ? intdiv($units, PointOrderPaymentService::SCALE) : $units / PointOrderPaymentService::SCALE;
+    }
+
+    public static function history(int $customer, int $page = 1, string $period = 'all'): array
+    {
+        $earned = DB::table('membership_referral_rewards as rewards')
+            ->leftJoin('membership_referrals as referrals', 'referrals.id', '=', 'rewards.referral_id')
+            ->leftJoin('suppliers as members', 'members.id', '=', 'referrals.customer_id')
+            ->where('rewards.referrer_type', 'member')->where('rewards.referrer_id', $customer)->where('rewards.points', '>', 0)
+            ->selectRaw("CONCAT('referral-', rewards.id) as id, 'referral' as type, 'credit' as direction, CAST(rewards.points AS DECIMAL(20,6)) as points, NULL as amount, NULL as point_value, rewards.created_at, NULL as order_no, members.name as reference");
+        $redeemed = DB::table('membership_point_redemptions')->where('customer_id', $customer)
+            ->selectRaw("CONCAT('redemption-', id) as id, 'redemption' as type, 'debit' as direction, CAST(points AS DECIMAL(20,6)) as points, amount, point_value, created_at, NULL as order_no, NULL as reference");
+        $orders = DB::table('membership_point_transactions as t')
+            ->leftJoin('package_order_checkouts as c', 'c.id', '=', 't.checkout_id')
+            ->leftJoin('sale_orders as o', 'o.id', '=', 'c.sale_order_id')
+            ->where('t.customer_id', $customer)
+            ->selectRaw("CONCAT('order-', t.id) as id, CASE WHEN t.type = 'Refund' THEN 'refund' ELSE 'purchase' END as type, CASE WHEN t.type = 'Refund' THEN 'credit' ELSE 'debit' END as direction, t.points, t.amount, t.point_value, t.created_at, o.order_no, NULL as reference");
+
+        $query = DB::query()->fromSub($earned->unionAll($redeemed)->unionAll($orders), 'history');
+        if ($period !== 'all') {
+            $now = \Carbon\Carbon::now('Asia/Dhaka');
+            $start = match ($period) {
+                'today' => $now->copy()->startOfDay(),
+                'weekly' => $now->copy()->startOfWeek(\Carbon\Carbon::MONDAY),
+                'monthly' => $now->copy()->startOfMonth(),
+            };
+            $query->where('created_at', '>=', $start->setTimezone(config('app.timezone'))->toDateTimeString())
+                ->where('created_at', '<=', $now->setTimezone(config('app.timezone'))->toDateTimeString());
+        }
+        return $query
+            ->orderByDesc('created_at')->orderByDesc('id')->paginate(20, ['*'], 'page', $page)
+            ->through(function ($row) {
+                $row->created_at = \Carbon\Carbon::parse($row->created_at)->toIso8601String();
+                return $row;
+            })->toArray();
     }
 
     public static function summary(int $customer): array
@@ -65,10 +114,16 @@ class ReferralRewardService
         $s = membership_transaction_settings('referral');
         $points = self::points($customer);
         return ['customer_id' => $customer, 'enabled' => (bool) $s->enabled, 'points' => $points,
-            'point_value' => $s->point_value, 'redeemable_amount' => CashoutService::money($points * CashoutService::minor($s->point_value)),
+            'point_value' => $s->point_value, 'redeemable_amount' => CashoutService::money((int) floor(self::pointUnits($customer) * CashoutService::minor($s->point_value) / PointOrderPaymentService::SCALE)),
             'referral_count' => DB::table('membership_referrals')->where('referrer_type', 'member')->where('referrer_id', $customer)->count(),
             'rewarded_count' => DB::table('membership_referral_rewards')->where('referrer_type', 'member')->where('referrer_id', $customer)->where('points', '>', 0)->count(),
+            'history' => self::history($customer),
             'milestones' => MilestoneBonusService::summary($customer),
+            'point_transactions' => DB::table('membership_point_transactions as t')
+                ->join('package_order_checkouts as c', 'c.id', '=', 't.checkout_id')
+                ->join('sale_orders as o', 'o.id', '=', 'c.sale_order_id')
+                ->where('t.customer_id', $customer)->orderByDesc('t.id')->limit(30)
+                ->get(['t.type', 't.points', 't.point_value', 't.amount', 't.created_at', 'o.order_no']),
             'redemptions' => DB::table('membership_point_redemptions')->where('customer_id', $customer)->latest('id')->limit(30)->get(['points', 'point_value', 'amount', 'request_key', 'created_at'])];
     }
 
@@ -87,7 +142,7 @@ class ReferralRewardService
             $value = CashoutService::minor($s->point_value);
             if (! $s->enabled || $value <= 0) self::fail('Point redemption is currently unavailable.', 'পয়েন্ট রিডিম বর্তমানে বন্ধ আছে।');
             if ($value !== CashoutService::minor($rate)) self::fail('Point value changed. Refresh and confirm again.', 'পয়েন্টের মূল্য বদলেছে। রিফ্রেশ করে আবার নিশ্চিত করুন।');
-            if ($points < 1 || $points > 1000000 || self::points($customer->id, true) < $points) self::fail('Insufficient referral points.', 'রেফারেল পয়েন্ট পর্যাপ্ত নয়।');
+            if ($points < 1 || $points > 1000000 || self::pointUnits($customer->id, true) < $points * PointOrderPaymentService::SCALE) self::fail('Insufficient referral points.', 'রেফারেল পয়েন্ট পর্যাপ্ত নয়।');
             $accounts = ShomriddhiAccount::where('customer_id', $customer->id)->where('status', 'Active')->lockForUpdate()->get();
             if ($accounts->count() !== 1) self::fail('Exactly one active savings account is required.', 'একটি সক্রিয় সঞ্চয় হিসাব থাকতে হবে।');
             $a = $accounts->first();

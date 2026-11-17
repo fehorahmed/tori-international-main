@@ -43,6 +43,7 @@ Route::prefix('v1')->group(function () {
         });
 
         Route::post('referrals/milestones/collect', [\App\Http\Controllers\API\Membership\ReferralController::class, 'collectMilestones'])->middleware('throttle:6,1');
+        Route::get('referrals/history', [\App\Http\Controllers\API\Membership\ReferralController::class, 'history']);
         Route::get('referrals', [\App\Http\Controllers\API\Membership\ReferralController::class, 'index']);
         Route::post('referrals/redeem', [\App\Http\Controllers\API\Membership\ReferralController::class, 'redeem'])->middleware('throttle:6,1');
 

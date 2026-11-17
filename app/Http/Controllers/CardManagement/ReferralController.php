@@ -23,6 +23,7 @@ class ReferralController extends Controller
             ->when($r->referrer_id, fn ($q) => $q->where('r.referrer_id', $r->referrer_id));
         $summary = (clone $query)->selectRaw('r.referrer_type, r.referrer_id, COUNT(*) as referrals, SUM(CASE WHEN f.paid_at IS NOT NULL THEN 1 ELSE 0 END) as fee_paid, SUM(CASE WHEN f.id IS NOT NULL AND f.paid_at IS NULL THEN 1 ELSE 0 END) as fee_pending, SUM(COALESCE(b.points, 0)) as points, SUM(COALESCE(b.amount, 0)) as commission, SUM(CASE WHEN b.paid_at IS NOT NULL THEN b.amount ELSE 0 END) as paid')->groupBy('r.referrer_type', 'r.referrer_id')->paginate(25, ['*'], 'summary_page');
         foreach ($summary as $row) {
+            $row->available_points = $row->referrer_type === 'member' ? ReferralRewardService::points($row->referrer_id) : 0;
             $row->referrer = $row->referrer_type === 'agent' ? User::withTrashed()->find($row->referrer_id) : Supplier::withTrashed()->find($row->referrer_id);
             $row->milestone_paid = $row->referrer_type === 'member' ? DB::table('membership_milestone_bonuses')->where('customer_id', $row->referrer_id)->whereNotNull('paid_at')->sum('amount') : 0;
             $row->milestone_pending = $row->referrer_type === 'member' ? DB::table('membership_milestone_bonuses')->where('customer_id', $row->referrer_id)->whereNull('paid_at')->sum('amount') : 0;

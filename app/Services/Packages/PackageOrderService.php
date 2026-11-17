@@ -34,8 +34,8 @@ class PackageOrderService
         if (($data['coupon_code'] ?? null)) {
             ProductPackageService::fail('Coupons are not available for this checkout yet. Remove the coupon to continue.');
         }
-        if (! in_array($data['payment_method'], ['cod', 'membership'], true)) {
-            ProductPackageService::fail('Select Cash on Delivery or Membership Account.');
+        if (! in_array($data['payment_method'], ['cod', 'membership', 'points'], true)) {
+            ProductPackageService::fail('Select Cash on Delivery, Membership Account or Membership Points.');
         }
         $shipping = CashoutService::minor((string) ($data['shipping_charge'] ?? 0));
         if (! in_array($shipping, [5000, 10000], true)) {
@@ -47,6 +47,7 @@ class PackageOrderService
         }
         $fingerprint = [$input, $data['billing'], $shipping, $data['payment_method']];
         if (isset($data['expected_total'])) $fingerprint[] = CashoutService::money(CashoutService::minor($data['expected_total']));
+        if ($data['payment_method'] === 'points') $fingerprint[] = $data['point_value'] ?? null;
         $hash = hash('sha256', json_encode($fingerprint));
 
         return DB::transaction(function () use ($customer, $data, $shipping, $input, $hash) {
@@ -90,6 +91,12 @@ class PackageOrderService
                     $parts = [['product_id' => $product->id, 'name' => $product->name, 'quantity' => 1, 'weight' => 1]];
                 }
                 $pricing = \App\Services\Membership\DiscountService::price($product, $discountEligible);
+                if ($data['payment_method'] === 'points') {
+                    $pricing['net'] = $pricing['regular'];
+                    foreach (['discount', 'general_discount', 'member_discount', 'offer_discount'] as $field) $pricing[$field] = 0;
+                    $pricing['offer'] = null;
+                    $pricing['discount_source'] = 'none';
+                }
                 $price = $pricing['net'];
                 if ($price < 1) {
                     ProductPackageService::fail('Product price is invalid.');
@@ -146,6 +153,9 @@ class PackageOrderService
             $checkout = PackageOrderCheckout::create(['sale_order_id' => $order->id, 'customer_id' => $customer->id, 'warehouse_id' => $warehouse->id, 'request_key' => $data['request_key'], 'request_hash' => $hash, 'billing' => $data['billing'], 'lines' => $lines, 'shipping_charge' => CashoutService::money($shipping), 'payment_method' => $data['payment_method']]);
             if ($data['payment_method'] === 'membership') {
                 \App\Services\Membership\OrderPaymentService::capture($checkout, $actor->id);
+            }
+            if ($data['payment_method'] === 'points') {
+                \App\Services\Membership\PointOrderPaymentService::capture($checkout, $actor->id, $data);
             }
             return $checkout;
         }, 3);
@@ -256,7 +266,7 @@ class PackageOrderService
             abort_unless($order->sister_concern_id == $operator->activeConcernId(), 403);
             if ($checkout->status === 'Cancelled') return;
             abort_unless(in_array($checkout->status, ['Pending', 'Confirmed'], true) && $order->status < 2, 422, 'Only orders not yet dispatched can be cancelled.');
-            abort_if($checkout->payment_method !== 'membership' && $order->paid > 0, 422, 'Refund collected COD payments through the collection workflow before cancelling.');
+            abort_if(!in_array($checkout->payment_method, ['membership', 'points'], true) && $order->paid > 0, 422, 'Refund collected COD payments through the collection workflow before cancelling.');
             if ($checkout->status === 'Confirmed') {
                 foreach (SaleOrderItem::where('sale_order_id', $order->id)->orderBy('inventory_id')->get() as $item) {
                     $inventory = Inventory::withTrashed()->whereKey($item->inventory_id)->lockForUpdate()->firstOrFail();
@@ -272,7 +282,8 @@ class PackageOrderService
                     \App\Services\Membership\OrderPaymentService::reverseVoucher($voucher, $operator->id, \App\Services\Membership\OrderPaymentService::CANCELLATION);
                 }
             }
-            \App\Services\Membership\OrderPaymentService::refund($checkout, $operator->id);
+            if ($checkout->payment_method === 'points') \App\Services\Membership\PointOrderPaymentService::refund($checkout, $operator->id);
+            else \App\Services\Membership\OrderPaymentService::refund($checkout, $operator->id);
             $checkout->update(['status' => 'Cancelled']);
             $order->refresh()->update(['status' => 4, 'due' => 0]);
         }, 3);
@@ -291,7 +302,7 @@ class PackageOrderService
         $number = generateVoucherNo(1, 'vouchers', $order->sister_concern_id);
         $voucher = Voucher::create(['sale_order_id' => $order->id, 'sister_concern_id' => $order->sister_concern_id, 'voucher_type' => 1, 'voucher_no' => $number, 'voucher_no_group_sl' => (int) filter_var($number, FILTER_SANITIZE_NUMBER_INT), 'date' => $order->date, 'amount' => CashoutService::money(CashoutService::minor($order->total) + $cost), 'notes' => 'Ecommerce sale '.$order->order_no, 'user_id' => $operator->id]);
         $entries = [[$receivable->id, 1, CashoutService::minor($order->total)], [reservedAccountHeadId(ReservedAccountHead::SALES_REVENUE), 2, CashoutService::minor($order->total)]];
-        if ($order->paid > 0 && PackageOrderCheckout::where('sale_order_id', $order->id)->where('payment_method', 'membership')->exists()) {
+        if ($order->paid > 0 && PackageOrderCheckout::where('sale_order_id', $order->id)->whereIn('payment_method', ['membership', 'points'])->exists()) {
             $advance = \App\Services\Membership\OrderPaymentService::head(ReservedAccountHead::CUSTOMER_ADVANCE_RECEIVED, 'Credit');
             $entries[] = [$advance, 1, CashoutService::minor($order->paid)];
             $entries[] = [$receivable->id, 2, CashoutService::minor($order->paid)];
@@ -312,6 +323,6 @@ class PackageOrderService
     {
         $order = $checkout->saleOrder;
 
-        return ['is_package_order' => collect($checkout->lines)->contains(fn ($line) => $line['catalog_type'] === 'package'), 'is_snapshot_order' => true, 'id' => $order->id, 'order_no' => $order->order_no, 'date' => $order->date, 'status' => $order->status, 'package_status' => $checkout->status, 'billing_name' => $checkout->billing['name'], 'billing_mobile_no' => $checkout->billing['phone'], 'billing_address' => $checkout->billing['address'], 'payment_method' => $checkout->payment_method, 'shipping_charge' => $checkout->shipping_charge, 'sub_total' => $order->sub_total, 'discount' => $order->discount, 'total' => $order->total, 'paid' => $order->paid, 'due' => $order->due, 'products' => array_map(fn ($line) => $line + ['discount_amt' => $line['discount_total'] ?? '0.00'], $checkout->lines)];
+        return ['point_payment' => $checkout->payment_method === 'points' ? \App\Services\Membership\PointOrderPaymentService::data($checkout) : null, 'is_package_order' => collect($checkout->lines)->contains(fn ($line) => $line['catalog_type'] === 'package'), 'is_snapshot_order' => true, 'id' => $order->id, 'order_no' => $order->order_no, 'date' => $order->date, 'status' => $order->status, 'package_status' => $checkout->status, 'billing_name' => $checkout->billing['name'], 'billing_mobile_no' => $checkout->billing['phone'], 'billing_address' => $checkout->billing['address'], 'payment_method' => $checkout->payment_method, 'shipping_charge' => $checkout->shipping_charge, 'sub_total' => $order->sub_total, 'discount' => $order->discount, 'total' => $order->total, 'paid' => $order->paid, 'due' => $order->due, 'products' => array_map(fn ($line) => $line + ['discount_amt' => $line['discount_total'] ?? '0.00'], $checkout->lines)];
     }
 }

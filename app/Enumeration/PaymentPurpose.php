@@ -49,10 +49,14 @@ class PaymentPurpose
     public static $REFERRAL_REDEMPTION = 35;
     public static $REFERRAL_PAYMENT = 36;
     public static $REFERRAL_MILESTONE_BONUS = 37;
+    public static $MEMBERSHIP_POINT_ORDER_PAYMENT = 38;
+    public static $MEMBERSHIP_POINT_ORDER_REFUND = 39;
 
     public static function names()
     {
         return [
+            self::$MEMBERSHIP_POINT_ORDER_PAYMENT => 'Ecommerce Points Payment',
+            self::$MEMBERSHIP_POINT_ORDER_REFUND => 'Ecommerce Points Refund',
             self::$REFERRAL_COMMISSION => 'Agent Referral Commission',
             self::$REFERRAL_REDEMPTION => 'Referral Points Redemption',
             self::$REFERRAL_MILESTONE_BONUS => 'Referral Milestone Bonus',

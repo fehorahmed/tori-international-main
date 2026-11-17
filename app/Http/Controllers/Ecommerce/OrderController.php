@@ -71,6 +71,7 @@ class OrderController extends Controller{
 
                 return match ($method) {
                     'membership' => $checkout?->status === 'Cancelled' ? 'Membership Account (Refunded)' : 'Membership Account',
+                    'points' => $checkout?->status === 'Cancelled' ? 'Membership Points (Refunded)' : 'Membership Points',
                     'cod' => 'Cash on Delivery',
                     'cash' => 'Cash',
                     'bkash' => 'bKash',

@@ -7,7 +7,10 @@
 <a href="{{ route('ecom_order') }}" class="btn btn-secondary mb-3">Back to Orders</a>
 <h4>{{ $order['order_no'] }} — {{ $checkout->status }} @if($order['status'] == 2) / Dispatched @elseif($order['status'] == 3) / Delivered @endif</h4>
 <p>{{ $order['billing_name'] }} / {{ $order['billing_mobile_no'] }}<br>{{ $order['billing_address'] }}</p>
-@if($checkout->payment_method === 'membership')
+@if($checkout->payment_method === 'points')
+<p>Payment: Membership Points — {{ $checkout->status === 'Cancelled' ? 'Refunded' : 'Paid at checkout' }}.
+{{ $order['point_payment']->points }} points at Tk {{ $order['point_payment']->point_value }} per point. MRP + delivery; no discounts.</p>
+@elseif($checkout->payment_method === 'membership')
 <p>Payment: Membership Account — {{ $checkout->status === 'Cancelled' ? 'Refunded to savings account' : 'Paid at checkout' }}. Paid: Tk {{ $order['paid'] }}. Cancelling before dispatch refunds the full order total.</p>
 @else
 <p>Payment: Cash on Delivery. Stock is checked again at confirmation; payment is recorded separately after collection.</p>
@@ -21,7 +24,7 @@
 @endif
 
 @if(in_array($checkout->status, ['Pending', 'Confirmed']) && $order['status'] < 2)
-@can('ecommerce_order_confirm')<form class="mt-2" method="POST" action="{{ route('package-orders.cancel',$checkout) }}" onsubmit="return confirm('Cancel this order? Any account payment will be refunded; confirmed stock will be restored.')">@csrf<button class="btn btn-danger" type="submit">Cancel order &amp; refund account payment</button></form>@endcan
+@can('ecommerce_order_confirm')<form class="mt-2" method="POST" action="{{ route('package-orders.cancel',$checkout) }}" onsubmit="return confirm('Cancel this order? Any account payment will be refunded; confirmed stock will be restored.')">@csrf<button class="btn btn-danger" type="submit">Cancel order &amp; refund payment</button></form>@endcan
 @endif
 
 @if($checkout->status === 'Confirmed' && $order['status'] < 3)

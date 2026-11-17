@@ -37,8 +37,9 @@
                 <div>
                     <p class="text-gray-700 font-medium">Payment Method</p>
                     <p class="font-bold text-gray-900 text-lg capitalize">
-                        {{ order.payment_method === 'membership' ? 'Membership Account Balance' : order.payment_method }}
-                    </p>
+                        {{ order.payment_method === 'points' ? 'Membership Points' : (order.payment_method === 'membership' ? 'Membership Account Balance' : order.payment_method) }}
+                    <span v-if="order.point_payment" class="block text-sm">{{ order.point_payment.points }} points · Tk {{ order.point_payment.point_value }} per point</span>
+                        </p>
                 </div>
                 <div>
                     <p class="text-gray-700 font-medium">Delivery Charge</p>

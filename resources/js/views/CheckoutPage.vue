@@ -18,7 +18,7 @@
                 <!-- Cart Items List -->
                 <div v-if="!cartLoading && totalCartItem > 0" class="space-y-4">
                   <div
-                    v-for="item in cartItems"
+                    v-for="item in checkoutItems"
                     :key="item.id"
                     class="flex flex-col sm:flex-row items-center justify-between border rounded-xl p-4 shadow-sm hover:shadow-md transition"
                   >
@@ -161,6 +161,7 @@
                   <select v-model="paymentMethod" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring focus:ring-green-200">
                     <option value="cod">Cash on Delivery</option>
                     <option value="membership" :disabled="!membershipSavings">Membership Account Balance</option>
+                    <option value="points" :disabled="!membershipPoints?.enabled">Membership Points (MRP only)</option>
                     <option value="bkash" disabled>bKash (Unavailable)</option>
                     <option value="card" disabled>Credit/Debit Card (Unavailable)</option>
                   </select>
@@ -169,13 +170,20 @@
                 <p v-if="membershipSavings" class="text-sm font-bold text-gray-600">Membership balance: Tk {{ membershipSavings.balance }} · Available: Tk {{ membershipSavings.available_balance }}</p>
                 <p v-if="paymentMethod === 'membership'" class="text-sm text-gray-600">The full order total, including delivery, will be deducted immediately. The protected minimum balance is unavailable. Cancelled orders are refunded to the same savings account.</p>
 
+                <p v-if="paymentMethod === 'points'" class="text-sm text-gray-600">
+                  Available points: <strong>{{ membershipPoints?.points }}</strong> · 1 point = Tk {{ membershipPoints?.point_value }}.<br>
+                  Products and packages are charged at MRP. No product, member, special offer or coupon discount applies. Delivery is included.
+                  <br>Required: <strong>{{ requiredPoints }} points</strong> (rounded up to 6 decimal places). Cancelled orders return the exact points paid.
+                </p>
+
+                <p v-if="paymentMethod === 'points' && !enoughPoints" class="text-sm font-semibold text-red-600">Insufficient points for this order including delivery.</p>
                 <!-- Coupon -->
-                <p v-if="$store.getters['cart/membershipDiscount']?.enabled" class="text-sm text-gray-600">
+                <p v-if="paymentMethod !== 'points' && $store.getters['cart/membershipDiscount']?.enabled" class="text-sm text-gray-600">
                   Membership discount requires a total savings balance of Tk {{ $store.getters['cart/membershipDiscount'].minimum_balance }} before payment.
                   {{ $store.getters['cart/membershipDiscount'].eligible ? 'Eligible member pricing is applied where better than general discount.' : 'General product discounts still apply; member discounts are unavailable.' }}
                 </p>
 
-                <div>
+                <div v-if="paymentMethod !== 'points'">
                   <label class="block text-sm font-medium text-gray-700 mb-1">Coupon Code </label>
                   <div class="flex flex-wrap gap-2">
                     <input
@@ -211,9 +219,9 @@
                     <span>SubTotal</span>
                     <span class="font-medium">৳{{ cartSubtotal }}</span>
                   </div>
-                  <div v-if="cartDiscount > 0" class="flex justify-between text-primary_color">
+                  <div v-if="checkoutDiscount > 0" class="flex justify-between text-primary_color">
                     <span>Discount</span>
-                    <span>- ৳{{ cartDiscount }}</span>
+                    <span>- ৳{{ checkoutDiscount }}</span>
                   </div>
 				          <div class="flex justify-between">
                     <span>Delivery</span>
@@ -226,7 +234,7 @@
                 </div>
 
                 <!-- Submit -->
-                <button type="submit" :disabled="placingOrder || !cartItems.length" class="w-full py-2 bg-primary_color text-white rounded-lg font-bold text-lg hover:bg-[#5ca327] transition">
+                <button type="submit" :disabled="placingOrder || !cartItems.length || (paymentMethod === 'points' && !enoughPoints)" class="w-full py-2 bg-primary_color text-white rounded-lg font-bold text-lg hover:bg-[#5ca327] transition">
                   Place Order
                 </button>
 
@@ -265,10 +273,23 @@ export default {
     };
   },
   computed: {
-    ...mapGetters("cart", ["cartLoading", "cartItems", "coupon", "totalCartItem", "cartSubtotal", "cartTotal", "cartDiscount", "productDiscount", "couponDiscount"]),
+    ...mapGetters("cart", ["cartLoading", "cartItems", "coupon", "totalCartItem", "cartSubtotal", "cartTotal", "cartDiscount", "productDiscount", "couponDiscount", "membershipPoints"]),
     ...mapGetters("auth", ["isLoggedIn","loginUser"]),
+    checkoutItems() {
+      if (this.paymentMethod !== 'points') return this.cartItems;
+      return this.cartItems.map(item => ({...item, price: item.old_price, discount: 0, discount_percent: 0, member_discount: 0}));
+    },
+    checkoutDiscount() { return this.paymentMethod === 'points' ? 0 : Number(this.cartDiscount); },
+    requiredPoints() {
+      const rate = Math.round(Number(this.membershipPoints?.point_value || 0) * 100);
+      const total = Math.round(Number(this.grandTotal) * 100);
+      return rate > 0 ? (Math.ceil(total * 1000000 / rate) / 1000000).toFixed(6) : '0.000000';
+    },
+    enoughPoints() {
+      return this.membershipPoints?.enabled && Number(this.membershipPoints.points) >= Number(this.requiredPoints);
+    },
     grandTotal() {
-      return (parseFloat(this.cartSubtotal) + parseFloat(this.deliveryCharge) - parseFloat(this.cartDiscount)).toFixed(2);
+      return (parseFloat(this.cartSubtotal) + parseFloat(this.deliveryCharge) - this.checkoutDiscount).toFixed(2);
     }
   },
   watch: {
@@ -331,10 +352,12 @@ export default {
       if (this.placingOrder || !this.cartItems.length) return;
       this.placingOrder = true;
       try {
-        if (this.paymentMethod === 'membership') {
+        if (['membership', 'points'].includes(this.paymentMethod)) {
           const confirmation = await Swal.fire({
             title: 'Confirm your payment',
-            text: `Tk ${Number(this.grandTotal).toLocaleString('en-BD', {minimumFractionDigits: 2, maximumFractionDigits: 2})} will be deducted from your membership account to place this order.`,
+            text: this.paymentMethod === 'points'
+              ? `${this.requiredPoints} points will be deducted for Tk ${this.grandTotal} (MRP plus delivery). No discounts apply.`
+              : `Tk ${Number(this.grandTotal).toLocaleString('en-BD', {minimumFractionDigits: 2, maximumFractionDigits: 2})} will be deducted from your membership account to place this order.`,
             icon: 'question',
             showCancelButton: true,
             confirmButtonText: 'Pay & Place Order',
@@ -350,8 +373,9 @@ export default {
           if (!confirmation.isConfirmed) return;
         }
         const payload = {
-          coupon_code: this.coupon?.code,
-          coupon_discount: this.couponDiscount,
+          coupon_code: this.paymentMethod === 'points' ? null : this.coupon?.code,
+          coupon_discount: this.paymentMethod === 'points' ? 0 : this.couponDiscount,
+          point_value: this.paymentMethod === 'points' ? this.membershipPoints?.point_value : null,
           shipping_charge: this.deliveryCharge,
           payment_method: this.paymentMethod,
           expected_total: this.grandTotal,
@@ -364,9 +388,9 @@ export default {
           }
         };
         const hasPackage = this.cartItems.some(item => item.product?.catalog_type === 'package');
-        if (['cod', 'membership'].includes(this.paymentMethod) || hasPackage) {
-          if (!['cod', 'membership'].includes(this.paymentMethod)) { toast.error('Select Cash on Delivery or Membership Account.'); return; }
-          const fingerprint = JSON.stringify([this.loginUser?.id, payload.billing, payload.shipping_charge, payload.payment_method, payload.expected_total,
+        if (['cod', 'membership', 'points'].includes(this.paymentMethod) || hasPackage) {
+          if (!['cod', 'membership', 'points'].includes(this.paymentMethod)) { toast.error('Select Cash on Delivery, Membership Account or Membership Points.'); return; }
+          const fingerprint = JSON.stringify([this.loginUser?.id, payload.billing, payload.shipping_charge, payload.payment_method, payload.expected_total, payload.point_value,
             payload.items.map(item => [item.product_id, item.quantity]).sort((a, b) => a[0] - b[0])]);
           let pending;
           try { pending = JSON.parse(sessionStorage.getItem('ecommerce_checkout_request')); } catch (_) { pending = null; }

@@ -145,7 +145,7 @@
             </div>
         </div>
     </div>
-    <DrawerParent/> 
+    <DrawerParent :has-special-offers="hasSpecialOffers"/>
     <DrawerCategory ref="categoryDrawer"/>
 </template>
 <script>

@@ -109,6 +109,7 @@ class CartController extends Controller
             'count'     => Cart::count(),
             'productDiscount'  => Cart::productDiscount(),
             'couponDiscount'  => Cart::couponDiscount(),
+            'membership_points' => \App\Services\Membership\PointOrderPaymentService::summary(auth()->guard('customer')->user()),
             'membership_discount' => [
                 'enabled' => membership_transaction_setting('membership_discount.enabled'),
                 'minimum_balance' => membership_transaction_setting('membership_discount.minimum_balance'),

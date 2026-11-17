@@ -127,6 +127,200 @@ class ProductPackageTest extends TestCase
         $this->getJson('/api/special-offer-availability')->assertOk()->assertJsonPath('available', false);
     }
 
+    private function pointFunding(int $points = 100): void
+    {
+        $expense = \App\Models\Account\AccountHead::create(['name' => 'Points expense test', 'nature' => 'Debit',
+            'status' => 1, 'account_group_id' => \App\Models\Account\AccountGroup::where('reserved_id', 25)->firstOrFail()->id]);
+        \App\Models\MembershipTransactionSetting::writeGroup('referral', ['enabled' => true, 'point_value' => '30.00',
+            'expense_head_id' => $expense->id, 'posting_user_id' => $this->operator->id]);
+        \Illuminate\Support\Facades\DB::table('membership_referral_rewards')->insert([
+            'referral_id' => 10000000 + $this->customer->id, 'registration_fee_id' => 10000000 + $this->customer->id,
+            'referrer_type' => 'member', 'referrer_id' => $this->customer->id, 'branch_id' => $this->warehouse->sister_concern_id,
+            'points' => $points, 'amount' => 0, 'created_at' => now(), 'updated_at' => now(),
+        ]);
+    }
+
+    public function test_points_order_uses_mrp_includes_delivery_posts_balanced_ledger_and_refunds_exactly_once(): void
+    {
+        $this->pointFunding();
+        $account = $this->fundedSavings();
+        $this->package->update(['old_selling_price' => '300.00', 'selling_price' => '225.01', 'discount_percent' => 25, 'member_discount_percent' => 30]);
+        $this->offer($this->package, 'percentage', '40.00');
+        $data = $this->data();
+        $data['payment_method'] = 'points'; $data['point_value'] = '30.00'; $data['expected_total'] = '350.00';
+        $service = app(PackageOrderService::class);
+        $checkout = $service->checkout($this->customer, $data);
+        $order = $checkout->saleOrder->fresh();
+        $this->assertEquals(350, $order->total);
+        $this->assertEquals(0, $order->discount);
+        $this->assertEquals(350, $order->paid);
+        $this->assertEquals(0, $order->due);
+        $this->assertSame('0.00', $checkout->lines[0]['discount_total']);
+        $this->assertSame('none', $checkout->lines[0]['discount_source']);
+        $entry = \Illuminate\Support\Facades\DB::table('membership_point_transactions')->where('checkout_id', $checkout->id)->first();
+        $this->assertSame('11.666667', $entry->points);
+        $this->assertSame(88333333, \App\Services\Membership\ReferralRewardService::pointUnits($this->customer->id));
+        $this->assertSame($checkout->id, $service->checkout($this->customer, $data)->id);
+        $this->assertEquals(1000, $account->fresh()->principal_balance);
+        $service->confirm($checkout, $this->operator);
+        $service->cancel($checkout, $this->operator);
+        $service->cancel($checkout->fresh(), $this->operator);
+        $this->assertSame(100, \App\Services\Membership\ReferralRewardService::points($this->customer->id));
+        $this->assertEquals(1000, $account->fresh()->principal_balance);
+        $this->assertSame(2, \Illuminate\Support\Facades\DB::table('membership_point_transactions')->where('checkout_id', $checkout->id)->count());
+        $this->assertEquals(0, $order->fresh()->paid);
+        foreach (Voucher::where('sale_order_id', $order->id)->get() as $voucher) {
+            $this->assertEquals(Transaction::where('voucher_id', $voucher->id)->where('transaction_type', 1)->sum('amount'),
+                Transaction::where('voucher_id', $voucher->id)->where('transaction_type', 2)->sum('amount'));
+        }
+        $this->assertEquals(10, Inventory::where('warehouse_id', $this->warehouse->id)->where('product_id', $this->a->id)->sum('quantity'));
+    }
+
+    public function test_points_order_insufficient_points_rolls_back_order_and_money_ledger(): void
+    {
+        $this->pointFunding(1);
+        $data = $this->data(); $data['payment_method'] = 'points'; $data['point_value'] = '30.00';
+        $count = \App\Models\Sales\SaleOrder::count();
+        try { app(PackageOrderService::class)->checkout($this->customer, $data); $this->fail('Must reject insufficient points.'); }
+        catch (ValidationException $e) { $this->assertStringContainsString('Insufficient membership points', $e->getMessage()); }
+        $this->assertSame($count, \App\Models\Sales\SaleOrder::count());
+        $this->assertSame(1, \App\Services\Membership\ReferralRewardService::points($this->customer->id));
+        $this->assertSame(0, \Illuminate\Support\Facades\DB::table('membership_point_transactions')->where('customer_id', $this->customer->id)->count());
+    }
+
+    public function test_points_order_rejects_stale_rate_coupon_and_discounted_total(): void
+    {
+        $this->pointFunding();
+        foreach ([['point_value' => '29.00'], ['coupon_code' => 'FREE'], ['expected_total' => '1.00']] as $invalid) {
+            $data = array_replace($this->data(), ['payment_method' => 'points', 'point_value' => '30.00'], $invalid);
+            try { app(PackageOrderService::class)->checkout($this->customer, $data); $this->fail('Invalid point checkout must fail.'); }
+            catch (ValidationException $e) { $this->assertNotEmpty($e->errors()); }
+        }
+        $this->assertSame(100, \App\Services\Membership\ReferralRewardService::points($this->customer->id));
+    }
+
+    public function test_points_order_api_returns_snapshot_and_cancel_uses_original_rate_after_settings_change(): void
+    {
+        $this->pointFunding();
+        $this->actingAs($this->customer, 'customer');
+        $data = array_replace($this->data(), ['payment_method' => 'points', 'point_value' => '30.00', 'expected_total' => '275.01']);
+        $response = $this->postJson('/api/package-checkout', $data)->assertCreated()->assertJsonPath('order.payment_method', 'points');
+        $this->assertSame('9.167000', $response->json('order.point_payment.points'));
+        $checkout = \App\Models\Ecommerce\PackageOrderCheckout::where('request_key', $data['request_key'])->firstOrFail();
+        \App\Models\MembershipTransactionSetting::writeGroup('referral', ['enabled' => false, 'point_value' => '99.00']);
+        app(PackageOrderService::class)->cancel($checkout, $this->operator);
+        $this->assertSame(100, \App\Services\Membership\ReferralRewardService::points($this->customer->id));
+        $this->assertSame('30.00', \Illuminate\Support\Facades\DB::table('membership_point_transactions')->where('checkout_id', $checkout->id)->where('type', 'Refund')->value('point_value'));
+    }
+
+    public function test_point_purchase_and_manual_redemption_share_remaining_balance(): void
+    {
+        $this->pointFunding(10);
+        $this->fundedSavings();
+        $this->customer->update(['pin' => \Illuminate\Support\Facades\Hash::make('763921')]);
+        $data = array_replace($this->data(), ['payment_method' => 'points', 'point_value' => '30.00']);
+        $checkout = app(PackageOrderService::class)->checkout($this->customer, $data);
+        $this->assertSame(833000, \App\Services\Membership\ReferralRewardService::pointUnits($this->customer->id));
+        try {
+            \App\Services\Membership\ReferralRewardService::redeem($this->customer, 1, '30.00', '763921', (string) Str::uuid());
+            $this->fail('Points spent at checkout cannot also be redeemed.');
+        } catch (ValidationException $e) { $this->assertStringContainsString('Insufficient referral points', $e->getMessage()); }
+        app(PackageOrderService::class)->cancel($checkout, $this->operator);
+        $this->assertSame(10, \App\Services\Membership\ReferralRewardService::points($this->customer->id));
+    }
+
+    public function test_ordinary_product_points_checkout_and_disabled_points_setting(): void
+    {
+        $this->pointFunding();
+        $this->a->update(['old_selling_price' => '100.00', 'selling_price' => '80.00', 'discount_percent' => 20]);
+        $data = array_replace($this->data(), ['payment_method' => 'points', 'point_value' => '30.00', 'expected_total' => '150.00',
+            'items' => [['product_id' => $this->a->id, 'quantity' => 1]]]);
+        $this->actingAs($this->customer, 'customer');
+        $this->postJson('/api/order', $data)->assertCreated()->assertJsonPath('order.point_payment.points', '5.000000');
+        \App\Models\MembershipTransactionSetting::writeGroup('referral', ['enabled' => false]);
+        $data['request_key'] = (string) Str::uuid();
+        $this->postJson('/api/order', $data)->assertUnprocessable();
+        $this->assertSame(95, \App\Services\Membership\ReferralRewardService::points($this->customer->id));
+    }
+
+    public function test_unified_point_history_includes_credits_debits_refunds_and_is_member_scoped(): void
+    {
+        $this->pointFunding();
+        $this->fundedSavings();
+        $this->customer->update(['pin' => \Illuminate\Support\Facades\Hash::make('763921')]);
+        $data = array_replace($this->data(), ['payment_method' => 'points', 'point_value' => '30.00']);
+        $checkout = app(PackageOrderService::class)->checkout($this->customer, $data);
+        app(PackageOrderService::class)->cancel($checkout, $this->operator);
+        \App\Services\Membership\ReferralRewardService::redeem($this->customer, 1, '30.00', '763921', (string) Str::uuid());
+        $this->actingAs($this->customer, 'customer');
+        $summary = \App\Services\Membership\ReferralRewardService::summary($this->customer->id);
+        $history = json_decode(json_encode($summary['history']), true);
+        $this->assertSame(4, $history['total']);
+        $this->assertEqualsCanonicalizing(['referral', 'purchase', 'refund', 'redemption'], array_column($history['data'], 'type'));
+        $byType = collect($history['data'])->keyBy('type');
+        $this->assertSame('credit', $byType['referral']['direction']);
+        $this->assertSame('debit', $byType['purchase']['direction']);
+        $this->assertSame('credit', $byType['refund']['direction']);
+        $this->assertSame('debit', $byType['redemption']['direction']);
+        $this->assertSame($checkout->saleOrder->order_no, $byType['purchase']['order_no']);
+        $this->assertSame('9.167000', $byType['purchase']['points']);
+        $this->assertStringContainsString('T', $byType['purchase']['created_at']);
+        $other = Supplier::create(['name' => 'History isolation', 'type' => 'Customer', 'status' => 1]);
+        $this->assertSame(0, \App\Services\Membership\ReferralRewardService::history($other->id)['total']);
+        $this->assertSame(99, $summary['points']);
+    }
+
+    public function test_point_history_pagination_and_authenticated_endpoint(): void
+    {
+        $this->pointFunding();
+        for ($i = 1; $i <= 22; $i++) {
+            \Illuminate\Support\Facades\DB::table('membership_referral_rewards')->insert([
+                'referral_id' => 20000000 + $this->customer->id * 100 + $i,
+                'registration_fee_id' => 20000000 + $this->customer->id * 100 + $i,
+                'referrer_type' => 'member', 'referrer_id' => $this->customer->id,
+                'branch_id' => $this->warehouse->sister_concern_id, 'points' => 1, 'amount' => 0,
+                'created_at' => now()->subMinutes($i), 'updated_at' => now(),
+            ]);
+        }
+        $first = \App\Services\Membership\ReferralRewardService::history($this->customer->id);
+        $second = \App\Services\Membership\ReferralRewardService::history($this->customer->id, 2);
+        $this->assertSame(23, $first['total']);
+        $this->assertCount(20, $first['data']);
+        $this->assertCount(3, $second['data']);
+        $this->assertEmpty(array_intersect(array_column($first['data'], 'id'), array_column($second['data'], 'id')));
+        $this->actingAs($this->customer, 'sanctum');
+        $this->getJson('/api/membership/v1/referrals/history?page=2')->assertOk()->assertJsonPath('data.current_page', 2)->assertJsonCount(3, 'data.data');
+        $this->getJson('/api/membership/v1/referrals/history?page=0')->assertUnprocessable();
+    }
+
+    public function test_point_history_period_filters_use_bangladesh_calendar_boundaries(): void
+    {
+        \Carbon\Carbon::setTestNow(\Carbon\Carbon::parse('2026-11-17 12:00:00', 'Asia/Dhaka'));
+        try {
+            $this->pointFunding();
+            $local = \Carbon\Carbon::now('Asia/Dhaka');
+            $dates = [$local->copy()->startOfDay(), $local->copy()->startOfDay()->subSecond(),
+                $local->copy()->startOfWeek(\Carbon\Carbon::MONDAY)->subSecond(), $local->copy()->startOfMonth()->subSecond()];
+            \Illuminate\Support\Facades\DB::table('membership_referral_rewards')->where('referrer_type', 'member')
+                ->where('referrer_id', $this->customer->id)->update(['created_at' => $dates[0]->setTimezone(config('app.timezone'))->toDateTimeString()]);
+            foreach (array_slice($dates, 1) as $i => $date) {
+                \Illuminate\Support\Facades\DB::table('membership_referral_rewards')->insert([
+                    'referral_id' => 30000000 + $this->customer->id * 100 + $i,
+                    'registration_fee_id' => 30000000 + $this->customer->id * 100 + $i,
+                    'referrer_type' => 'member', 'referrer_id' => $this->customer->id,
+                    'branch_id' => $this->warehouse->sister_concern_id, 'points' => 1, 'amount' => 0,
+                    'created_at' => $date->setTimezone(config('app.timezone'))->toDateTimeString(), 'updated_at' => now(),
+                ]);
+            }
+            foreach (['today' => 1, 'weekly' => 2, 'monthly' => 3, 'all' => 4] as $period => $count) {
+                $this->assertSame($count, \App\Services\Membership\ReferralRewardService::history($this->customer->id, 1, $period)['total']);
+            }
+            $this->actingAs($this->customer, 'sanctum');
+            $this->getJson('/api/membership/v1/referrals/history?period=today')->assertOk()->assertJsonCount(1, 'data.data');
+            $this->getJson('/api/membership/v1/referrals/history?period=invalid')->assertUnprocessable();
+        } finally { \Carbon\Carbon::setTestNow(); }
+    }
+
     private function product(string $name, string $price, array $extra = []): Product
     {
         return Product::create($extra + ['name' => $name.' '.Str::random(8), 'code' => 'PKGTEST-'.Str::random(10), 'slug' => 'pkgtest-'.Str::random(15), 'category_id' => Category::firstOrFail()->id, 'unit_id' => Unit::firstOrFail()->id, 'status' => 1, 'is_show' => 1, 'selling_price' => $price, 'old_selling_price' => $price, 'user_id' => $this->operator->id, 'catalog_type' => 'single']);
