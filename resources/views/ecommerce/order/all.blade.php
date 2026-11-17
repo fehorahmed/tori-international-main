@@ -36,8 +36,22 @@
                             </div>
                         </div>
                         <div class="col-md-3">
+                            <div class="form-group">
+                                <label for="order_status">Order Status</label>
+                                <select class="form-control" id="order_status" name="order_status" @disabled(request('type') === 'cancel')>
+                                    <option value="">All statuses</option>
+                                    <option value="0">Pending</option>
+                                    <option value="1">Processing / Confirmed</option>
+                                    <option value="2">In-transit / Dispatched</option>
+                                    <option value="3">Completed / Delivered</option>
+                                    <option value="4" @selected(request('type') === 'cancel')>Cancelled</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
                             <div class="form-group" style="margin-top: 30px;">
-                                <button class="btn btn-info">Search</button>
+                                <button type="button" id="search-orders" class="btn btn-info">Search</button>
+                                <button type="button" id="reset-orders" class="btn btn-secondary ml-1">Reset</button>
                             </div>
                         </div>
                     </div>
@@ -344,6 +358,7 @@
     <script>
         var due;
         $(function() {
+            var appliedFilters = {start_date: '', end_date: '', order_status: $('#order_status').val(), paid_by: ''};
             var table = $('#table').DataTable({
                 processing: true,
                 serverSide: true,
@@ -353,9 +368,10 @@
                     data: function(d) {
                         // const urlParams = new URLSearchParams(window.location.search);
                         // d.type = urlParams.get('type'); // Dynamically pass value from url
-                        d.paid_by = $('#paid_by').val();
-                        d.start_date = $('#start_date').val();
-                        d.end_date = $('#end_date').val();
+                        d.paid_by = appliedFilters.paid_by;
+                        d.start_date = appliedFilters.start_date;
+                        d.end_date = appliedFilters.end_date;
+                        d.order_status = appliedFilters.order_status;
                     }
                 },
                 "pagingType": "full_numbers",
@@ -433,19 +449,22 @@
                 format: 'yyyy-mm-dd'
             });
 
-            //
-            $('#start_date, #end_date').change(function() {
-                var start_date = $('#start_date').val();
-                var end_date = $('#end_date').val();
-                if (start_date && end_date) {
-                    table.ajax.reload();
-                }
+            $('#search-orders').on('click', function() {
+                appliedFilters = {
+                    start_date: $('#start_date').val(),
+                    end_date: $('#end_date').val(),
+                    order_status: $('#order_status').val(),
+                    paid_by: $('#paid_by').val() || ''
+                };
+                table.ajax.reload();
             });
-            $('#paid_by').change(function() {
-                var paid_by = $('#paid_by').val();
-                if (paid_by) {
-                    table.ajax.reload();
-                }
+            $('#reset-orders').on('click', function() {
+                $('#start_date, #end_date').datepicker('update', '');
+                $('#order_status').val($('#order_status').prop('disabled') ? '4' : '');
+                $('#paid_by').val('').trigger('change.select2');
+                appliedFilters = {start_date: '', end_date: '', order_status: $('#order_status').val(), paid_by: ''};
+                table.search('').columns().search('');
+                table.ajax.reload();
             });
 
             $('body').on('click', '.btn-payment', function() {

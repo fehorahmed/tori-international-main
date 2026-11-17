@@ -43,6 +43,7 @@ class OrderController extends Controller{
     }
 
     public function datatable(Request $request){
+        $request->validate(['order_status' => 'nullable|integer|in:0,1,2,3,4']);
         $query = SaleOrder::with(['customer', 'user', 'packageCheckout']);
 
         $query->where('sister_concern_id', auth()->user()->activeConcernId());
@@ -59,8 +60,12 @@ class OrderController extends Controller{
             if(request('type') === 'cancel'){
                 $query->where('status', 4);
             }else{
-                $query->whereIn('status', [0, 1, 2, 3]);
+                $query->whereIn('status', [0, 1, 2, 3, 4]);
             }
+        }
+
+        if ($request->filled('order_status')) {
+            $query->where('status', $request->integer('order_status'));
         }
 
         return DataTables::eloquent($query)

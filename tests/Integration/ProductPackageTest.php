@@ -321,6 +321,27 @@ class ProductPackageTest extends TestCase
         } finally { \Carbon\Carbon::setTestNow(); }
     }
 
+    public function test_main_order_datatable_filters_each_status_and_combines_date_and_branch_scope(): void
+    {
+        $prefix = 'STATUS-'.Str::upper(Str::random(8));
+        foreach (range(0, 4) as $status) {
+            $checkout = app(PackageOrderService::class)->checkout($this->customer, $this->data());
+            $checkout->saleOrder->update(['order_no' => $prefix.'-'.$status, 'status' => $status, 'date' => '2026-11-10']);
+        }
+        $params = ['draw' => 1, 'start' => 0, 'length' => 10, 'search' => ['value' => $prefix],
+            'columns' => [['data' => 'order_no', 'name' => 'order_no', 'searchable' => 'true', 'orderable' => 'true', 'search' => ['value' => '']]]];
+        $fetch = fn ($extra) => $this->getJson(route('ecom_order.datatable').'?'.http_build_query(array_replace($params, $extra)), ['X-Requested-With' => 'XMLHttpRequest']);
+        $fetch([])->assertOk()->assertJsonPath('recordsFiltered', 5);
+        foreach (range(0, 4) as $status) {
+            $fetch(['order_status' => (string) $status])->assertOk()->assertJsonPath('recordsFiltered', 1)->assertJsonPath('data.0.order_no', $prefix.'-'.$status);
+        }
+        $fetch(['order_status' => 0, 'start_date' => '2026-11-11', 'end_date' => '2026-11-12'])->assertOk()->assertJsonPath('recordsFiltered', 0);
+        $fetch(['order_status' => 99])->assertUnprocessable();
+        $other = \App\Models\BranchManagement\SisterConcern::whereKeyNot($this->warehouse->sister_concern_id)->firstOrFail();
+        session(['active_sister_concern_id' => $other->id]);
+        $fetch(['order_status' => 0])->assertOk()->assertJsonPath('recordsFiltered', 0);
+    }
+
     private function product(string $name, string $price, array $extra = []): Product
     {
         return Product::create($extra + ['name' => $name.' '.Str::random(8), 'code' => 'PKGTEST-'.Str::random(10), 'slug' => 'pkgtest-'.Str::random(15), 'category_id' => Category::firstOrFail()->id, 'unit_id' => Unit::firstOrFail()->id, 'status' => 1, 'is_show' => 1, 'selling_price' => $price, 'old_selling_price' => $price, 'user_id' => $this->operator->id, 'catalog_type' => 'single']);
