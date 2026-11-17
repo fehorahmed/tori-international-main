@@ -48,6 +48,8 @@ class CartService
                 $item->price = \App\Services\Membership\CashoutService::money($price['net']);
                 $item->discount = \App\Services\Membership\CashoutService::money($price['discount']);
                 $item->setAttribute('general_discount', \App\Services\Membership\CashoutService::money($price['general_discount']));
+                $item->setAttribute('special_offer', $price['offer']);
+                $item->setAttribute('offer_discount', \App\Services\Membership\CashoutService::money($price['offer_discount']));
                 $item->setAttribute('member_discount', \App\Services\Membership\CashoutService::money($price['member_discount']));
             }
             return $item;

@@ -15,6 +15,7 @@ class Banner extends Model
         'type',
         'sort',
         'image',
+        'url',
         'status',
     ];
 

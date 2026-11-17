@@ -14,9 +14,20 @@ class PackageOrderController extends Controller
     public function index()
     {
         abort_unless(auth()->user()->can('ecommerce_order'), 403);
-        $orders = PackageOrderCheckout::whereHas('saleOrder', fn ($q) => $q->where('sister_concern_id', auth()->user()->activeConcernId()))->with('saleOrder.customer')->latest('id')->paginate(20);
+        return redirect()->route('ecom_order');
+    }
 
-        return view('ecommerce.packages.orders', compact('orders'));
+    public function dataTable()
+    {
+        abort_unless(auth()->user()->can('ecommerce_order'), 403);
+        $query = DB::table('package_order_checkouts as checkouts')
+            ->join('sale_orders as orders', 'orders.id', '=', 'checkouts.sale_order_id')
+            ->leftJoin('suppliers as customers', 'customers.id', '=', 'orders.customer_id')
+            ->whereNull('orders.deleted_at')->where('orders.sister_concern_id', auth()->user()->activeConcernId())
+            ->select('checkouts.id', 'orders.order_no', 'orders.total', 'checkouts.status', 'customers.name as customer_name');
+        return \Yajra\DataTables\Facades\DataTables::query($query)->addIndexColumn()
+            ->addColumn('action', fn ($c) => '<a class="btn btn-primary btn-sm" href="'.e(route('package-orders.show', $c->id)).'">View order</a>')
+            ->rawColumns(['action'])->toJson();
     }
 
     public function show(PackageOrderCheckout $checkout, PackageOrderService $service)

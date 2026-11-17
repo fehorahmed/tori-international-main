@@ -65,10 +65,12 @@ export default {
         return {
             modules: [Navigation, Pagination],
             breakpoints: {
-                0: { slidesPerView: 2 }, // mobile
-                640: { slidesPerView: 2 }, // sm
-                768: { slidesPerView: 3 }, // md
-                1024: { slidesPerView: 5 }, // lg
+                0: { slidesPerView: 1 }, // mobile
+                640: { slidesPerView: 1 }, // sm
+                768: { slidesPerView: 2 }, // md
+                1024: { slidesPerView: 3 },
+                1280: { slidesPerView: 4 },
+                1536: { slidesPerView: 5 }, // lg
             },
         };
     },

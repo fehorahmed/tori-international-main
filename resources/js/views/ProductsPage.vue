@@ -147,7 +147,7 @@
 
           <!-- Products List -->
           <div class="col-lg-9 col-md-8">
-            <div class="flex justify-between items-center bg-white p-2 px-3 mb-3 rounded shadow-sm">
+            <div class="flex flex-wrap gap-3 justify-between items-center bg-white p-2 px-3 mb-3 rounded shadow-sm">
               <!-- Show dropdown -->
               <div class="flex items-center gap-2">
                 <span class="font-medium">Show:</span>
@@ -173,7 +173,7 @@
               </div>
             </div>
 
-            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+            <div class="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(min(100%,250px),1fr))]">
               <ProductCard :products="products" v-if="!productLoading" />
               <ProductCardSkelton v-else v-for="n in 6" :key="n"/>
             </div>

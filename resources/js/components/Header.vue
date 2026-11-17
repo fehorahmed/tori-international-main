@@ -117,6 +117,7 @@
                                 <li><router-link class="text-[15px] text-[#555] font-semibold font-poppins" :to="{ name: 'home' }" :class="{ active: $route.name === 'home' }">Home</router-link></li>
                                 <li><router-link class="text-[15px] text-[#555] font-semibold font-poppins" :to="{ name: 'products' }" :class="{ active: $route.name === 'products' }">Products</router-link></li>
                                 <li><router-link class="text-[15px] text-[#555] font-semibold font-poppins" :to="{ name: 'packages' }" :class="{ active: $route.name === 'packages' }">Packages</router-link></li>
+                                <li v-if="hasSpecialOffers"><router-link class="text-[15px] text-[#555] font-semibold font-poppins" :to="{ name: 'special_offers' }" :class="{ active: $route.name === 'special_offers' }">Special Offers</router-link></li>
                                 <!-- <li><router-link class="text-[15px] text-[#555] font-semibold font-poppins" :to="{ name: 'blog' }" :class="{ active: $route.name === 'blog' }">blog</router-link></li> -->
                                 <li><router-link class="text-[15px] text-[#555] font-semibold font-poppins" :to="{ name: 'gallery' }" :class="{ active: $route.name === 'gallery' }">gallery</router-link></li>
                                 <!-- <li><router-link class="text-[15px] text-[#555] font-semibold font-poppins" :to="{ name: 'about' }" :class="{ active: $route.name === 'about' }">about us</router-link></li> -->
@@ -132,6 +133,7 @@
         <nav class="d-lg-none flex gap-4 bg-white px-4 py-3" aria-label="Catalog">
             <router-link :to="{ name: 'products' }" :class="{ active: $route.name === 'products' }">Products</router-link>
             <router-link :to="{ name: 'packages' }" :class="{ active: $route.name === 'packages' }">Packages</router-link>
+            <router-link v-if="hasSpecialOffers" :to="{ name: 'special_offers' }" :class="{ active: $route.name === 'special_offers' }">Special Offers</router-link>
         </nav>
         <div id="sp_vertical_menu" class="container custom_container menu_slider d-xl-none d-lg-none d-md-block my-0">
             <div class="row">
@@ -156,6 +158,9 @@ export default {
     name: 'Header',
     data() {
         return {
+            hasSpecialOffers: false,
+            offerTimer: null,
+            offersDisposed: false,
             fullText: 'Search products in Tori International',
             typedPlaceholder: '',
             index: 0,
@@ -184,10 +189,24 @@ export default {
         ...mapGetters('compare', ['compareCount', 'compareLoading'])
     },
      mounted() {
+        this.refreshOffers();
+        this.offerTimer = setInterval(this.refreshOffers, 30000);
         this.startTypingEffect()
         this.startCursorBlink()
     },
+    beforeUnmount() {
+        this.offersDisposed = true;
+        clearInterval(this.offerTimer);
+    },
     methods:{
+        async refreshOffers() {
+            try {
+                const {data} = await this.$axios.get('/api/special-offer-availability');
+                if (!this.offersDisposed) this.hasSpecialOffers = data.available === true;
+            } catch {
+                if (!this.offersDisposed) this.hasSpecialOffers = false;
+            }
+        },
         openCategoryDrawer() {
             this.$refs.categoryDrawer.open();
         },

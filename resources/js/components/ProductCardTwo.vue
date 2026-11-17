@@ -2,10 +2,11 @@
   <div
     v-for="product in products"
     :key="product.id"
-    class="w-full flex overflow-hidden box-border rounded-lg bg-white border border-gray-200 transition-all duration-300 ease-linear cursor-pointer group hover:border-[#70c332] hover:shadow-[0_15px_35px_#0000001a]"
+    class="w-full flex flex-col xl:flex-row overflow-hidden box-border rounded-lg bg-white border border-gray-200 transition-all duration-300 ease-linear cursor-pointer group hover:border-[#70c332] hover:shadow-[0_15px_35px_#0000001a]"
   >
+    <span v-if="product.special_offer" class="text-xs font-semibold text-red-600 p-2">Special Offer</span>
     <!-- Left: Product Image -->
-    <div class="relative w-1/3">
+    <div class="relative w-full xl:w-1/3">
       <router-link :to="{ name: 'product_details', params: { slug: product.slug || 'default-slug' } }">
         <img
           :src="'/' + product.image"
@@ -48,7 +49,7 @@
     </div>
 
     <!-- Right: Product Body -->
-    <div class="flex-1 p-2 flex flex-col justify-between">
+    <div class="min-w-0 flex-1 p-2 flex flex-col justify-between">
       <!-- Ratings -->
       <div class="flex items-center gap-1 text-yellow-500">
         <ul class="flex text-yellow-500">
@@ -78,12 +79,7 @@
         </span>
       </div>
 
-      <div v-if="product.discount_percent > 0" class="mt-1">
-        <h3 class="text-gray-700 text-[12px] font-medium">
-          Discount:
-          <span class="text-red-500 font-bold ml-1">{{ product.discount_percent }}%</span>
-        </h3>
-      </div>
+      <ProductDiscountRow :product="product" />
 
       <!-- Add to Cart Button -->
       <button
@@ -120,6 +116,7 @@
 </template>
 
 <script>
+import ProductDiscountRow from "./ProductDiscountRow.vue";
 import { Dialog, DialogOverlay, TransitionRoot } from "@headlessui/vue";
 import { mapActions, mapGetters } from "vuex";
 import { useToast } from "vue-toastification";
@@ -127,6 +124,7 @@ import { useToast } from "vue-toastification";
 export default {
   name: "ProductCardTwo",
   components: {
+    ProductDiscountRow,
     Dialog,
     DialogOverlay,
     TransitionRoot

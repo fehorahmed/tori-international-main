@@ -4,6 +4,7 @@
     :key="product.id"
     class="w-full overflow-hidden box-border rounded-[5px] bg-[#fff] !border border-gray-200 transition-all duration-300 ease-linear cursor-pointer group hover:border-primary_color hover:shadow-[0_15px_35px_#0000001a]"
   >
+    <span v-if="product.special_offer" class="block text-xs font-semibold text-red-600 px-2 py-1">Special Offer</span>
     <!-- Product Image -->
     <div class="product-image relative">
       <router-link :to="{ name: 'product_details', params: { slug: product.slug || 'default-slug' } }">
@@ -79,15 +80,7 @@
             {{ $currency(product.old_selling_price) }}
         </span>
       </div>
-      <div v-if="product.discount_percent > 0" class="product-price mt-0">
-        <h3 class="text-gray-700 text-[12px] font-medium">
-            Discount : 
-            <span class="text-red-500 font-bold ml-1">{{ product.discount_percent }}%</span>
-        </h3>
-      </div>
-      <div v-else class="h-[7px]">
-
-      </div>
+      <ProductDiscountRow :product="product" />
 
       <!-- Button -->
       <button
@@ -129,6 +122,7 @@
 </template>
 
 <script>
+import ProductDiscountRow from "./ProductDiscountRow.vue";
 import { Dialog, DialogOverlay, TransitionRoot } from "@headlessui/vue";
 import { mapActions, mapGetters } from "vuex";
 import { useToast } from "vue-toastification";
@@ -141,6 +135,7 @@ export default {
     };
   },
   components: {
+    ProductDiscountRow,
     Dialog,
     DialogOverlay,
     TransitionRoot

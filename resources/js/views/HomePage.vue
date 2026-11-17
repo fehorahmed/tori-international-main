@@ -63,6 +63,8 @@
             </div>
         </div>
 
+        <CampaignBanners />
+
         <!-- <div class="container custom_container">
             <div class="service-area py-8">
                 <div>
@@ -241,6 +243,7 @@ import { mapActions, mapGetters } from "vuex";
 import FeaturedCategory from "../components/FeaturedCategory.vue";
 import Footer from "../components/Footer.vue";
 import Header from "../components/Header.vue";
+import CampaignBanners from "../components/Home/CampaignBanners.vue";
 import BannerSection from "../components/Home/BannerSection.vue";
 import BlogSection from "../components/Home/BlogSection.vue";
 import FeaturedProduct from "../components/Home/FeaturedProduct.vue";
@@ -287,6 +290,7 @@ export default {
         ...mapActions("home", ["fetchHomeData"]),
     },
     components: {
+        CampaignBanners,
         Footer,
         Header,
         NewArrivalProduct,

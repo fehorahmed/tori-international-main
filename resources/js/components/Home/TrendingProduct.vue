@@ -18,7 +18,7 @@
         </div>
         <!-- row -->
 
-        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+        <div class="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(min(100%,250px),1fr))]">
             <ProductCard v-if="!homeLoading" :products="products" />
             <ProductCardSkelton v-else v-for="n in 6" :key="n" />
         </div>

@@ -26,6 +26,7 @@
           </div>
           <div class="col-xl-7 col-md-6 col-12 mt-3">
             <div class="sp_product_detail">
+              <p v-if="product.special_offer" class="text-red-600 font-bold">Special Offer · {{ product.special_offer.campaign_name }}</p>
               <h1 class="font-weight-bold text-uppercase">
                 <a href="#" class="text-[#39404a] font-bold text-[24px] leading-[30px] mb-2 transition-all duration-300 ease-linear">
                   {{ product.name }}

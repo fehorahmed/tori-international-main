@@ -175,6 +175,7 @@ Route::middleware('permission:ecommerce_filter_delete')->group(function () {
 });
 
 Route::prefix('ecommerce/packages')->name('product-packages.')->controller(\App\Http\Controllers\Ecommerce\ProductPackageController::class)->group(function () {
+ Route::get('datatable', 'dataTable')->name('datatable');
  Route::get('/', 'index')->name('index');
  Route::get('create', 'create')->name('create');
  Route::post('/', 'store')->name('store');
@@ -183,9 +184,19 @@ Route::prefix('ecommerce/packages')->name('product-packages.')->controller(\App\
 });
 
 Route::prefix('ecommerce/package-orders')->name('package-orders.')->controller(\App\Http\Controllers\Ecommerce\PackageOrderController::class)->group(function () {
+ Route::get('datatable', 'dataTable')->name('datatable');
  Route::get('/', 'index')->name('index');
  Route::get('{checkout}', 'show')->name('show');
  Route::post('{checkout}/confirm', 'confirm')->name('confirm');
  Route::post('{checkout}/cancel', 'cancel')->name('cancel');
  Route::post('{checkout}/status', 'status')->name('status');
+});
+
+Route::prefix('ecommerce/special-offers')->name('offer-campaigns.')->controller(\App\Http\Controllers\Ecommerce\OfferCampaignController::class)->group(function(){
+ Route::get('datatable', 'dataTable')->name('datatable');
+ Route::get('/', 'index')->name('index');
+ Route::get('/create', 'edit')->name('create');
+ Route::post('/create', 'save')->name('store');
+ Route::get('/{campaign}/edit', 'edit')->whereNumber('campaign')->name('edit');
+ Route::post('/{campaign}/edit', 'save')->whereNumber('campaign')->name('update');
 });

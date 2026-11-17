@@ -35,6 +35,9 @@ Route::middleware(['ecommerce'])->group(function() {
     Route::post('forgot-password', [FrontendController::class, 'forgotPassword']);
     Route::post('reset-password', [FrontendController::class, 'resetPassword']);
 
+    Route::get('special-offer-availability', [\App\Http\Controllers\Ecommerce\API\SpecialOfferController::class, 'availability']);
+    Route::get('special-offer-banners', [\App\Http\Controllers\Ecommerce\API\SpecialOfferController::class, 'banners']);
+    Route::get('special-offers', [\App\Http\Controllers\Ecommerce\API\SpecialOfferController::class, 'index']);
     Route::get('get-search', [FrontendController::class, 'getSearch']);
     Route::get('get-pages', [FrontendController::class, 'getPages']);
     Route::get('get-page/{slug}', [FrontendController::class, 'getPage']);

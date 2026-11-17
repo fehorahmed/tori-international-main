@@ -6,6 +6,7 @@
  <li class="nav-header text-uppercase font-weight-bold text-muted" style="font-size: 0.7rem; padding-left: 10px;">
     Ecommerce Management
 </li>
+
 <li class="nav-item">
     <a href="{{ route('ecom_dashboard') }}"
        class="nav-link {{ $currentRoute == 'ecom_dashboard' ? 'active' : '' }}">
@@ -100,6 +101,10 @@
     </a>
 </li>
 @endif
+@if(auth()->user()->role === 'Admin' || auth()->user()->can('ecommerce_product_edit'))
+<li class="nav-item"><a class="nav-link {{ request()->routeIs('offer-campaigns.*') ? 'active' : '' }}" href="{{ route('offer-campaigns.index') }}"><i class="nav-icon fas fa-tags"></i><p>Special Offers</p></a></li>
+@endif
+
 
 <!-- 8. Filters -->
 @if(auth()->user()->can('ecommerce_filter'))
@@ -121,7 +126,7 @@
 @if(auth()->user()->can('ecommerce_order'))
 <li class="nav-item">
     <a href="{{ route('ecom_order') }}"
-       class="nav-link {{ in_array($currentRoute, ['ecom_order', 'ecom_order.add', 'ecom_order.edit', 'ecom_order.details', 'ecom_order.confirm']) ? 'active' : '' }}">
+       class="nav-link {{ (in_array($currentRoute, ['ecom_order', 'ecom_order.add', 'ecom_order.edit', 'ecom_order.details', 'ecom_order.confirm']) || request()->routeIs('package-orders.*')) ? 'active' : '' }}">
         <i class="nav-icon fas fa-shopping-bag"></i>
         <p>Orders</p>
     </a>
@@ -153,5 +158,3 @@
 @can('ecommerce_product')
 <li class="nav-item"><a class="nav-link {{ request()->routeIs('product-packages.*') ? 'active' : '' }}" href="{{ route('product-packages.index') }}"><i class="nav-icon fas fa-box-open"></i><p>Product Packages</p></a></li>
 @endcan
-
-@can('ecommerce_order')<li class="nav-item"><a class="nav-link {{ request()->routeIs('package-orders.*') ? 'active' : '' }}" href="{{ route('package-orders.index') }}"><i class="nav-icon fas fa-boxes"></i><p>Product &amp; Package Orders</p></a></li>@endcan

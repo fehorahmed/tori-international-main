@@ -1,8 +1,9 @@
 <?php
     $subMenu = [
+        'offer-campaigns.index','offer-campaigns.create','offer-campaigns.edit',
         'ecom_product','ecom_product.add','ecom_product.edit','ecom_product.images','ecom_product.filters',
         'ecom_banner','ecom_banner.add','ecom_banner.edit','ecom_gallery','ecom_gallery.add','ecom_gallery.edit',
-        'ecom_order','ecom_order.add','ecom_order.edit','ecom_order.details','ecom_order.confirm',
+        'package-orders.show','package-orders.index','ecom_order','ecom_order.add','ecom_order.edit','ecom_order.details','ecom_order.confirm',
         'ecom_blog', 'ecom_blog.add', 'ecom_blog.edit', 'ecom_settings.update',
         'ecom_contact', 'ecom_contact.add', 'ecom_contact.edit',
         'ecom_page', 'ecom_page.add', 'ecom_page.edit', 'ecom_coupon', 'ecom_coupon.add', 'ecom_coupon.edit',
@@ -20,6 +21,7 @@
                 </p>
             </a>
             <ul class="nav nav-treeview">
+
                 <?php
                 $subSubMenu = ['ecom_settings.update'];
                 ?>
@@ -124,6 +126,10 @@
                             <p>Offer Products</p>
                         </a>
                     </li>
+@if(auth()->user()->role === 'Admin' || auth()->user()->can('ecommerce_product_edit'))
+<li class="nav-item"><a class="nav-link {{ request()->routeIs('offer-campaigns.*') ? 'active' : '' }}" href="{{ route('offer-campaigns.index') }}"><i class="nav-icon fas fa-tags"></i><p>Special Offers</p></a></li>
+@endif
+
 
                 <?php
                 $subSubMenu = ['filters.index', 'filters.create', 'filters.edit'];
@@ -139,7 +145,7 @@
                 </li>
                 
                 <?php
-                $subSubMenu = ['ecom_order','ecom_order.add','ecom_order.edit','ecom_order.details','ecom_order.confirm'];
+                $subSubMenu = ['package-orders.show','package-orders.index','ecom_order','ecom_order.add','ecom_order.edit','ecom_order.details','ecom_order.confirm'];
                 ?>
                 
                     <li class="nav-item">

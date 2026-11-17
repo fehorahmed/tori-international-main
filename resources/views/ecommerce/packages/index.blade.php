@@ -4,9 +4,29 @@
 <div class="container-fluid">
 @if(session('success'))<div class="alert alert-success">{{ session('success') }}</div>@endif
 @can('ecommerce_product_create')<a class="btn btn-primary mb-3" href="{{ route('product-packages.create') }}">Create Package</a>@endcan
-<div class="table-responsive"><table class="table table-bordered"><thead><tr><th>Package</th><th>Products</th><th>Price</th><th>Source</th><th>Available packages</th><th>Status</th><th></th></tr></thead><tbody>
-@forelse($packages as $package)<tr><td>{{ $package->name }}<br>{{ $package->code }}</td><td>@foreach($package->packageItems as $item){{ $item->product?->name }} × {{ $item->quantity }}<br>@endforeach</td><td>{{ $package->selling_price }}</td><td>{{ $package->packageWarehouse?->sisterConcern?->name }} / {{ $package->packageWarehouse?->name }}</td><td>{{ app(\App\Services\Packages\ProductPackageService::class)->availability($package) }}</td><td>{{ $package->status ? 'Active' : 'Inactive' }} / {{ $package->is_show ? 'Published' : 'Hidden' }}</td><td>@can('ecommerce_product_edit')<a class="btn btn-sm btn-primary" href="{{ route('product-packages.edit', $package) }}">Edit</a>@endcan</td></tr>
-@empty<tr><td colspan="7">No packages created yet.</td></tr>@endforelse
-</tbody></table></div>{{ $packages->links() }}
-</div>
+<div class="card"><div class="card-body"><div class="table-responsive"><table id="table" class="table table-bordered table-striped"><thead><tr><th>#</th><th>Package</th><th>Code</th><th>Products</th><th>Price</th><th>Source</th><th>Available packages</th><th>Status</th><th>Action</th></tr></thead><tbody></tbody></table></div></div></div></div>
+@endsection
+@section('script')
+<script>
+$(function () {
+ $('#table').DataTable({
+  processing: true, serverSide: true,
+  ajax: "{{ route('product-packages.datatable') }}",
+  pagingType: 'full_numbers', lengthMenu: [[10,25,50,-1],[10,25,50,"All"]],
+  order: [[1, "desc"]],
+  columns: [
+   {data: "DT_RowIndex", name: "DT_RowIndex", orderable: false, searchable: false},
+   {data: "package", name: "name", orderable: true, searchable: true, defaultContent: "—"},
+   {data: "code", name: "code", orderable: true, searchable: true, defaultContent: "—"},
+   {data: "components", name: "components", orderable: false, searchable: false, defaultContent: "—"},
+   {data: "selling_price", name: "selling_price", orderable: true, searchable: true, defaultContent: "—"},
+   {data: "source", name: "source", orderable: false, searchable: false, defaultContent: "—"},
+   {data: "available", name: "available", orderable: false, searchable: false, defaultContent: "—"},
+   {data: "package_status", name: "package_status", orderable: false, searchable: false, defaultContent: "—"},
+   {data: "action", name: "action", orderable: false, searchable: false, defaultContent: "—"},
+  ],
+  dom: 'lBfrtip', buttons: datatableButtons(), responsive: true, autoWidth: false, colReorder: true
+ });
+});
+</script>
 @endsection

@@ -244,6 +244,8 @@
 </template>
 
 <script>
+import Swal from "sweetalert2";
+import "sweetalert2/dist/sweetalert2.min.css";
 import Header from "../components/Header.vue";
 import Footer from "../components/Footer.vue";
 import { mapGetters, mapActions } from "vuex";
@@ -327,15 +329,32 @@ export default {
     async placeOrder() {
 	  const toast = useToast();
       if (this.placingOrder || !this.cartItems.length) return;
-      if (this.paymentMethod === 'membership' && !window.confirm(`Pay Tk ${this.grandTotal} from your membership account now?`)) return;
       this.placingOrder = true;
       try {
+        if (this.paymentMethod === 'membership') {
+          const confirmation = await Swal.fire({
+            title: 'Confirm your payment',
+            text: `Tk ${Number(this.grandTotal).toLocaleString('en-BD', {minimumFractionDigits: 2, maximumFractionDigits: 2})} will be deducted from your membership account to place this order.`,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Pay & Place Order',
+            cancelButtonText: 'Go back',
+            confirmButtonColor: getComputedStyle(document.documentElement).getPropertyValue('--primary-color').trim() || '#70c332',
+            cancelButtonColor: '#64748b',
+            reverseButtons: true,
+            focusCancel: true,
+            width: 'min(440px, calc(100vw - 32px))',
+            padding: '1.5rem',
+            customClass: {popup: 'checkout-payment-popup'},
+          });
+          if (!confirmation.isConfirmed) return;
+        }
         const payload = {
           coupon_code: this.coupon?.code,
           coupon_discount: this.couponDiscount,
           shipping_charge: this.deliveryCharge,
           payment_method: this.paymentMethod,
-          expected_total: this.paymentMethod === 'membership' ? this.grandTotal : undefined,
+          expected_total: this.grandTotal,
           notes: 'Ecommerce',
           items: this.cartItems,
           billing: {
@@ -377,6 +396,7 @@ export default {
         }
       } catch (error) {
         toast.error(error.response?.data?.message || "Server error, try again.");
+        if(error.response?.status === 422) await this.$store.dispatch('cart/fetchCart');
       } finally {
         this.placingOrder = false;
       }
@@ -391,4 +411,12 @@ export default {
 .checkout-page .shadow-sm:hover {
   box-shadow: 0 4px 16px rgba(0,0,0,0.1);
 }
+</style>
+
+<style>
+.checkout-payment-popup.swal2-popup { border-radius: 18px; font-family: inherit; }
+.checkout-payment-popup .swal2-title { font-size: 24px; line-height: 1.3; }
+.checkout-payment-popup .swal2-html-container { font-size: 15px; line-height: 1.65; }
+.checkout-payment-popup .swal2-actions { gap: 10px; width: 100%; }
+.checkout-payment-popup .swal2-styled { border-radius: 9px; font-size: 14px; padding: 12px 18px; }
 </style>

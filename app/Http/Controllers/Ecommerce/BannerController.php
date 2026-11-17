@@ -63,6 +63,7 @@ class BannerController extends Controller{
         $request->validate([
             'type' => 'required',
             'image' => 'required|file',
+            'url' => ['nullable', 'string', 'max:2048', 'url:http,https'],
         ]);
 
         try {
@@ -73,6 +74,7 @@ class BannerController extends Controller{
             $banner->type = $request->type;
             $banner->sort = $request->sort;
             $banner->status = $request->status;
+            $banner->url = $request->filled('url') ? $request->input('url') : null;
             $banner->save();
 
             return redirect()->route('ecom_banner')->with('message','added successfully');
@@ -88,6 +90,7 @@ class BannerController extends Controller{
         $request->validate([
             'type' => 'required',
             'image' => 'nullable|file',
+            'url' => ['nullable', 'string', 'max:2048', 'url:http,https'],
         ]);
 
         try {
@@ -98,6 +101,7 @@ class BannerController extends Controller{
             $banner->type = $request->type;
             $banner->sort = $request->sort;
             $banner->status = $request->status;
+            $banner->url = $request->filled('url') ? $request->input('url') : null;
             $banner->save();
 
             return redirect()->route('ecom_banner')->with('message','Updated successfully');
@@ -107,9 +111,9 @@ class BannerController extends Controller{
     }
     public function getHomeSliders(){
         try{
-            $sliders = Banner::select('type','sort','image','status')->where('type',1)->where('status',1)->orderBy('sort','asc')->get()->toArray();
-            $md_sliders = Banner::select('type','sort','image','status')->where('type',2)->where('status',1)->orderBy('sort','asc')->get()->toArray();
-            $group_sliders = Banner::select('type','sort','image','status')->where('type',3)->where('status',1)->orderBy('sort','asc')->get()->toArray();
+            $sliders = Banner::select('type','sort','image','status','url')->where('type',1)->where('status',1)->orderBy('sort','asc')->get()->toArray();
+            $md_sliders = Banner::select('type','sort','image','status','url')->where('type',2)->where('status',1)->orderBy('sort','asc')->get()->toArray();
+            $group_sliders = Banner::select('type','sort','image','status','url')->where('type',3)->where('status',1)->orderBy('sort','asc')->get()->toArray();
             $categories = Category::select('id','name','image','status')->where('status',1)->orderBy('name','asc')->get()->toArray();
             
             return response()->json([

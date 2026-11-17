@@ -20,9 +20,23 @@ class ProductPackageController extends Controller
     public function index()
     {
         abort_unless(auth()->user()->can('ecommerce_product'), 403);
-        $packages = Product::where('catalog_type', 'package')->when(auth()->user()->role !== 'Admin', fn ($q) => $q->whereHas('packageWarehouse', fn ($w) => $w->where('sister_concern_id', auth()->user()->activeConcernId())))->with(['packageItems.product', 'packageWarehouse.sisterConcern'])->latest('id')->paginate(20);
+        return view('ecommerce.packages.index');
+    }
 
-        return view('ecommerce.packages.index', compact('packages'));
+    public function dataTable()
+    {
+        abort_unless(auth()->user()->can('ecommerce_product'), 403);
+        $query = Product::where('catalog_type', 'package')
+            ->when(auth()->user()->role !== 'Admin', fn ($q) => $q->whereHas('packageWarehouse', fn ($w) => $w->where('sister_concern_id', auth()->user()->activeConcernId())))
+            ->with(['packageItems.product', 'packageWarehouse.sisterConcern'])->select('products.*');
+        return \Yajra\DataTables\Facades\DataTables::eloquent($query)->addIndexColumn()
+            ->addColumn('package', fn ($p) => view('ecommerce.packages.table-name', ['package' => $p])->render())
+            ->addColumn('components', fn ($p) => $p->packageItems->map(fn ($item) => e($item->product?->name).' × '.e($item->quantity))->implode('<br>'))
+            ->addColumn('source', fn ($p) => ($p->packageWarehouse?->sisterConcern?->name ?? '').' / '.($p->packageWarehouse?->name ?? ''))
+            ->addColumn('available', fn ($p) => app(ProductPackageService::class)->availability($p))
+            ->addColumn('package_status', fn ($p) => ($p->status ? 'Active' : 'Inactive').' / '.($p->is_show ? 'Published' : 'Hidden'))
+            ->addColumn('action', fn ($p) => auth()->user()->can('ecommerce_product_edit') ? '<a class="btn btn-sm btn-primary" href="'.e(route('product-packages.edit', $p)).'">Edit</a>' : '')
+            ->rawColumns(['package', 'components', 'action'])->toJson();
     }
 
     public function create()

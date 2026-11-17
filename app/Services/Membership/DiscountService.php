@@ -28,8 +28,13 @@ class DiscountService
             && $candidate > $regular - $selling;
         $memberDiscount = $useMember ? $candidate : 0;
         $net = $useMember ? $regular - $memberDiscount : $selling;
-        return ['regular' => $regular, 'net' => $net, 'discount' => $regular - $net,
-            'general_discount' => $useMember ? 0 : $regular - $selling, 'member_discount' => $memberDiscount];
+        $offer = isset($product['id']) ? \App\Services\Offers\OfferService::best((int) $product['id'], $regular) : null;
+        $useOffer = $offer && $offer['discount'] > $regular - $net;
+        if ($useOffer) { $net = $regular - $offer['discount']; $memberDiscount = 0; }
+        return ['discount_source' => $useOffer ? 'special_offer' : ($useMember ? 'member' : 'general'),
+            'offer' => $useOffer ? $offer : null, 'active_offer' => $offer,
+            'offer_discount' => $useOffer ? $offer['discount'] : 0, 'regular' => $regular, 'net' => $net, 'discount' => $regular - $net,
+            'general_discount' => ($useMember || $useOffer) ? 0 : $regular - $selling, 'member_discount' => $memberDiscount];
     }
 
     public static function validateRates($general, $member): void
@@ -45,6 +50,12 @@ class DiscountService
     public static function present(array $product, bool $eligible): array
     {
         $price = self::price($product, $eligible);
+        $standardDiscount = max($price['regular'] - CashoutService::minor($product['selling_price']), $price['active_offer']['discount'] ?? 0);
+        $memberRate = max(0, min(10000, CashoutService::minor($product['member_discount_percent'] ?? 0)));
+        $memberCandidate = min(max(0, $price['regular'] - 1), intdiv($price['regular'] * $memberRate + 5000, 10000));
+        $product['member_discount_visible'] = $memberCandidate > $standardDiscount
+            && $memberRate > CashoutService::minor($product['discount_percent'] ?? 0);
+        $product['standard_discount_percent'] = $price['regular'] > 0 ? round($standardDiscount * 100 / $price['regular'], 2) : 0;
         $product['old_selling_price'] = CashoutService::money($price['regular']);
         $product['selling_price'] = CashoutService::money($price['net']);
         $product['discount'] = CashoutService::money($price['discount']);
@@ -52,7 +63,14 @@ class DiscountService
         $product['member_discount'] = CashoutService::money($price['member_discount']);
         $product['general_discount_percent'] = $product['discount_percent'] ?? 0;
         $product['discount_percent'] = $price['regular'] > 0 ? round($price['discount'] * 100 / $price['regular'], 2) : 0;
+        $product['special_offer'] = $price['active_offer'];
+        $product['discount_source'] = $price['discount_source'];
+        $product['offer_discount'] = CashoutService::money($price['offer_discount']);
         $product['membership_discount_eligible'] = $eligible;
+        $setting = membership_transaction_settings('membership_discount');
+        $product['membership_discount_minimum_balance'] = CashoutService::money(CashoutService::minor($setting->minimum_balance));
+        $product['membership_discount_enabled'] = (bool) $setting->enabled;
+        $product['member_discount_visible'] = $product['member_discount_visible'] && $product['membership_discount_enabled'];
         return $product;
     }
 }

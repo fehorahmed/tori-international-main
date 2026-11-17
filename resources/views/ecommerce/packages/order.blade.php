@@ -4,6 +4,7 @@
 <div class="container-fluid">
 @if(session('success'))<div class="alert alert-success">{{ session('success') }}</div>@endif
 @if($errors->any())<div class="alert alert-danger">{{ $errors->first() }}</div>@endif
+<a href="{{ route('ecom_order') }}" class="btn btn-secondary mb-3">Back to Orders</a>
 <h4>{{ $order['order_no'] }} — {{ $checkout->status }} @if($order['status'] == 2) / Dispatched @elseif($order['status'] == 3) / Delivered @endif</h4>
 <p>{{ $order['billing_name'] }} / {{ $order['billing_mobile_no'] }}<br>{{ $order['billing_address'] }}</p>
 @if($checkout->payment_method === 'membership')

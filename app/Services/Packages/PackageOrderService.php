@@ -94,7 +94,7 @@ class PackageOrderService
                 if ($price < 1) {
                     ProductPackageService::fail('Product price is invalid.');
                 }
-                $lines[] = ['product_id' => $product->id, 'name' => $product->name, 'code' => $product->code, 'catalog_type' => $product->catalog_type, 'quantity' => $item['quantity'], 'unit_price' => CashoutService::money($pricing['regular']), 'discount_total' => CashoutService::money($pricing['discount'] * $item['quantity']), 'general_discount_total' => CashoutService::money($pricing['general_discount'] * $item['quantity']), 'member_discount_total' => CashoutService::money($pricing['member_discount'] * $item['quantity']), 'member_discount_percent' => $product->member_discount_percent, 'membership_discount_eligible' => $discountEligible, 'line_total' => CashoutService::money($price * $item['quantity']), 'components' => $parts];
+                $lines[] = ['product_id' => $product->id, 'name' => $product->name, 'code' => $product->code, 'catalog_type' => $product->catalog_type, 'quantity' => $item['quantity'], 'unit_price' => CashoutService::money($pricing['regular']), 'discount_total' => CashoutService::money($pricing['discount'] * $item['quantity']), 'general_discount_total' => CashoutService::money($pricing['general_discount'] * $item['quantity']), 'member_discount_total' => CashoutService::money($pricing['member_discount'] * $item['quantity']), 'offer_discount_total' => CashoutService::money($pricing['offer_discount'] * $item['quantity']), 'special_offer' => $pricing['offer'], 'discount_source' => $pricing['discount_source'], 'member_discount_percent' => $product->member_discount_percent, 'membership_discount_eligible' => $discountEligible, 'line_total' => CashoutService::money($price * $item['quantity']), 'components' => $parts];
                 $total += $price * $item['quantity'];
                 $gross += $pricing['regular'] * $item['quantity'];
             }
@@ -125,7 +125,7 @@ class PackageOrderService
                 ProductPackageService::fail('Fulfilment branch is inactive.');
             }
             $this->checkStock($lines, $warehouse);
-            if ($data['payment_method'] === 'membership' && isset($data['expected_total'])
+            if (isset($data['expected_total'])
                 && CashoutService::minor($data['expected_total']) !== $total + $shipping) {
                 ProductPackageService::fail('The order total changed. Refresh your cart and review the total before paying.');
             }

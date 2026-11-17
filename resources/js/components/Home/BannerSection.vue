@@ -32,6 +32,8 @@
           ></div>
         </div>
 
+        <component :is="bannerLink(banner.url) ? 'a' : 'div'"
+          :href="bannerLink(banner.url) || undefined" class="block">
         <img
           :src="banner.image"
           class="w-full transition-opacity duration-500"
@@ -40,6 +42,7 @@
           :class="{ 'opacity-0': !imageLoaded[index], 'opacity-100': imageLoaded[index] }"
           @load="onImageLoad(index)"
         />
+        </component>
       </SwiperSlide>
     </Swiper>
   </div>
@@ -68,6 +71,17 @@ export default {
     };
 
     return { modules, imageLoaded, onImageLoad };
+  },
+  methods: {
+    bannerLink(value) {
+      if (typeof value !== 'string') return null;
+      try {
+        const url = new URL(value);
+        return ['http:', 'https:'].includes(url.protocol) ? url.href : null;
+      } catch {
+        return null;
+      }
+    },
   },
   computed: {
     ...mapGetters("home", ["banners", "homeLoading"]),

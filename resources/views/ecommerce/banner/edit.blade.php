@@ -47,6 +47,18 @@
                                 @enderror
                             </div>
                         </div>
+                        <div class="form-group row {{ $errors->has('url') ? 'has-error' : '' }}">
+                            <label for="banner-url" class="col-sm-2 col-form-label">Link URL (optional)</label>
+                            <div class="col-sm-10">
+                                <input id="banner-url" type="url" class="form-control" name="url"
+                                       maxlength="2048" placeholder="https://example.com/special-offers"
+                                       value="{{ old('url', $banner->url) }}">
+                                <small class="form-text text-muted">Enter a full http:// or https:// URL. Leave empty or clear this field to remove the banner link.</small>
+                                @error('url')
+                                    <span class="help-block">{{ $message }}</span>
+                                @enderror
+                            </div>
+                        </div>
                         <div class="form-group row form-group {{ $errors->has('sort') ? 'has-error' :'' }}">
                             <label class="col-sm-2 col-form-label">Sort</label>
                             <div class="col-sm-10">

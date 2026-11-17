@@ -60,6 +60,73 @@ class ProductPackageTest extends TestCase
         }
     }
 
+    public function test_package_order_list_redirects_to_existing_orders_and_details_remain_accessible(): void
+    {
+        $this->get(route('package-orders.index'))->assertRedirect(route('ecom_order'));
+        $checkout = app(PackageOrderService::class)->checkout($this->customer, $this->data());
+        $this->get(route('package-orders.show', $checkout))
+            ->assertOk()->assertSee($checkout->saleOrder->order_no)
+            ->assertSee('Back to Orders')->assertSee(route('ecom_order'), false)
+            ->assertDontSee('Product &amp; Package Orders', false);
+    }
+
+    public function test_member_discount_preview_exposes_dynamic_requirement_without_changing_guest_price(): void
+    {
+        $this->a->update(['old_selling_price' => '100.00', 'selling_price' => '90.00',
+            'discount_percent' => 10, 'member_discount_percent' => 20]);
+        \App\Models\MembershipTransactionSetting::writeGroup('membership_discount', ['enabled' => true, 'minimum_balance' => '1234.56']);
+        $guest = \App\Services\Membership\DiscountService::present($this->a->fresh()->toArray(), false);
+        $this->assertSame('90.00', $guest['selling_price']);
+        $this->assertFalse($guest['membership_discount_eligible']);
+        $this->assertEquals(20, $guest['member_discount_percent']);
+        $this->assertSame('1234.56', $guest['membership_discount_minimum_balance']);
+        $member = \App\Services\Membership\DiscountService::present($this->a->fresh()->toArray(), true);
+        $this->assertSame('80.00', $member['selling_price']);
+        $this->assertTrue($member['membership_discount_eligible']);
+        \App\Models\MembershipTransactionSetting::writeGroup('membership_discount', ['enabled' => false]);
+        $disabled = \App\Services\Membership\DiscountService::present($this->a->fresh()->toArray(), false);
+        $this->assertFalse($disabled['membership_discount_enabled']);
+        $this->assertFalse($disabled['member_discount_visible']);
+        $this->assertSame('90.00', $disabled['selling_price']);
+    }
+
+    public function test_member_discount_label_only_appears_when_strictly_better_than_general_and_special(): void
+    {
+        $this->a->update(['old_selling_price' => '100.00', 'selling_price' => '90.00',
+            'discount_percent' => 10, 'member_discount_percent' => 20]);
+        $present = fn ($eligible) => \App\Services\Membership\DiscountService::present($this->a->fresh()->toArray(), $eligible);
+        $guest = $present(false);
+        $member = $present(true);
+        $this->assertTrue($guest['member_discount_visible']);
+        $this->assertSame(10.0, (float) $member['standard_discount_percent']);
+        $this->assertSame('member', $member['discount_source']);
+        $this->assertSame('80.00', $member['selling_price']);
+        $this->offer($this->a, 'fixed', '20.00');
+        $this->assertFalse($present(false)['member_discount_visible']);
+        $this->assertFalse($present(true)['member_discount_visible']);
+        $this->a->update(['member_discount_percent' => 25]);
+        $member = $present(true);
+        $this->assertTrue($member['member_discount_visible']);
+        $this->assertEquals(20, $member['standard_discount_percent']);
+        $this->assertSame('75.00', $member['selling_price']);
+        $this->a->update(['member_discount_percent' => 5]);
+        $this->assertFalse($present(false)['member_discount_visible']);
+        $this->assertSame('special_offer', $present(true)['discount_source']);
+    }
+
+    public function test_special_offer_menu_availability_requires_active_published_offer_product(): void
+    {
+        \Illuminate\Support\Facades\DB::table('offer_campaigns')->update(['is_active' => 0]);
+        $this->getJson('/api/special-offer-availability')->assertOk()->assertJsonPath('available', false);
+        $campaign = $this->offer($this->a);
+        $this->getJson('/api/special-offer-availability')->assertOk()->assertJsonPath('available', true);
+        $this->a->update(['is_show' => 0]);
+        $this->getJson('/api/special-offer-availability')->assertOk()->assertJsonPath('available', false);
+        $this->a->update(['is_show' => 1]);
+        \Illuminate\Support\Facades\DB::table('offer_campaigns')->where('id', $campaign)->update(['ends_at' => now()->subMinute()]);
+        $this->getJson('/api/special-offer-availability')->assertOk()->assertJsonPath('available', false);
+    }
+
     private function product(string $name, string $price, array $extra = []): Product
     {
         return Product::create($extra + ['name' => $name.' '.Str::random(8), 'code' => 'PKGTEST-'.Str::random(10), 'slug' => 'pkgtest-'.Str::random(15), 'category_id' => Category::firstOrFail()->id, 'unit_id' => Unit::firstOrFail()->id, 'status' => 1, 'is_show' => 1, 'selling_price' => $price, 'old_selling_price' => $price, 'user_id' => $this->operator->id, 'catalog_type' => 'single']);
@@ -600,4 +667,235 @@ class ProductPackageTest extends TestCase
         $orders = new PackageOrderController;
         $this->assertStringContainsString($checkout->saleOrder->order_no, $orders->show($checkout, app(PackageOrderService::class))->with('errors', new ViewErrorBag)->render());
     }
+    private function offer(Product $product, string $type = 'percentage', string $value = '20.00', array $changes = []): int
+    {
+        $id = \Illuminate\Support\Facades\DB::table('offer_campaigns')->insertGetId($changes + [
+            'name' => 'Test offer', 'slug' => 'offer-'.Str::random(12), 'starts_at' => now()->subMinute(),
+            'ends_at' => now()->addHour(), 'is_active' => true, 'created_by' => $this->operator->id,
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        \Illuminate\Support\Facades\DB::table('offer_campaign_products')->insert([
+            'campaign_id' => $id, 'product_id' => $product->id, 'discount_type' => $type,
+            'discount_value' => $value, 'is_active' => true, 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        return $id;
+    }
+
+    public function test_special_offer_selects_best_campaign_general_or_member_price_without_stacking(): void
+    {
+        $this->a->update(['old_selling_price' => '100.00', 'selling_price' => '90.00', 'discount_percent' => '10', 'member_discount_percent' => '25']);
+        $this->offer($this->a);
+        $this->assertSame(8000, \App\Services\Membership\DiscountService::price($this->a, false)['net']);
+        $this->assertSame(7500, \App\Services\Membership\DiscountService::price($this->a, true)['net']);
+        $best = $this->offer($this->a, 'fixed', '30.00');
+        $price = \App\Services\Membership\DiscountService::price($this->a, true);
+        $this->assertSame(7000, $price['net']);
+        $this->assertSame(0, $price['member_discount']);
+        $this->assertSame(0, $price['general_discount']);
+        $this->assertSame($best, $price['offer']['campaign_id']);
+    }
+
+    public function test_special_offer_time_boundaries_inactive_rows_and_expiry_reprice_cart(): void
+    {
+        $this->travelTo(now()->startOfSecond());
+        $id = $this->offer($this->package, 'percentage', '20.00', ['starts_at' => now()->addMinute(), 'ends_at' => now()->addMinutes(2)]);
+        $service = app(CartService::class);
+        $service->add($this->package->id, 1);
+        $this->assertSame('225.01', $service->all()->first()->price);
+        $this->travel(1)->minutes();
+        $this->assertSame('180.01', $service->all()->first()->price);
+        $this->travel(1)->minutes();
+        $this->assertSame('225.01', $service->all()->first()->price);
+        $this->offer($this->package, 'fixed', '50.00', ['is_active' => false]);
+        $this->assertNull(\App\Services\Membership\DiscountService::price($this->package, false)['offer']);
+    }
+
+    public function test_special_offers_api_filters_campaigns_and_includes_both_catalog_types(): void
+    {
+        $id = $this->offer($this->a);
+        $other = $this->offer($this->package);
+        $slug = \Illuminate\Support\Facades\DB::table('offer_campaigns')->where('id', $id)->value('slug');
+        $items = $this->getJson('/api/special-offers')->assertOk()->json('products.data');
+        $this->assertContains($this->a->id, array_column($items,'id'));
+        $this->assertContains($this->package->id, array_column($items,'id'));
+        $items = $this->getJson('/api/special-offers?campaign='.$slug)->assertOk()->json('products.data');
+        $this->assertSame([$this->a->id], array_column($items,'id'));
+        $this->assertArrayNotHasKey('purchase_price', $items[0]);
+        $this->getJson('/api/get-product-details-data/'.$this->a->slug)->assertOk()->assertJsonPath('product.selling_price','80.00');
+        \Illuminate\Support\Facades\DB::table('offer_campaign_products')->where('campaign_id',$id)->update(['is_active'=>false]);
+        $items = $this->getJson('/api/special-offers?campaign='.$slug)->assertOk()->json('products.data');
+        $this->assertSame([], $items);
+    }
+
+    public function test_special_offer_catalog_price_filters_and_sort_use_offer_net_price(): void
+    {
+        $this->offer($this->a, 'fixed', '75.00');
+        $items = $this->getJson('/api/get-product-data?minPrice=24&maxPrice=26&sortBy=price_low_high&perPage=200')->assertOk()->json('products');
+        $this->assertContains($this->a->id, array_column($items,'id'));
+        foreach ($items as $item) $this->assertTrue((float)$item['selling_price'] >= 24 && (float)$item['selling_price'] <= 26);
+    }
+
+    public function test_special_offer_checkout_snapshot_is_immutable_and_expired_total_is_rejected_for_cod(): void
+    {
+        $id = $this->offer($this->package, 'fixed', '25.01');
+        $data = $this->data();
+        $data['expected_total'] = '250.00';
+        $service = app(PackageOrderService::class);
+        $order = $service->checkout($this->customer, $data);
+        $this->assertSame('special_offer', $order->lines[0]['discount_source']);
+        $this->assertSame($id, $order->lines[0]['special_offer']['campaign_id']);
+        $this->assertSame('25.01', $order->lines[0]['offer_discount_total']);
+        \Illuminate\Support\Facades\DB::table('offer_campaigns')->where('id',$id)->update(['ends_at'=>now()->subSecond()]);
+        $this->assertSame('200.00', $order->fresh()->lines[0]['line_total']);
+        $this->assertSame($order->id, $service->checkout($this->customer, $data)->id);
+        $data['request_key'] = (string) Str::uuid();
+        $this->expectException(ValidationException::class);
+        $service->checkout($this->customer, $data);
+    }
+
+    public function test_special_offer_admin_validates_discounts_and_retains_removed_entry_ids(): void
+    {
+        $controller = app(\App\Http\Controllers\Ecommerce\OfferCampaignController::class);
+        $data = ['name'=>'Offer admin test','slug'=>'offer-admin-'.Str::lower(Str::random(10)),
+            'starts_at'=>now('Asia/Dhaka')->format('Y-m-d H:i:s'),'ends_at'=>now('Asia/Dhaka')->addHour()->format('Y-m-d H:i:s'),
+            'is_active'=>1,'items'=>[['product_id'=>$this->a->id,'discount_type'=>'percentage','discount_value'=>'20','is_active'=>1],
+                ['product_id'=>$this->package->id,'discount_type'=>'fixed','discount_value'=>'25','is_active'=>1]]];
+        $controller->save(Request::create('/', 'POST', $data));
+        $id = \Illuminate\Support\Facades\DB::table('offer_campaigns')->where('slug',$data['slug'])->value('id');
+        $this->assertNotNull($id);
+        $this->assertStringContainsString('Offer admin test', $controller->edit($id)->with('errors',new ViewErrorBag)->render());
+        $this->assertStringContainsString(route('offer-campaigns.datatable'), $controller->index()->with('errors',new ViewErrorBag)->render());
+        $entry = \Illuminate\Support\Facades\DB::table('offer_campaign_products')->where('campaign_id',$id)->where('product_id',$this->package->id)->first();
+        array_pop($data['items']);
+        $controller->save(Request::create('/', 'POST', $data),$id);
+        $this->assertSame(0, (int) \Illuminate\Support\Facades\DB::table('offer_campaign_products')->where('id',$entry->id)->value('is_active'));
+        $data['items'][0]['discount_value']='100';
+        $this->expectException(ValidationException::class);
+        $controller->save(Request::create('/', 'POST', $data),$id);
+    }
+
+    public function test_special_offer_membership_payment_and_refund_use_actual_discounted_total(): void
+    {
+        $account = $this->fundedSavings();
+        $id = $this->offer($this->package, 'fixed', '25.01');
+        $data = array_replace($this->data(), ['payment_method'=>'membership','expected_total'=>'250.00']);
+        $service = app(PackageOrderService::class);
+        $checkout = $service->checkout($this->customer, $data);
+        $this->assertSame('750.00', $account->fresh()->principal_balance);
+        $this->assertEquals(250, $checkout->saleOrder->paid);
+        \Illuminate\Support\Facades\DB::table('offer_campaigns')->where('id',$id)->update(['is_active'=>false]);
+        $service->cancel($checkout, $this->operator);
+        $service->cancel($checkout->fresh(), $this->operator);
+        $this->assertSame('1000.00', $account->fresh()->principal_balance);
+    }
+
+    public function test_special_offer_admin_pages_keep_ecommerce_sidebar(): void
+    {
+        $id = $this->offer($this->a);
+        foreach ([route('offer-campaigns.index'), route('offer-campaigns.create'), route('offer-campaigns.edit', $id)] as $url) {
+            $this->get($url)->assertOk()->assertSee('Ecommerce Management');
+        }
+    }
+
+    private function tableResponse(string $route, array $columns, string $search = '', int $start = 0, int $length = 10)
+    {
+        $params = ['draw'=>3,'start'=>$start,'length'=>$length,'search'=>['value'=>$search],
+            'columns'=>array_map(fn($c)=>['data'=>$c[0],'name'=>$c[1],'searchable'=>$c[2]?'true':'false','orderable'=>$c[2]?'true':'false','search'=>['value'=>'']],$columns),
+            'order'=>[['column'=>0,'dir'=>'asc']]];
+        return $this->getJson(route($route).'?'.http_build_query($params), ['X-Requested-With'=>'XMLHttpRequest'])->assertOk()->assertJsonPath('draw',3);
+    }
+
+    public function test_new_ecommerce_datatables_return_searchable_paginated_rows_without_unknown_columns(): void
+    {
+        $campaign = $this->offer($this->a);
+        \Illuminate\Support\Facades\DB::table('offer_campaigns')->where('id',$campaign)->update(['name'=>'Unique campaign '.Str::random(12)]);
+        $name = \Illuminate\Support\Facades\DB::table('offer_campaigns')->where('id',$campaign)->value('name');
+        $columns = [['campaign','name',true],['starts_at','starts_at',true],['ends_at','ends_at',true],['campaign_status','campaign_status',false],['action','action',false]];
+        $r = $this->tableResponse('offer-campaigns.datatable',$columns,$name)->assertJsonPath('recordsFiltered',1);
+        $this->assertStringContainsString($name,$r->json('data.0.campaign'));
+        foreach(['campaign','starts_at','ends_at','campaign_status','action','DT_RowIndex'] as $key) $this->assertArrayHasKey($key,$r->json('data.0'));
+        $this->tableResponse('offer-campaigns.datatable',$columns,$name,1,1)->assertJsonCount(0,'data');
+
+        $columns = [['package','name',true],['code','code',true],['components','components',false],['selling_price','selling_price',true],['source','source',false],['available','available',false],['package_status','package_status',false],['action','action',false]];
+        $r = $this->tableResponse('product-packages.datatable',$columns,$this->package->code)->assertJsonPath('recordsFiltered',1);
+        foreach(['package','code','components','selling_price','source','available','package_status','action','DT_RowIndex'] as $key) $this->assertArrayHasKey($key,$r->json('data.0'));
+        $this->assertStringContainsString($this->package->name,$r->json('data.0.package'));
+
+        $checkout=app(PackageOrderService::class)->checkout($this->customer,$this->data());
+        $columns=[['order_no','orders.order_no',true],['customer_name','customers.name',true],['total','orders.total',true],['status','checkouts.status',true],['action','action',false]];
+        $r=$this->tableResponse('package-orders.datatable',$columns,$checkout->saleOrder->order_no)->assertJsonPath('recordsFiltered',1);
+        foreach(['order_no','customer_name','total','status','action','DT_RowIndex'] as $key) $this->assertArrayHasKey($key,$r->json('data.0'));
+        $this->assertSame($checkout->saleOrder->order_no,$r->json('data.0.order_no'));
+        $other=\App\Models\BranchManagement\SisterConcern::whereKeyNot($this->warehouse->sister_concern_id)->firstOrFail();
+        session(['active_sister_concern_id'=>$other->id]);
+        $this->tableResponse('package-orders.datatable',$columns,$checkout->saleOrder->order_no)->assertJsonPath('recordsFiltered',0);
+    }
+
+    public function test_campaign_banner_upload_retains_replaces_and_removes_file_and_shows_mrp(): void
+    {
+        $controller=app(\App\Http\Controllers\Ecommerce\OfferCampaignController::class);
+        $data=['name'=>'Banner test','slug'=>'banner-test-'.Str::lower(Str::random(12)),
+            'starts_at'=>now('Asia/Dhaka')->subMinute()->format('Y-m-d H:i:s'),'ends_at'=>now('Asia/Dhaka')->addHour()->format('Y-m-d H:i:s'),
+            'is_active'=>1,'items'=>[['product_id'=>$this->a->id,'discount_type'=>'percentage','discount_value'=>'20','is_active'=>1]]];
+        $paths=[];
+        try {
+            $request=Request::create('/', 'POST', $data, [], ['banner_image'=>\Illuminate\Http\UploadedFile::fake()->image('campaign.png',1600,500)]);
+            $controller->save($request);
+            $row=\Illuminate\Support\Facades\DB::table('offer_campaigns')->where('slug',$data['slug'])->first();
+            $paths[]=$row->banner_image;
+            $this->assertFileExists(public_path($row->banner_image));
+            $this->assertStringEndsWith('.webp',$row->banner_image);
+            $view=$controller->edit($row->id)->with('errors',new ViewErrorBag)->render();
+            $this->assertStringContainsString('MRP (Tk)',$view);
+            $this->assertStringContainsString('multipart/form-data',$view);
+            $this->assertStringContainsString(asset($row->banner_image),$view);
+            $banners=$this->getJson('/api/special-offer-banners')->assertOk()->json('banners');
+            $this->assertContains($data['slug'],array_column($banners,'slug'));
+            $controller->save(Request::create('/','POST',$data),$row->id);
+            $this->assertSame($row->banner_image,\Illuminate\Support\Facades\DB::table('offer_campaigns')->where('id',$row->id)->value('banner_image'));
+            $request=Request::create('/', 'POST', $data, [], ['banner_image'=>\Illuminate\Http\UploadedFile::fake()->image('new.png',1200,400)]);
+            $controller->save($request,$row->id);
+            $new=\Illuminate\Support\Facades\DB::table('offer_campaigns')->where('id',$row->id)->value('banner_image');
+            $paths[]=$new;
+            $this->assertNotSame($row->banner_image,$new);
+            $this->assertFileDoesNotExist(public_path($row->banner_image));
+            $this->assertFileExists(public_path($new));
+            $controller->save(Request::create('/','POST',$data+['remove_banner'=>1]),$row->id);
+            $this->assertNull(\Illuminate\Support\Facades\DB::table('offer_campaigns')->where('id',$row->id)->value('banner_image'));
+            $this->assertFileDoesNotExist(public_path($new));
+        } finally { foreach($paths as $path) \Illuminate\Support\Facades\File::delete(public_path($path)); }
+    }
+
+    public function test_home_campaign_banners_exclude_scheduled_expired_disabled_and_hidden_products(): void
+    {
+        $id=$this->offer($this->a);
+        \Illuminate\Support\Facades\DB::table('offer_campaigns')->where('id',$id)->update(['banner_image'=>'uploads/offer-campaigns/test.webp']);
+        $slug=\Illuminate\Support\Facades\DB::table('offer_campaigns')->where('id',$id)->value('slug');
+        $this->assertContains($slug,array_column($this->getJson('/api/special-offer-banners')->assertOk()->json('banners'),'slug'));
+        foreach([['is_active'=>0],['starts_at'=>now()->addHour()],['ends_at'=>now()],['banner_image'=>null]] as $change) {
+            \Illuminate\Support\Facades\DB::table('offer_campaigns')->where('id',$id)->update($change);
+            $this->assertNotContains($slug,array_column($this->getJson('/api/special-offer-banners')->assertOk()->json('banners'),'slug'));
+            \Illuminate\Support\Facades\DB::table('offer_campaigns')->where('id',$id)->update(['is_active'=>1,'starts_at'=>now()->subMinute(),'ends_at'=>now()->addHour(),'banner_image'=>'uploads/offer-campaigns/test.webp']);
+        }
+        $this->a->update(['is_show'=>0]);
+        $this->assertNotContains($slug,array_column($this->getJson('/api/special-offer-banners')->assertOk()->json('banners'),'slug'));
+    }
+
+    public function test_banner_upload_rejects_non_image_and_cleans_up_when_campaign_validation_fails(): void
+    {
+        $controller=app(\App\Http\Controllers\Ecommerce\OfferCampaignController::class);
+        $data=['name'=>'Invalid banner test','slug'=>'banner-invalid-'.Str::lower(Str::random(12)),
+            'starts_at'=>now('Asia/Dhaka')->format('Y-m-d H:i:s'),'ends_at'=>now('Asia/Dhaka')->addHour()->format('Y-m-d H:i:s'),
+            'is_active'=>1,'items'=>[['product_id'=>$this->a->id,'discount_type'=>'percentage','discount_value'=>'100','is_active'=>1]]];
+        $directory=public_path('uploads/offer-campaigns');
+        $before=glob($directory.'/*.webp') ?: [];
+        foreach([\Illuminate\Http\UploadedFile::fake()->create('not-image.txt',1,'text/plain'),\Illuminate\Http\UploadedFile::fake()->image('valid.png',100,50)] as $file) {
+            try { $controller->save(Request::create('/','POST',$data,[],['banner_image'=>$file])); $this->fail('Invalid campaign must fail.'); }
+            catch(ValidationException) { $this->assertDatabaseMissing('offer_campaigns',['slug'=>$data['slug']]); }
+        }
+        $after=glob($directory.'/*.webp') ?: [];
+        sort($before);sort($after);
+        $this->assertSame($before,$after);
+    }
+
 }
