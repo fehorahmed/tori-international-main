@@ -7,7 +7,7 @@ use App\Http\Controllers\SmsManagement\SmsTemplateController;
 use App\Http\Controllers\SmsManagement\SmsLogController;
 use App\Http\Controllers\SmsManagement\SmsCampaignController;
 
-Route::middleware(['auth'])->prefix('admin/sms-management')->name('sms_management.')->group(function () {
+Route::middleware(['auth'])->prefix('sms-management')->name('sms_management.')->group(function () {
     
     // Dashboard
     Route::get('/', [SmsDashboardController::class, 'index'])->name('dashboard');

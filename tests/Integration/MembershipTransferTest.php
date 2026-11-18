@@ -61,6 +61,18 @@ class MembershipTransferTest extends TestCase
 
     private TransferService $transfer;
 
+    public function test_quick_send_uses_stable_recipient_id_after_member_code_changes(): void
+    {
+        $oldCode = $this->recipient->member_no;
+        $this->recipient->update(['member_no' => 'CHANGED-'.Str::random(10)]);
+        $quote = $this->transfer->quote($this->customer, $oldCode, '100.00', $this->recipient->id);
+        $this->assertSame($this->recipient->id, $quote['recipient_id']);
+        $this->assertSame($this->recipient->member_no, $quote['recipient_member_no']);
+        $this->recipient->update(['status' => 0]);
+        $this->expectException(ValidationException::class);
+        $this->transfer->quote($this->customer, $oldCode, '100.00', $this->recipient->id);
+    }
+
     protected function setUp(): void
     {
         parent::setUp();

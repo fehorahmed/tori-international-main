@@ -24,15 +24,15 @@ class TransferController extends Controller
     {
         $out = $t->sender_id == $viewer;
 
-        return ['id' => $t->id, 'reference' => $t->reference, 'request_key' => $out ? $t->idempotency_key : null, 'direction' => $out ? 'sent' : 'received', 'name' => $out ? $t->recipient?->name : $t->sender?->name, 'amount' => $t->amount, 'fee' => $out ? $t->fee : '0.00', 'total' => $out ? $t->total : $t->amount, 'status' => 'Completed', 'created_at' => $t->created_at->toIso8601String()];
+        return ['id' => $t->id, 'reference' => $t->reference, 'request_key' => $out ? $t->idempotency_key : null, 'direction' => $out ? 'sent' : 'received', 'recipient_id' => $out ? $t->recipient_id : null, 'name' => $out ? $t->recipient?->name : $t->sender?->name, 'amount' => $t->amount, 'fee' => $out ? $t->fee : '0.00', 'total' => $out ? $t->total : $t->amount, 'status' => 'Completed', 'created_at' => $t->created_at->toIso8601String()];
     }
 
     public function quote(Request $r, TransferService $s)
     {
         $c = KycController::customer($r);
-        $r->validate(['recipient' => 'required|string|max:64', 'amount' => 'required|numeric|decimal:0,2|min:0.01|max:10000000']);
+        $r->validate(['recipient' => 'required_without:recipient_id|nullable|string|max:64', 'recipient_id' => 'nullable|integer|min:1', 'amount' => 'required|numeric|decimal:0,2|min:0.01|max:10000000']);
 
-        return response()->json(['success' => true, 'data' => $s->quote($c, $r->recipient, (string) $r->amount)]);
+        return response()->json(['success' => true, 'data' => $s->quote($c, (string) $r->recipient, (string) $r->amount, $r->filled('recipient_id') ? $r->integer('recipient_id') : null)]);
     }
 
     public function store(Request $r, TransferService $s)

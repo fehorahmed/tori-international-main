@@ -51,6 +51,11 @@ Route::prefix('v1')->group(function () {
         Route::get('dashboard', [\App\Http\Controllers\API\Membership\DashboardController::class, 'index']);
         Route::get('profile', [\App\Http\Controllers\API\Membership\ProfileController::class, 'getProfile']);
         Route::get('card', [\App\Http\Controllers\API\Membership\CardController::class, 'show']);
+        Route::get('beneficiaries', [\App\Http\Controllers\API\Membership\BeneficiaryController::class, 'index']);
+        Route::post('beneficiaries/lookup', [\App\Http\Controllers\API\Membership\BeneficiaryController::class, 'lookup'])->middleware('throttle:20,1');
+        Route::post('beneficiaries', [\App\Http\Controllers\API\Membership\BeneficiaryController::class, 'store']);
+        Route::patch('beneficiaries/{beneficiary}', [\App\Http\Controllers\API\Membership\BeneficiaryController::class, 'update'])->whereNumber('beneficiary');
+        Route::delete('beneficiaries/{beneficiary}', [\App\Http\Controllers\API\Membership\BeneficiaryController::class, 'destroy'])->whereNumber('beneficiary');
         Route::get('transfers', [\App\Http\Controllers\API\Membership\TransferController::class, 'index']);
         Route::post('transfers/quote', [\App\Http\Controllers\API\Membership\TransferController::class, 'quote'])->middleware('throttle:20,1');
         Route::post('transfers', [\App\Http\Controllers\API\Membership\TransferController::class, 'store'])->middleware('throttle:10,1');

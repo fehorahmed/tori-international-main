@@ -49,30 +49,10 @@ class TransferService
         return hash('sha256', json_encode([$s->enabled, $s->minimum_amount, $s->maximum_amount, $s->charge_type, $s->charge_rate, $s->income_head_id, $s->posting_user_id]));
     }
 
-    public function quote(Supplier $sender, string $identifier, string $amount): array
+    public function quote(Supplier $sender, string $identifier, string $amount, ?int $recipientId = null): array
     {
         $s = $this->config();
-        $identifier = trim($identifier);
-        $digits = preg_replace('/\D/', '', $identifier);
-        if (str_starts_with($digits, '880') && strlen($digits) === 13) {
-            $digits = substr($digits, 2);
-        }
-        if (strlen($digits) === 10 && str_starts_with($digits, '1')) {
-            $digits = '0'.$digits;
-        }
-        $rows = Supplier::where('type', 'Customer')->where('status', 1)->where(function ($q) use ($identifier, $digits) {
-            $q->where('member_no', $identifier);
-            if (preg_match('/^01[3-9]\d{8}$/', $digits)) {
-                $q->orWhereIn('mobile_no', [$digits, substr($digits, 1), '88'.$digits, '+88'.$digits]);
-            }
-        })->get();
-        if ($rows->count() !== 1) {
-            $this->fail('Recipient not found or the identifier is ambiguous.', 'প্রাপক পাওয়া যায়নি অথবা এই নম্বরে একাধিক হিসাব আছে।');
-        }
-        $recipient = $rows->first();
-        if ($recipient->id === $sender->id) {
-            $this->fail('You cannot send money to yourself.', 'নিজের হিসাবে টাকা পাঠানো যাবে না।');
-        }
+        $recipient = RecipientService::resolve($sender, $identifier, $recipientId);
         $source = $this->account($sender->id);
         $target = $this->account($recipient->id);
         $net = CashoutService::minor($amount);
@@ -85,7 +65,7 @@ class TransferService
         }
         $payload = ['sender' => $sender->id, 'recipient' => $recipient->id, 'source' => $source->id, 'target' => $target->id, 'amount' => $net, 'fee' => $fee, 'version' => $this->version($s), 'expires' => now()->addMinutes(2)->timestamp, 'nonce' => Str::random(24)];
 
-        return ['quote' => Crypt::encryptString(json_encode($payload)), 'recipient_name' => $recipient->name, 'recipient_member_no' => $recipient->member_no, 'minimum_amount' => $s->minimum_amount, 'maximum_amount' => $s->maximum_amount, 'amount' => CashoutService::money($net), 'fee' => CashoutService::money($fee), 'total' => CashoutService::money($net + $fee)];
+        return ['recipient_id' => $recipient->id, 'quote' => Crypt::encryptString(json_encode($payload)), 'recipient_name' => $recipient->name, 'recipient_member_no' => $recipient->member_no, 'minimum_amount' => $s->minimum_amount, 'maximum_amount' => $s->maximum_amount, 'amount' => CashoutService::money($net), 'fee' => CashoutService::money($fee), 'total' => CashoutService::money($net + $fee)];
     }
 
     public function send(Supplier $sender, string $quote, string $pin, string $key): MembershipTransfer
