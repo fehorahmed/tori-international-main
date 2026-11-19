@@ -91,6 +91,9 @@ class PackageOrderService
                     $parts = [['product_id' => $product->id, 'name' => $product->name, 'quantity' => 1, 'weight' => 1]];
                 }
                 $pricing = \App\Services\Membership\DiscountService::price($product, $discountEligible);
+                if ($data['payment_method'] === 'cod' && \App\Services\Membership\DiscountService::requiresAccountPayment($pricing)) {
+                    ProductPackageService::fail('Cash on Delivery is unavailable for orders containing member-discount or active special-offer products. Pay with Membership Account Balance or Membership Points (MRP only).');
+                }
                 if ($data['payment_method'] === 'points') {
                     $pricing['net'] = $pricing['regular'];
                     foreach (['discount', 'general_discount', 'member_discount', 'offer_discount'] as $field) $pricing[$field] = 0;

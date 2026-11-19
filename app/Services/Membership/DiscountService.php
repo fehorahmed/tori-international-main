@@ -37,6 +37,11 @@ class DiscountService
             'general_discount' => ($useMember || $useOffer) ? 0 : $regular - $selling, 'member_discount' => $memberDiscount];
     }
 
+    public static function requiresAccountPayment(array $pricing): bool
+    {
+        return $pricing['member_discount'] > 0 || $pricing['active_offer'] !== null;
+    }
+
     public static function validateRates($general, $member): void
     {
         $member = CashoutService::minor($member ?? 0);

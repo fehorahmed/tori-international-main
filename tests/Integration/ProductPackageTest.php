@@ -70,6 +70,58 @@ class ProductPackageTest extends TestCase
             ->assertDontSee('Product &amp; Package Orders', false);
     }
 
+    public function test_general_discount_only_cart_keeps_cod_available(): void
+    {
+        $this->a->update(['old_selling_price' => '100.00', 'selling_price' => '80.00', 'discount_percent' => 20]);
+        $this->actingAs($this->customer, 'customer');
+        $cart = app(CartService::class);
+        $cart->add($this->a->id);
+        $this->assertFalse($cart->all()->first()->requires_account_payment);
+        $checkout = app(PackageOrderService::class)->checkout($this->customer, array_replace($this->data(), [
+            'items' => [['product_id' => $this->a->id, 'quantity' => 1]], 'expected_total' => '130.00']));
+        $this->assertSame('cod', $checkout->payment_method);
+        $this->assertEquals(130, $checkout->saleOrder->total);
+    }
+
+    public function test_one_member_discount_line_blocks_cod_for_the_entire_mixed_cart(): void
+    {
+        $account = $this->fundedSavings();
+        $this->a->update(['member_discount_percent' => 20]);
+        $this->actingAs($this->customer, 'customer');
+        $cart = app(CartService::class);
+        $cart->add($this->a->id);
+        $this->assertTrue($cart->all()->first()->requires_account_payment);
+        $data = array_replace($this->data(), ['items' => [
+            ['product_id' => $this->a->id, 'quantity' => 1], ['product_id' => $this->package->id, 'quantity' => 1]]]);
+        try {
+            app(PackageOrderService::class)->checkout($this->customer, $data);
+            $this->fail('COD must reject a mixed member-discount order.');
+        } catch (ValidationException $e) {
+            $this->assertStringContainsString('Cash on Delivery is unavailable', $e->getMessage());
+        }
+        $this->assertDatabaseMissing('package_order_checkouts', ['request_key' => $data['request_key']]);
+        $this->assertSame('1000.00', $account->fresh()->principal_balance);
+        $account->update(['principal_balance' => '999.00']);
+        $this->assertFalse($cart->all()->first()->requires_account_payment);
+    }
+
+    public function test_active_offer_blocks_cod_even_when_general_discount_is_better_and_expiry_restores_cod(): void
+    {
+        $this->a->update(['selling_price' => '70.00', 'discount_percent' => 30]);
+        $id = $this->offer($this->a, 'percentage', '20.00');
+        $this->actingAs($this->customer, 'customer');
+        $cart = app(CartService::class);
+        $cart->add($this->a->id);
+        $this->assertTrue($cart->all()->first()->requires_account_payment);
+        $data = array_replace($this->data(), ['items' => [['product_id' => $this->a->id, 'quantity' => 1]], 'expected_total' => '120.00']);
+        $this->postJson('/api/package-checkout', $data)->assertUnprocessable();
+        $this->assertDatabaseMissing('package_order_checkouts', ['request_key' => $data['request_key']]);
+        \Illuminate\Support\Facades\DB::table('offer_campaigns')->where('id', $id)->update(['ends_at' => now()->subSecond()]);
+        $this->assertFalse($cart->all()->first()->requires_account_payment);
+        $checkout = app(PackageOrderService::class)->checkout($this->customer, $data);
+        $this->assertSame('cod', $checkout->payment_method);
+    }
+
     public function test_member_discount_preview_exposes_dynamic_requirement_without_changing_guest_price(): void
     {
         $this->a->update(['old_selling_price' => '100.00', 'selling_price' => '90.00',
@@ -950,10 +1002,12 @@ class ProductPackageTest extends TestCase
         foreach ($items as $item) $this->assertTrue((float)$item['selling_price'] >= 24 && (float)$item['selling_price'] <= 26);
     }
 
-    public function test_special_offer_checkout_snapshot_is_immutable_and_expired_total_is_rejected_for_cod(): void
+    public function test_special_offer_checkout_snapshot_is_immutable_and_expired_total_is_rejected(): void
     {
+        $this->fundedSavings();
         $id = $this->offer($this->package, 'fixed', '25.01');
         $data = $this->data();
+        $data['payment_method'] = 'membership';
         $data['expected_total'] = '250.00';
         $service = app(PackageOrderService::class);
         $order = $service->checkout($this->customer, $data);

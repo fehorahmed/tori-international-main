@@ -44,6 +44,7 @@ class CartService
         return $this->getCart()->items()->with('product')->get()->map(function ($item) use ($eligible) {
             if ($item->product) {
                 $price = \App\Services\Membership\DiscountService::price($item->product, $eligible);
+                $item->setAttribute('requires_account_payment', \App\Services\Membership\DiscountService::requiresAccountPayment($price));
                 $item->old_price = \App\Services\Membership\CashoutService::money($price['regular']);
                 $item->price = \App\Services\Membership\CashoutService::money($price['net']);
                 $item->discount = \App\Services\Membership\CashoutService::money($price['discount']);

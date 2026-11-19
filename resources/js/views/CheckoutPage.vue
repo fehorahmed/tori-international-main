@@ -159,7 +159,7 @@
                 <div>
                   <label class="block text-sm font-medium text-gray-700 mb-1">Payment Method</label>
                   <select v-model="paymentMethod" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring focus:ring-green-200">
-                    <option value="cod">Cash on Delivery</option>
+                    <option value="cod" :disabled="requiresAccountPayment">Cash on Delivery</option>
                     <option value="membership" :disabled="!membershipSavings">Membership Account Balance</option>
                     <option value="points" :disabled="!membershipPoints?.enabled">Membership Points (MRP only)</option>
                     <option value="bkash" disabled>bKash (Unavailable)</option>
@@ -167,6 +167,7 @@
                   </select>
                 </div>
 
+                <p v-if="requiresAccountPayment" class="text-sm font-semibold text-amber-700" role="status">Cash on Delivery is unavailable because your cart contains a member-discount or Special Offer product. Pay with Membership Account Balance, or use Membership Points at MRP (including delivery).</p>
                 <p v-if="membershipSavings" class="text-sm font-bold text-gray-600">Membership balance: Tk {{ membershipSavings.balance }} · Available: Tk {{ membershipSavings.available_balance }}</p>
                 <p v-if="paymentMethod === 'membership'" class="text-sm text-gray-600">The full order total, including delivery, will be deducted immediately. The protected minimum balance is unavailable. Cancelled orders are refunded to the same savings account.</p>
 
@@ -275,6 +276,7 @@ export default {
   computed: {
     ...mapGetters("cart", ["cartLoading", "cartItems", "coupon", "totalCartItem", "cartSubtotal", "cartTotal", "cartDiscount", "productDiscount", "couponDiscount", "membershipPoints"]),
     ...mapGetters("auth", ["isLoggedIn","loginUser"]),
+    requiresAccountPayment() { return this.cartItems.some(item => item.requires_account_payment === true); },
     checkoutItems() {
       if (this.paymentMethod !== 'points') return this.cartItems;
       return this.cartItems.map(item => ({...item, price: item.old_price, discount: 0, discount_percent: 0, member_discount: 0}));
@@ -293,6 +295,12 @@ export default {
     }
   },
   watch: {
+    requiresAccountPayment: {
+      immediate: true,
+      handler(required) {
+        if (required && this.paymentMethod === 'cod') this.paymentMethod = 'membership';
+      }
+    },
     coupon: {
       handler(newCoupon) {
         this.couponCode = newCoupon?.code || "";
@@ -350,6 +358,11 @@ export default {
     async placeOrder() {
 	  const toast = useToast();
       if (this.placingOrder || !this.cartItems.length) return;
+      if (this.requiresAccountPayment && this.paymentMethod === 'cod') {
+        this.paymentMethod = 'membership';
+        toast.error('Select Membership Account Balance or Membership Points for this order.');
+        return;
+      }
       this.placingOrder = true;
       try {
         if (['membership', 'points'].includes(this.paymentMethod)) {
