@@ -99,14 +99,6 @@
                                     <input type="password" name="password" class="form-control" autocomplete="new-password" placeholder="{{ $gateway->password ? 'Configured — leave blank to keep' : 'Password' }}">
                                 </div>
                                 <div class="form-group">
-                        <label>Username</label>
-                        <input type="text" name="username" class="form-control" autocomplete="off">
-                    </div>
-                    <div class="form-group">
-                        <label>Password (SMS Bangladesh)</label>
-                        <input type="password" name="password" class="form-control" autocomplete="new-password">
-                    </div>
-                    <div class="form-group">
                                     <label class="font-weight-bold text-dark">API Token/Key <span class="text-danger">*</span></label>
                                     <input type="password" name="api_key" class="form-control form-control-premium" autocomplete="new-password" placeholder="Leave blank to keep current token">
                                 </div>
@@ -162,6 +154,14 @@
                     <div class="form-group">
                         <label class="font-weight-bold text-dark">API URL <span class="text-danger">*</span></label>
                         <input type="url" name="api_url" class="form-control form-control-premium" placeholder="https://api.provider.com/send" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Username</label>
+                        <input type="text" name="username" class="form-control" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label>Password (SMS Bangladesh)</label>
+                        <input type="password" name="password" class="form-control" autocomplete="new-password">
                     </div>
                     <div class="form-group">
                         <label class="font-weight-bold text-dark">API Token/Key <span class="text-danger">*</span></label>

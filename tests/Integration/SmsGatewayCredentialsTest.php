@@ -32,6 +32,25 @@ class SmsGatewayCredentialsTest extends TestCase
         $this->assertSame('private-password', $g->fresh()->password);
     }
 
+    public function test_create_and_edit_forms_have_exactly_one_field_for_each_credential(): void
+    {
+        $this->actingAs(User::firstOrFail());
+        SmsGateway::create(['provider_name' => 'SMS Bangladesh', 'api_url' => 'https://panel2.smsbangladesh.com',
+            'username' => 'private-user', 'password' => 'private-password', 'api_key' => '', 'status' => true]);
+        $html = app(SmsGatewayController::class)->index()->with('errors', new \Illuminate\Support\ViewErrorBag)->render();
+        $dom = new \DOMDocument;
+        @$dom->loadHTML($html);
+        $xpath = new \DOMXPath($dom);
+        $forms = $xpath->query('//form[.//select[@name="provider_name"]]');
+        $this->assertGreaterThanOrEqual(2, $forms->length);
+        foreach ($forms as $form) {
+            foreach (['username', 'password', 'api_key'] as $name) {
+                $this->assertSame(1, $xpath->query('.//input[@name="'.$name.'"]', $form)->length,
+                    'Duplicate or missing '.$name.' field in gateway form.');
+            }
+        }
+    }
+
     public function test_changing_provider_requires_new_provider_credentials(): void
     {
         $this->actingAs(User::firstOrFail());
