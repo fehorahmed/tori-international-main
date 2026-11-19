@@ -13,10 +13,10 @@ Route::middleware(['auth'])->prefix('sms-management')->name('sms_management.')->
     Route::get('/', [SmsDashboardController::class, 'index'])->name('dashboard');
 
     // Gateways
-    Route::get('/gateways', [SmsGatewayController::class, 'index'])->name('gateways.index');
-    Route::post('/gateways', [SmsGatewayController::class, 'store'])->name('gateways.store');
-    Route::put('/gateways/{gateway}', [SmsGatewayController::class, 'update'])->name('gateways.update');
-    Route::post('/gateways/{gateway}/make-active', [SmsGatewayController::class, 'makeActive'])->name('gateways.make_active');
+    Route::get('/gateways', [SmsGatewayController::class, 'index'])->middleware('permission:sms_gateways')->name('gateways.index');
+    Route::post('/gateways', [SmsGatewayController::class, 'store'])->middleware('permission:sms_gateways')->name('gateways.store');
+    Route::put('/gateways/{gateway}', [SmsGatewayController::class, 'update'])->middleware('permission:sms_gateways')->name('gateways.update');
+    Route::post('/gateways/{gateway}/make-active', [SmsGatewayController::class, 'makeActive'])->middleware('permission:sms_gateways')->name('gateways.make_active');
     
     // Templates
     Route::get('/templates', [SmsTemplateController::class, 'index'])->name('templates.index');

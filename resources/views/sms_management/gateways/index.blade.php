@@ -14,6 +14,7 @@
                 </div>
             </div>
             <div class="card-body">
+                <p class="text-muted">Gateway credentials are encrypted in the database. Leave credential fields blank when editing to keep existing values. SSL Wireless requires API Token and Sender ID; SendMySMS requires Username and API Key; SMS Bangladesh requires Username and Password. Leave SMS Bangladesh Sender ID empty for Non-masking.</p>
                 @if(session('success'))
                     <div class="alert alert-success alert-dismissible fade show" role="alert">
                         <i class="fas fa-check-circle mr-2"></i> {{ session('success') }}
@@ -58,7 +59,7 @@
                     
                     <div class="bg-light p-2 rounded small text-truncate" style="font-family: monospace;">
                         <i class="fas fa-key text-muted mr-1"></i> 
-                        {{ substr($gateway->api_key, 0, 10) }}••••••••••
+                        Credentials stored securely
                     </div>
                 </div>
             </div>
@@ -81,9 +82,8 @@
                                     <label class="font-weight-bold text-dark">Provider Name <span class="text-danger">*</span></label>
                                     <select name="provider_name" class="form-control form-control-premium" required>
                                         <option value="SSL Wireless" {{ $gateway->provider_name == 'SSL Wireless' ? 'selected' : '' }}>SSL Wireless</option>
-                                        <option value="BulkSMS BD" {{ $gateway->provider_name == 'BulkSMS BD' ? 'selected' : '' }}>BulkSMS BD</option>
-                                        <option value="Twilio" {{ $gateway->provider_name == 'Twilio' ? 'selected' : '' }}>Twilio</option>
-                                        <option value="Custom API" {{ $gateway->provider_name == 'Custom API' ? 'selected' : '' }}>Custom API</option>
+                                        <option value="SMS Bangladesh" {{ $gateway->provider_name == 'SMS Bangladesh' ? 'selected' : '' }}>SMS Bangladesh</option>
+                                        <option value="SendMySMS" {{ $gateway->provider_name == 'SendMySMS' ? 'selected' : '' }}>SendMySMS</option>
                                     </select>
                                 </div>
                                 <div class="form-group">
@@ -91,8 +91,24 @@
                                     <input type="url" name="api_url" class="form-control form-control-premium" value="{{ $gateway->api_url }}" required>
                                 </div>
                                 <div class="form-group">
+                                    <label>Username</label>
+                                    <input type="text" name="username" class="form-control" autocomplete="off" placeholder="{{ $gateway->username ? 'Configured — leave blank to keep' : 'Username' }}">
+                                </div>
+                                <div class="form-group">
+                                    <label>Password (SMS Bangladesh)</label>
+                                    <input type="password" name="password" class="form-control" autocomplete="new-password" placeholder="{{ $gateway->password ? 'Configured — leave blank to keep' : 'Password' }}">
+                                </div>
+                                <div class="form-group">
+                        <label>Username</label>
+                        <input type="text" name="username" class="form-control" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label>Password (SMS Bangladesh)</label>
+                        <input type="password" name="password" class="form-control" autocomplete="new-password">
+                    </div>
+                    <div class="form-group">
                                     <label class="font-weight-bold text-dark">API Token/Key <span class="text-danger">*</span></label>
-                                    <input type="text" name="api_key" class="form-control form-control-premium" value="{{ $gateway->api_key }}" required>
+                                    <input type="password" name="api_key" class="form-control form-control-premium" autocomplete="new-password" placeholder="Leave blank to keep current token">
                                 </div>
                                 <div class="form-group">
                                     <label class="font-weight-bold text-dark">Sender ID</label>
@@ -139,9 +155,8 @@
                         <select name="provider_name" class="form-control form-control-premium" required>
                             <option value="">Select Provider...</option>
                             <option value="SSL Wireless">SSL Wireless</option>
-                            <option value="BulkSMS BD">BulkSMS BD</option>
-                            <option value="Twilio">Twilio</option>
-                            <option value="Custom API">Custom API</option>
+                            <option value="SendMySMS">SendMySMS</option>
+                            <option value="SMS Bangladesh">SMS Bangladesh</option>
                         </select>
                     </div>
                     <div class="form-group">
@@ -150,7 +165,7 @@
                     </div>
                     <div class="form-group">
                         <label class="font-weight-bold text-dark">API Token/Key <span class="text-danger">*</span></label>
-                        <input type="text" name="api_key" class="form-control form-control-premium" placeholder="Your secret API token" required>
+                        <input type="password" name="api_key" class="form-control form-control-premium" autocomplete="new-password" placeholder="Your secret API token" required>
                     </div>
                     <div class="form-group">
                         <label class="font-weight-bold text-dark">Sender ID</label>
@@ -171,6 +186,22 @@
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
     $(document).ready(function() {
+        function gatewayFields(form) {
+            const provider = $(form).find('[name=provider_name]').val();
+            const sms = provider === 'SendMySMS';
+            const bd = provider === 'SMS Bangladesh';
+            $(form).find('[name=api_key]').prop('disabled', bd).closest('.form-group').toggle(!bd);
+            $(form).find('[name=username]').prop('disabled', provider === 'SSL Wireless').closest('.form-group').toggle(provider !== 'SSL Wireless');
+            $(form).find('[name=password]').prop('disabled', !bd).closest('.form-group').toggle(bd);
+            $(form).find('[name=sender_id]').prop('disabled', sms).prop('required', provider === 'SSL Wireless').closest('.form-group').toggle(!sms);
+            const input = $(form).find('[name=api_url]');
+            if (sms) input.val('https://sendmysms.net/api.php');
+            else if (provider === 'SSL Wireless') input.val('https://smsplus.sslwireless.com/api/v3/send-sms');
+            else if (bd && !/^https?:\/\/panel2?\.smsbangladesh\.com\/?$/.test(input.val())) input.val('https://panel2.smsbangladesh.com');
+
+        }
+        $('form').each(function() { gatewayFields(this); });
+        $('[name=provider_name]').on('change', function() { gatewayFields($(this).closest('form')); });
         $('.activate-btn').click(function() {
             let id = $(this).data('id');
             

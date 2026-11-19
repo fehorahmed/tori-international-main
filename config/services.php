@@ -47,4 +47,9 @@ return [
         'key' => env('OPENCAGE_API_KEY'),
     ],
 
+    'sendmysms' => [
+        'send_in_local' => env('SENDMYSMS_SEND_IN_LOCAL', false),
+    ],
+
+
 ];

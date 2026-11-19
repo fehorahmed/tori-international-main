@@ -186,11 +186,11 @@ class MembershipRegistrationTest extends TestCase
     public function test_transactional_sms_uses_configured_gateway_and_redacts_otp_from_logs(): void
     {
         \App\Models\SmsManagement\SmsGateway::query()->update(['is_active' => false]);
-        \App\Models\SmsManagement\SmsGateway::create(['provider_name' => 'SSL Wireless', 'api_url' => 'https://sms.example.test/send', 'api_key' => 'test-key', 'sender_id' => 'TORI', 'is_active' => true, 'status' => true]);
+        \App\Models\SmsManagement\SmsGateway::create(['provider_name' => 'SSL Wireless', 'api_url' => 'https://smsplus.sslwireless.com/api/v3/send-sms', 'api_key' => 'test-key', 'sender_id' => 'TORI', 'is_active' => true, 'status' => true]);
         Http::preventStrayRequests();
-        Http::fake(['https://sms.example.test/send' => Http::response(['status' => 'SUCCESS'], 200)]);
+        Http::fake(['https://smsplus.sslwireless.com/api/v3/send-sms' => Http::response(['status' => 'SUCCESS', 'status_code' => 200, 'smsinfo' => [['sms_status' => 'SUCCESS', 'msisdn' => '88'.$this->input['mobile_no']]]], 200)]);
         $this->assertTrue(app(SmsService::class)->sendSms($this->input['mobile_no'], 'OTP 673920'));
-        Http::assertSent(fn ($request) => $request['sms'] === 'OTP 673920' && $request['msisdn'] === $this->input['mobile_no']);
+        Http::assertSent(fn ($request) => $request['sms'] === 'OTP 673920' && $request['msisdn'] === '88'.$this->input['mobile_no']);
         $log = \App\Models\SmsManagement\SmsLog::where('mobile_no', $this->input['mobile_no'])->latest('id')->firstOrFail();
         $this->assertSame('Sent', $log->status);
         $this->assertStringNotContainsString('673920', $log->message);

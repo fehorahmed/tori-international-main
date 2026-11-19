@@ -50,7 +50,7 @@ class RegistrationController extends Controller
 
     private function sendOtp(string $mobile, string $otp): void
     {
-        if (! app()->environment(['local', 'testing'])) {
+        if (SmsService::usesLiveOtp()) {
             abort_unless(app(SmsService::class)->sendSms($mobile, "আপনার তরি নিবন্ধন ওটিপি: {$otp}। এটি ৩ মিনিট কার্যকর থাকবে।"), 503, 'Unable to deliver OTP. Please try again later.');
         }
     }
@@ -71,7 +71,7 @@ class RegistrationController extends Controller
         $this->ensureNew($r, $d['mobile_no'], $d['email'] ?? null);
         $referrerId = ($d['referral_code'] ?? null) !== null ? \App\Services\Membership\ReferralService::resolve($d['referral_type'], $d['referral_code']) : null;
         $token = Str::random(64);
-        $otp = app()->environment('local') ? '123456' : (string) random_int(100000, 999999);
+        $otp = !SmsService::usesLiveOtp() ? '123456' : (string) random_int(100000, 999999);
         DB::transaction(function () use ($r, $d, $token, $otp, $referrerId) {
             $branch = SisterConcern::whereKey($d['branch_id'])->where('status', 1)->lockForUpdate()->first();
             if (! $branch) $this->fail($r, 'Select an active branch.', 'সক্রিয় শাখা নির্বাচন করুন।', 'branch_id');
@@ -92,7 +92,7 @@ class RegistrationController extends Controller
             $this->sendOtp($d['mobile_no'], $otp);
         }, 3);
         return response()->json(['success' => true, 'message' => $this->message($r, 'OTP sent. Verify your mobile number.', 'ওটিপি পাঠানো হয়েছে। মোবাইল নম্বর যাচাই করুন।'),
-            'data' => ['registration_token' => $token, 'mobile_no' => $d['mobile_no'], 'otp_expires_in_seconds' => 180, 'resend_wait_seconds' => 60, 'debug_otp' => app()->environment('local') ? $otp : null]]);
+            'data' => ['registration_token' => $token, 'mobile_no' => $d['mobile_no'], 'otp_expires_in_seconds' => 180, 'resend_wait_seconds' => 60, 'debug_otp' => !SmsService::usesLiveOtp() ? $otp : null]]);
     }
 
     private function session(Request $r): object
@@ -114,10 +114,10 @@ class RegistrationController extends Controller
             $row = $this->session($r);
             abort_if($row->customer_id, 409, 'Registration already completed. Please sign in.');
             abort_if(Carbon::parse($row->otp_sent_at)->addSeconds(60)->isFuture(), 429, $this->message($r, 'Wait before requesting another OTP.', 'নতুন ওটিপির জন্য অপেক্ষা করুন।'));
-            $otp = app()->environment('local') ? '123456' : (string) random_int(100000, 999999);
+            $otp = !SmsService::usesLiveOtp() ? '123456' : (string) random_int(100000, 999999);
             DB::table('membership_registration_requests')->where('id', $row->id)->update(['otp_hash' => Hash::make($otp), 'otp_attempts' => 0, 'otp_expires_at' => now()->addMinutes(3), 'otp_sent_at' => now(), 'verification_hash' => null, 'verified_until' => null, 'updated_at' => now()]);
             $this->sendOtp($row->mobile_no, $otp);
-            return response()->json(['success' => true, 'data' => ['resend_wait_seconds' => 60, 'debug_otp' => app()->environment('local') ? $otp : null]]);
+            return response()->json(['success' => true, 'data' => ['resend_wait_seconds' => 60, 'debug_otp' => !SmsService::usesLiveOtp() ? $otp : null]]);
         });
     }
 

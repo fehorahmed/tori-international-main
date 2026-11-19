@@ -38,5 +38,6 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
+        $exceptions->dontFlash(['current_password', 'password', 'password_confirmation', 'api_key', 'username']);
         //
     })->create();

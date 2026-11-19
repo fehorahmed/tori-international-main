@@ -67,7 +67,7 @@ class AuthController extends Controller
 
         // Generate 6-Digit OTP
         // For development/testing: fallback to fixed '123456' if environment is local, or generate random
-        $otp = app()->environment('local') ? '123456' : (string) random_int(100000, 999999);
+        $otp = !SmsService::usesLiveOtp() ? '123456' : (string) random_int(100000, 999999);
 
         // Save OTP to Cache for 3 minutes (180 seconds)
         $otpCacheKey = $this->otpKey($mobileNo, $request->device_id);
@@ -83,22 +83,17 @@ class AuthController extends Controller
         CustomerOtpLog::create([
             'customer_id' => $customer->id,
             'mobile_no' => $mobileNo,
-            'otp' => app()->environment('local') ? $otp : '******',
+            'otp' => !SmsService::usesLiveOtp() ? $otp : '******',
             'purpose' => 'login',
             'ip_address' => $request->ip(),
             'user_agent' => $request->userAgent(),
             'expires_at' => now()->addMinutes(3),
         ]);
 
-        // Send SMS via SmsService (only if not testing or gateway available)
-        try {
-            if (! app()->environment(['local', 'testing'])) {
-                $smsService = app(SmsService::class);
-                $smsMessage = "আপনার তরি মেম্বারশিপ লগইন ওটিপি হলো: {$otp}। এটি ৩ মিনিট কার্যকর থাকবে।";
-                $smsService->sendSms($mobileNo, $smsMessage);
-            }
-        } catch (\Exception $e) {
-            \Log::error("Failed to send OTP to {$mobileNo}: ".$e->getMessage());
+        if (SmsService::usesLiveOtp() && !app(SmsService::class)->sendSms($mobileNo, "আপনার তরি মেম্বারশিপ লগইন ওটিপি হলো: {$otp}। এটি ৩ মিনিট কার্যকর থাকবে।")) {
+            Cache::forget($otpCacheKey);
+            return response()->json(['success' => false, 'message' => $this->message(
+                'Unable to deliver OTP. Please try again later.', 'ওটিপি পাঠানো যায়নি। পরে আবার চেষ্টা করুন।')], 503);
         }
 
         return response()->json([
@@ -112,7 +107,7 @@ class AuthController extends Controller
                 'has_pin' => ! empty($customer->pin),
                 'is_biometric_enabled' => (bool) $customer->is_biometric_enabled,
                 // In local development, return OTP for easy testing:
-                'debug_otp' => app()->environment('local') ? $otp : null,
+                'debug_otp' => !SmsService::usesLiveOtp() ? $otp : null,
             ],
         ]);
     }
