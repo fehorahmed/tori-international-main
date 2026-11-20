@@ -14,6 +14,17 @@
                     <div class="row">
                         <div class="col-md-3">
                             <div class="form-group">
+                                <label for="branch_id">Branch</label>
+                                <select name="branch_id" id="branch_id" class="form-control select2">
+                                    <option value="">All Branches</option>
+                                    @foreach($branches as $branch)
+                                        <option value="{{ $branch->id }}">{{ $branch->display_name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-group">
                                 <label for="shomriddhi_group_id">Group</label>
                                 <select name="shomriddhi_group_id" id="shomriddhi_group_id" class="form-control select2">
                                     <option value="">All Groups</option>
@@ -133,6 +144,7 @@
                 ajax: {
                     url: '{{ route('shomriddhi-advance.members.datatable') }}',
                     data: function(d) {
+                        d.branch_id = $('#branch_id').val();
                         d.shomriddhi_group_id = $('#shomriddhi_group_id').val();
                         d.division_id = $('#division_id').val();
                         d.district_id = $('#district_id').val();
@@ -176,7 +188,7 @@
                 "responsive": true, "autoWidth": false,"colReorder": true,
             });
 
-            $('#shomriddhi_group_id, #division_id, #district_id, #upazila_id, #union_id, #village_id').change(function () {
+            $('#branch_id, #shomriddhi_group_id, #division_id, #district_id, #upazila_id, #union_id, #village_id').change(function () {
                 table.ajax.reload();
             });
 

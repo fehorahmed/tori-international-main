@@ -19,7 +19,7 @@
                 </div>
                 <div class="card-body">
                     <div class="row mb-3">
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <label class="font-weight-bold">Filter by Member</label>
                             <select class="form-control select2" id="filter_member_id">
                                 <option value="">All Members </option>
@@ -28,7 +28,7 @@
                                 @endforeach
                             </select>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <label class="font-weight-bold">Filter by Card Creator</label>
                             <select class="form-control select2" id="filter_user_id">
                                 <option value="">All Users </option>
@@ -37,7 +37,17 @@
                                 @endforeach
                             </select>
                         </div>
+                        <div class="col-md-3">
+                            <label for="filter_from_date" class="font-weight-bold">From Date (Card Created)</label>
+                            <input type="date" id="filter_from_date" class="form-control">
+                        </div>
+                        <div class="col-md-3">
+                            <label for="filter_to_date" class="font-weight-bold">To Date</label>
+                            <input type="date" id="filter_to_date" class="form-control">
+                        </div>
                     </div>
+                    <div id="date-filter-error" class="alert alert-danger d-none" role="alert"></div>
+                    <button type="button" id="reset-card-dates" class="btn btn-secondary btn-sm mb-3">Reset Dates</button>
                     <div class="table-responsive">
                         <table id="cardTable" class="table table-bordered table-striped" style="width: 100%;">
                             <thead>
@@ -124,6 +134,8 @@
                     data: function (d) {
                         d.user_id = $('#filter_user_id').val();
                         d.member_id = $('#filter_member_id').val();
+                        d.from_date = $('#filter_from_date').val();
+                        d.to_date = $('#filter_to_date').val();
                     }
                 },
                 "pagingType": "full_numbers",
@@ -154,7 +166,18 @@
                 updateBulkPrintVisibility();
             });
 
-            $('#filter_user_id, #filter_member_id').change(function() {
+            $('#filter_user_id, #filter_member_id, #filter_from_date, #filter_to_date').change(function() {
+                const from = $('#filter_from_date').val(), to = $('#filter_to_date').val();
+                $('#date-filter-error').addClass('d-none').empty();
+                if (from && to && to < from) {
+                    $('#date-filter-error').text('To date must be on or after from date.').removeClass('d-none');
+                    return;
+                }
+                table.ajax.reload();
+            });
+            $('#reset-card-dates').click(function () {
+                $('#filter_from_date, #filter_to_date').val('');
+                $('#date-filter-error').addClass('d-none').empty();
                 table.ajax.reload();
             });
 

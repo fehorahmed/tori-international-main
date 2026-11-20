@@ -21,17 +21,51 @@ class CashoutController extends Controller
         abort_unless(auth()->user()->role === 'Admin' || auth()->user()->hasPermissionTo('shomriddhi_advance_transaction_approve'), 403);
     }
 
-    public function index()
+    public function index(Request $request)
     {
         $this->canView();
         $branch = auth()->user()->activeConcernId();
+        if ($request->ajax()) {
+            return $this->dataTable($request, $branch);
+        }
         $setting = membership_transaction_settings('cashout');
         $booth = MembershipCashoutBooth::where('branch_id', $branch)->first();
-        $requests = MembershipCashout::with('customer')->where('branch_id', $branch)->latest('id')->paginate(20);
         $cashHeads = AccountHead::where('payment_mode', 2)->where('nature', 'Debit')->where('status', 1)
             ->where(fn ($q) => $q->whereNull('sister_concern_id')->orWhere('sister_concern_id', $branch))->get();
 
-        return view('card_management.cashout.index', compact('setting', 'booth', 'requests', 'cashHeads'));
+        return view('card_management.cashout.index', compact('setting', 'booth', 'cashHeads'));
+    }
+
+    private function dataTable(Request $request, int $branch)
+    {
+        $request->validate([
+            'from_date' => 'nullable|date_format:Y-m-d',
+            'to_date' => 'nullable|date_format:Y-m-d',
+            'status' => 'nullable|in:Pending,Accepted,Completed,Rejected,Cancelled,Expired',
+        ]);
+        if ($request->filled('from_date') && $request->filled('to_date') && $request->to_date < $request->from_date) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['to_date' => 'To date must be on or after from date.']);
+        }
+        $query = MembershipCashout::select(['id', 'reference', 'customer_id', 'created_at', 'expires_at', 'status', 'amount', 'fee', 'total', 'reason'])
+            ->with('customer:id,name,member_no,mobile_no')->where('branch_id', $branch)
+            ->when($request->filled('from_date'), fn ($q) => $q->where('created_at', '>=', \Carbon\Carbon::parse($request->from_date)->startOfDay()))
+            ->when($request->filled('to_date'), fn ($q) => $q->where('created_at', '<', \Carbon\Carbon::parse($request->to_date)->addDay()->startOfDay()));
+        if ($request->status === 'Expired') {
+            $query->where('status', 'Pending')->where('expires_at', '<', now());
+        } elseif ($request->status === 'Pending') {
+            $query->where('status', 'Pending')->where('expires_at', '>=', now());
+        } elseif ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+        return \Yajra\DataTables\Facades\DataTables::eloquent($query)
+            ->addColumn('member', fn ($row) => implode(' / ', array_filter([$row->customer?->name, $row->customer?->member_no, $row->customer?->mobile_no])))
+            ->filterColumn('member', fn ($q, $value) => $q->whereHas('customer', fn ($member) => $member->where(fn ($m) => $m
+                ->where('name', 'like', '%'.$value.'%')->orWhere('member_no', 'like', '%'.$value.'%')->orWhere('mobile_no', 'like', '%'.$value.'%'))))
+            ->editColumn('status', fn ($row) => $row->effectiveStatus())
+            ->editColumn('created_at', fn ($row) => $row->created_at->format('Y-m-d H:i:s'))
+            ->addColumn('actions', fn () => '<button type="button" class="btn btn-sm btn-primary cashout-details">View / Manage</button>')
+            ->addColumn('details', fn ($cashout) => view('card_management.cashout.request', compact('cashout'))->render())
+            ->rawColumns(['actions', 'details'])->toJson();
     }
 
     public function booth(Request $request)

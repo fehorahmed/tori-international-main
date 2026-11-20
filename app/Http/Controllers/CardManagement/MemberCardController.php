@@ -42,6 +42,10 @@ class MemberCardController extends Controller
 
     public function dataTable(Request $request)
     {
+        $request->validate(['from_date' => 'nullable|date_format:Y-m-d', 'to_date' => 'nullable|date_format:Y-m-d']);
+        if ($request->filled('from_date') && $request->filled('to_date') && $request->to_date < $request->from_date) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['to_date' => 'To date must be on or after from date.']);
+        }
         $cards = Card::where('cardable_type', Supplier::class)
             ->where('cards.origin_sister_concern_id', auth()->user()->activeConcernId())
             ->with(['cardable', 'creator'])
@@ -53,6 +57,14 @@ class MemberCardController extends Controller
         
         if ($request->member_id) {
             $cards->where('cardable_id', $request->member_id);
+        }
+
+        // Filter by card creation date, including the entire selected end date.
+        if ($request->filled('from_date')) {
+            $cards->where('cards.created_at', '>=', Carbon::parse($request->from_date)->startOfDay());
+        }
+        if ($request->filled('to_date')) {
+            $cards->where('cards.created_at', '<', Carbon::parse($request->to_date)->addDay()->startOfDay());
         }
 
         return DataTables::of($cards)
@@ -70,6 +82,14 @@ class MemberCardController extends Controller
             })
             ->addColumn('holder_mobile', function (Card $card) {
                 return $card->cardable ? $card->cardable->mobile_no : '-';
+            })
+            ->filterColumn('holder_name', function ($query, $keyword) {
+                $query->whereHasMorph('cardable', [Supplier::class], fn ($member) =>
+                    $member->where('name', 'like', '%'.trim($keyword).'%'));
+            })
+            ->filterColumn('holder_mobile', function ($query, $keyword) {
+                $query->whereHasMorph('cardable', [Supplier::class], fn ($member) =>
+                    $member->where('mobile_no', 'like', '%'.trim($keyword).'%'));
             })
             ->editColumn('status', function (Card $card) {
                 $badges = [

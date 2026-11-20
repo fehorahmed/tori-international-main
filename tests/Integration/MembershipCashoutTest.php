@@ -114,6 +114,63 @@ class MembershipCashoutTest extends TestCase
         $this->service = app(CashoutService::class);
     }
 
+    private function adminCashoutData(array $filters = []): array
+    {
+        $columns = [];
+        foreach (['reference', 'created_at', 'member', 'amount', 'fee', 'total', 'status', 'actions'] as $column) {
+            $columns[] = ['data' => $column, 'name' => '', 'searchable' => in_array($column, ['status', 'actions']) ? 'false' : 'true',
+                'orderable' => 'true', 'search' => ['value' => '', 'regex' => 'false']];
+        }
+        $request = Request::create('/admin/card-management/cashout', 'GET', $filters + [
+            'draw' => 1, 'start' => 0, 'length' => 10, 'columns' => $columns,
+            'order' => [['column' => 1, 'dir' => 'desc']], 'search' => ['value' => '', 'regex' => 'false'],
+        ]);
+        $request->headers->set('X-Requested-With', 'XMLHttpRequest');
+        $this->app->instance('request', $request);
+        return app(CashoutController::class)->index($request)->getData(true);
+    }
+
+    public function test_admin_cashout_datatable_filters_effective_status_dates_and_preserves_actions(): void
+    {
+        $prefix = 'CT-'.Str::random(10);
+        $filters = ['search' => ['value' => $prefix, 'regex' => 'false'],
+            'from_date' => now()->toDateString(), 'to_date' => now()->toDateString()];
+        foreach (['Pending', 'Expired', 'Accepted', 'Completed', 'Rejected', 'Cancelled'] as $index => $status) {
+            $request = $this->requestCash('100.00');
+            $request->update(['reference' => $prefix.'-'.$index, 'status' => $status === 'Expired' ? 'Pending' : $status,
+                'expires_at' => $status === 'Pending' ? now()->addMinutes(10) : now()->subMinute()]);
+        }
+        foreach (['Pending', 'Expired', 'Accepted', 'Completed', 'Rejected', 'Cancelled'] as $status) {
+            $data = $this->adminCashoutData($filters + ['status' => $status]);
+            $this->assertSame(1, $data['recordsFiltered']);
+            $row = $data['data'][0];
+            $this->assertSame($status, $row['status']);
+            $this->assertArrayNotHasKey('quote_hash', $row);
+            $this->assertStringContainsString('View / Manage', $row['actions']);
+            if ($status === 'Pending') $this->assertStringContainsString('Accept request', $row['details']);
+            if ($status === 'Accepted') $this->assertStringContainsString('cash_payment_confirmed', $row['details']);
+            if (! in_array($status, ['Pending', 'Accepted'])) $this->assertStringNotContainsString('<form', $row['details']);
+        }
+        $this->assertSame(6, $this->adminCashoutData($filters)['recordsFiltered']);
+        $filters['from_date'] = $filters['to_date'] = now()->subDay()->toDateString();
+        $this->assertSame(0, $this->adminCashoutData($filters)['recordsFiltered']);
+    }
+
+    public function test_admin_cashout_list_hides_other_branch_and_escapes_member_details(): void
+    {
+        $request = $this->requestCash('100.00');
+        $this->customer->update(['name' => '<script>alert(1)</script>']);
+        $filters = ['search' => ['value' => $request->reference, 'regex' => 'false']];
+        $row = $this->adminCashoutData($filters)['data'][0];
+        $this->assertStringNotContainsString('<script>', $row['details']);
+        $this->assertStringNotContainsString('<script>', $row['member']);
+        $other = SisterConcern::where('status', 1)->whereKeyNot($this->branch->id)->firstOrFail();
+        $request->update(['branch_id' => $other->id]);
+        $this->assertSame(0, $this->adminCashoutData($filters)['recordsFiltered']);
+        $this->expectException(ValidationException::class);
+        $this->adminCashoutData(['from_date' => '2026-11-20', 'to_date' => '2026-11-19']);
+    }
+
     private function fixtureHead(string $name, string $nature, int $group, array $extra = []): AccountHead
     {
         return AccountHead::create($extra + ['name' => 'Test '.$name, 'nature' => $nature,
@@ -194,7 +251,7 @@ class MembershipCashoutTest extends TestCase
         $this->assertSame('/admin/card-management/transaction-settings', route('card-management.transaction-settings.index', [], false));
         $controller = new CashoutController;
         $this->assertSame('card_management.transaction_settings.index', app(TransactionSettingController::class)->index()->name());
-        $this->assertSame('card_management.cashout.index', $controller->index()->name());
+        $this->assertSame('card_management.cashout.index', $controller->index(Request::create('/'))->name());
     }
 
     public function test_fixed_charge_hold_and_payment_update_all_ledgers_once(): void

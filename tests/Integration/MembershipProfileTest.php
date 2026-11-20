@@ -66,6 +66,32 @@ class MembershipProfileTest extends TestCase
         $this->assertSame(0, app(KycReviewController::class)->index($request)->getData(true)['recordsFiltered']);
     }
 
+    public function test_admin_member_view_includes_referral_and_kyc_without_exposing_storage_paths(): void
+    {
+        $operator = User::firstOrFail();
+        $operator->givePermissionTo('customer_edit');
+        $branch = \App\Models\BranchManagement\SisterConcern::where('status', 1)->firstOrFail();
+        $this->customer->update(['type' => 'Customer', 'origin_sister_concern_id' => $branch->id]);
+        $referrer = Supplier::create(['name' => 'Referring test member', 'member_no' => 'REF-'.uniqid(), 'type' => 'Customer', 'status' => 1]);
+        \Illuminate\Support\Facades\DB::table('membership_referrals')->where('customer_id', $this->customer->id)->delete();
+        \Illuminate\Support\Facades\DB::table('membership_referrals')->insert(['customer_id' => $this->customer->id,
+            'referrer_type' => 'member', 'referrer_id' => $referrer->id, 'referral_code' => 'ORIGINAL-CODE', 'created_at' => now(), 'updated_at' => now()]);
+        CustomerKyc::create(['customer_id' => $this->customer->id, 'submitted_name' => $this->customer->name,
+            'nid_number' => '1234567890', 'selfie_path' => 'private/selfie-secret.jpg', 'nid_front_path' => 'private/front-secret.jpg',
+            'nid_back_path' => 'private/back-secret.jpg', 'status' => 'Rejected', 'reviewer_message' => '<script>unsafe</script>']);
+        $this->actingAs($operator, 'web')->withSession(['active_sister_concern_id' => $branch->id]);
+        $data = app(\App\Http\Controllers\ShomriddhiAdvance\MemberController::class)->show($this->customer)->getData();
+        $this->assertSame('ORIGINAL-CODE', $data['referredBy']['code']);
+        $this->assertSame('Rejected', $data['kycStatus']);
+        $html = view('shomriddhi_advance.members.referral_kyc', $data)->render();
+        $this->assertStringContainsString('Referring test member', $html);
+        $this->assertStringContainsString('NID Front', $html);
+        $this->assertStringNotContainsString('private/front-secret.jpg', $html);
+        $this->assertStringNotContainsString('<script>unsafe', $html);
+        $data['canViewKycDocuments'] = false;
+        $this->assertStringNotContainsString('/documents/', view('shomriddhi_advance.members.referral_kyc', $data)->render());
+    }
+
     protected function setUp(): void
     {
         parent::setUp();

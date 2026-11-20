@@ -110,9 +110,39 @@
     </div>
 </div>
 
-<!-- Recent Transactions Table -->
+<!-- Recent Members -->
 <div class="row">
-    <div class="col-12">
+    <div class="col-12 col-xl-6">
+        <div class="card premium-card border-top-office" style="border-top-color:#0d9488;">
+            <div class="card-header border-0 d-flex align-items-center flex-wrap">
+                <h3 class="card-title font-weight-bold text-dark"><i class="fas fa-user-plus mr-2 text-success"></i> Recent Members</h3>
+                <a href="{{ route('shomriddhi-advance.members.index') }}" class="btn btn-sm btn-outline-success ml-auto">View All Members</a>
+            </div>
+            <div class="px-3 pb-2 text-muted small">Latest 10 members registered in the active branch.</div>
+            <div class="card-body table-responsive p-0">
+                <table class="table table-hover mb-0">
+                    <thead style="background-color:#f8fafc;"><tr><th>Member ID</th><th>Name</th><th>Mobile</th><th>Joined</th><th>Status</th><th>Action</th></tr></thead>
+                    <tbody>
+                        @forelse($recentMembers as $recentMember)
+                            <tr>
+                                <td>{{ $recentMember->member_no ?: '—' }}</td>
+                                <td>{{ $recentMember->name }}</td>
+                                <td>{{ $recentMember->mobile_no ?: '—' }}</td>
+                                <td class="text-nowrap">{{ $recentMember->created_at?->format('d M Y, h:i A') ?: '—' }}</td>
+                                <td><span class="badge {{ $recentMember->status == 1 ? 'badge-success' : 'badge-secondary' }}">{{ $recentMember->status == 1 ? 'Active' : 'Inactive' }}</span></td>
+                                <td><a class="btn btn-sm btn-outline-primary" href="{{ route('shomriddhi-advance.members.show', $recentMember->id) }}">View</a></td>
+                            </tr>
+                        @empty
+                            <tr><td colspan="6" class="text-center py-4 text-muted">No recent members found for this branch.</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+<!-- Recent Transactions Table -->
+    <div class="col-12 col-xl-6">
         <div class="card premium-card border-top-office" style="border-top-color: #64748b;">
             <div class="card-header border-0">
                 <h3 class="card-title font-weight-bold text-dark"><i class="fas fa-history mr-2 text-secondary"></i> Recent Transactions</h3>

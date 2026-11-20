@@ -32,6 +32,11 @@ class DashboardController extends Controller
             ->take(5)
             ->get();
 
-        return view('shomriddhi_advance.dashboard', compact('totalMembers', 'pendingDepositAmount', 'pendingWithdrawAmount', 'totalLiability', 'recentTransactions'));
+        $recentMembers = Supplier::where('type', \App\Enumeration\SupplierType::$CUSTOMER)
+            ->where('origin_sister_concern_id', auth()->user()->activeConcernId())
+            ->orderByDesc('created_at')->orderByDesc('id')->limit(10)
+            ->get(['id', 'name', 'member_no', 'mobile_no', 'status', 'created_at']);
+
+        return view('shomriddhi_advance.dashboard', compact('totalMembers', 'pendingDepositAmount', 'pendingWithdrawAmount', 'totalLiability', 'recentTransactions', 'recentMembers'));
     }
 }

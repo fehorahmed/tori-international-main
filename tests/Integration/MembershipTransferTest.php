@@ -460,11 +460,64 @@ class MembershipTransferTest extends TestCase
         $q = $this->transferQuote();
         $t = $this->transfer->send($this->customer, $q['quote'], '763921', (string) Str::uuid());
         $controller = new TransferController;
-        $this->assertSame($t->id, $controller->index()->getData()['transfers']->first()->id);
+        $this->assertSame('card_management.transfers.index', $controller->index(Request::create('/'))->name());
+        $data = $this->adminTransferData(['sender' => $this->customer->name, 'recipient' => $this->recipient->member_no]);
+        $this->assertSame($t->reference, $data['data'][0]['reference']);
         $this->assertSame('card_management.transaction_settings.index', app(TransactionSettingController::class)->index()->name());
         app(TransactionSettingController::class)->update(Request::create('/', 'POST', ['enabled' => 1, 'minimum_amount' => '1.00', 'maximum_amount' => '3000.00', 'charge_type' => 'fixed', 'charge_rate' => '0.00']), 'transfer');
         $this->assertSame($this->operator->id, membership_transaction_setting('transfer.posting_user_id'));
         $this->assertSame('3000.00', membership_transaction_setting('transfer.maximum_amount'));
+    }
+
+    private function adminTransferData(array $filters = []): array
+    {
+        $columns = [];
+        foreach (['reference', 'created_at', 'sender_label', 'recipient_label', 'amount', 'fee', 'total'] as $column) {
+            $columns[] = ['data' => $column, 'name' => '', 'searchable' => 'true', 'orderable' => 'true', 'search' => ['value' => '', 'regex' => 'false']];
+        }
+        $request = Request::create('/admin/card-management/transfers', 'GET', $filters + [
+            'draw' => 1, 'start' => 0, 'length' => 10, 'columns' => $columns,
+            'order' => [['column' => 1, 'dir' => 'desc']], 'search' => ['value' => '', 'regex' => 'false'],
+        ]);
+        $request->headers->set('X-Requested-With', 'XMLHttpRequest');
+        $this->app->instance('request', $request);
+        return app(TransferController::class)->index($request)->getData(true);
+    }
+
+    public function test_admin_transfer_datatable_filters_dates_sender_recipient_and_resets(): void
+    {
+        $this->customer->update(['mobile_no' => '01755551234']);
+        $q = $this->transferQuote();
+        $transfer = $this->transfer->send($this->customer, $q['quote'], '763921', (string) Str::uuid());
+        $transfer->update(['created_at' => now()->subDay()->startOfDay()]);
+        $filters = ['from_date' => now()->subDay()->toDateString(), 'to_date' => now()->subDay()->toDateString(),
+            'sender' => '01755551234', 'recipient' => $this->recipient->member_no];
+        $result = $this->adminTransferData($filters);
+        $this->assertSame(1, $result['recordsFiltered']);
+        $this->assertSame($transfer->reference, $result['data'][0]['reference']);
+        $this->assertStringContainsString($this->recipient->name, $result['data'][0]['recipient_label']);
+        $this->assertArrayNotHasKey('quote_hash', $result['data'][0]);
+        foreach (['sender' => 'No such sender', 'recipient' => 'No such recipient', 'from_date' => now()->toDateString()] as $key => $value) {
+            $check = $filters;
+            $check[$key] = $value;
+            if ($key === 'from_date') $check['to_date'] = now()->toDateString();
+            $this->assertSame(0, $this->adminTransferData($check)['recordsFiltered']);
+        }
+        $this->assertGreaterThanOrEqual(1, $this->adminTransferData()['recordsFiltered']);
+        $this->assertSame(1, $this->adminTransferData(['search' => ['value' => $this->recipient->member_no, 'regex' => 'false']])['recordsFiltered']);
+        $this->assertSame(0, $this->adminTransferData(['search' => ['value' => 'NONEXISTENT-REF', 'regex' => 'false']])['recordsFiltered']);
+    }
+
+    public function test_admin_transfer_filters_cannot_reveal_other_branch_and_validate_dates(): void
+    {
+        $q = $this->transferQuote();
+        $transfer = $this->transfer->send($this->customer, $q['quote'], '763921', (string) Str::uuid());
+        $other = SisterConcern::where('status', 1)->whereKeyNot($this->branch->id)->firstOrFail();
+        Voucher::whereKey($transfer->voucher_id)->update(['sister_concern_id' => $other->id]);
+        Voucher::whereKey($transfer->recipient_voucher_id)->update(['sister_concern_id' => $other->id]);
+        $this->assertSame(0, $this->adminTransferData(['recipient' => $this->recipient->member_no])['recordsFiltered']);
+        $this->expectException(ValidationException::class);
+        $this->adminTransferData(['from_date' => '2026-11-20', 'to_date' => '2026-11-19']);
     }
 
     public function test_recent_transactions_group_fees_and_are_member_scoped(): void

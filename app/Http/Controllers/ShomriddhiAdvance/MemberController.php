@@ -13,6 +13,7 @@ use App\Models\Account\AccountHead;
 use App\Models\BranchManagement\SisterConcern;
 use App\Models\Sales\SaleOrder;
 use App\Models\Supplier;
+use App\Models\ShomriddhiAdvance\ShomriddhiAccount;
 use App\Models\Division;
 use App\Models\Account\Transaction;
 use App\Models\Account\Voucher;
@@ -38,7 +39,8 @@ class MemberController extends Controller
     {
         $divisions = Division::orderBy('name')->get();
         $groups = ShomriddhiGroup::where('status', 1)->orderBy('code')->get();
-        return view('shomriddhi_advance.members.index', compact('divisions', 'groups'));
+        $branches = SisterConcern::orderBy('code')->orderBy('name')->get(['id', 'code', 'name']);
+        return view('shomriddhi_advance.members.index', compact('divisions', 'groups', 'branches'));
     }
 
     public function printEmptyForm()
@@ -51,10 +53,15 @@ class MemberController extends Controller
     }
     public function dataTable(Request $request)
     {
-        $query = Supplier::where('origin_sister_concern_id', auth()->user()->activeConcernId())
-            ->where('type', SupplierType::$CUSTOMER)
+        $request->validate(['branch_id' => ['nullable', 'integer', Rule::exists(SisterConcern::class, 'id')]]);
+        $query = Supplier::where('type', SupplierType::$CUSTOMER)
+            // where('origin_sister_concern_id', auth()->user()->activeConcernId())
             ->with('division', 'district', 'upazila', 'union', 'shomriddhiGroup')
             ->orderBy('id', 'desc');
+
+        if ($request->filled('branch_id')) {
+            $query->where('origin_sister_concern_id', $request->integer('branch_id'));
+        }
 
         if ($request->division_id) {
             $query->where('division_id', $request->division_id);
@@ -87,7 +94,7 @@ class MemberController extends Controller
             ->addColumn('action', function(Supplier $supplier) {
                 $btn = '';
                 $btn .= '<a href="' . route('shomriddhi-advance.members.show', ['member' => $supplier->id]) . '" class="btn btn-primary bg-gradient-primary btn-sm"><i class="fa fa-eye"></i></a>';
-                
+
                 $hasEdit = auth()->user()->can('customer_edit');
                 $hasDelete = auth()->user()->can('customer_delete');
                 $isOrigin = auth()->user()->activeConcernId() == $supplier->origin_sister_concern_id;
@@ -345,7 +352,21 @@ class MemberController extends Controller
         }
         $member->load('division', 'district', 'upazila', 'union', 'pourashava');
         $nominee = Nominee::where('customer_id', $member->id)->first();
-        return view('shomriddhi_advance.members.show', compact('member', 'nominee'));
+        $savingsAccount = ShomriddhiAccount::where('customer_id', $member->id)->where('status', 'Active')->first();
+        $savingsBalance = $savingsAccount ? (float) $savingsAccount->principal_balance : 0;
+        $availableBalance = $savingsAccount ? \App\Services\Membership\CashoutService::available($savingsAccount) / 100 : 0;
+        $referredBy = \App\Services\Membership\ReferralService::forCustomer($member->id);
+        $referral = DB::table('membership_referrals')->where('customer_id', $member->id)->first();
+        $referralReward = $referral ? DB::table('membership_referral_rewards')->where('referral_id', $referral->id)->first() : null;
+        $registrationFee = DB::table('membership_registration_fees')->where('customer_id', $member->id)->first();
+        $referralCount = DB::table('membership_referrals')->where('referrer_type', 'member')->where('referrer_id', $member->id)->count();
+        $referralPoints = \App\Services\Membership\ReferralRewardService::points($member->id);
+        $kyc = \App\Models\CustomerKyc::where('customer_id', $member->id)->latest('id')->first();
+        $kycStatus = \App\Services\Membership\KycEligibilityService::status($member);
+        $canViewKycDocuments = auth()->user()->hasPermissionTo('customer_edit')
+            && $member->origin_sister_concern_id == auth()->user()->activeConcernId();
+        return view('shomriddhi_advance.members.show', compact('member', 'nominee', 'savingsBalance', 'availableBalance', 'referredBy', 'referralReward',
+            'registrationFee', 'referralCount', 'referralPoints', 'kyc', 'kycStatus', 'canViewKycDocuments'));
     }
 
     /**
@@ -507,11 +528,11 @@ class MemberController extends Controller
             if (auth()->user()->activeConcernId() != $member->origin_sister_concern_id) {
                 return response()->json(['success' => false, 'message' => 'You can only delete clients created by your branch.'], Response::HTTP_OK);
             }
-            
+
             if ($member->hasShomriddhiAccount()) {
                 return response()->json(['success' => false, 'message' => 'Has Shomriddhi Account. Cannot delete.'], Response::HTTP_OK);
             }
-            
+
             // Check for Sales
             if (SaleOrder::where('customer_id', $member->id)->exists()) {
                 return response()->json(['success' => false, 'message' => 'Has sales records. Cannot delete.'], Response::HTTP_OK);
