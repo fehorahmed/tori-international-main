@@ -45,7 +45,13 @@ class RegistrationController extends Controller
 
     public function options()
     {
-        return response()->json(['success' => true, 'data' => ['branches' => SisterConcern::where('status', 1)->orderBy('name')->get(['id', 'name', 'code'])]]);
+        return response()->json(['success' => true, 'data' => ['divisions' => \App\Models\Division::orderBy('name')->get()->map(fn ($row) => ['id' => $row->id, 'name' => $row->name, 'bn_name' => $row->bn_name]), 'branches' => SisterConcern::where('status', 1)->orderBy('name')->get(['id', 'name', 'code'])]]);
+    }
+
+    public function locations(Request $r)
+    {
+        $d = $r->validate(['level' => 'required|in:districts,upazilas,areas,villages', 'parent_id' => 'required|integer|min:1']);
+        return response()->json(['success' => true, 'data' => \App\Services\Membership\RegistrationAddressService::locations($d['level'], $d['parent_id'])]);
     }
 
     private function sendOtp(string $mobile, string $otp): void
@@ -68,11 +74,12 @@ class RegistrationController extends Controller
             'referral_type' => 'required_with:referral_code|nullable|in:member,agent',
             'device_name' => 'nullable|string|max:255', 'platform' => 'nullable|string|max:32',
         ]);
+        $address = \App\Services\Membership\RegistrationAddressService::validate($r->all());
         $this->ensureNew($r, $d['mobile_no'], $d['email'] ?? null);
         $referrerId = ($d['referral_code'] ?? null) !== null ? \App\Services\Membership\ReferralService::resolve($d['referral_type'], $d['referral_code']) : null;
         $token = Str::random(64);
         $otp = !SmsService::usesLiveOtp() ? '123456' : (string) random_int(100000, 999999);
-        DB::transaction(function () use ($r, $d, $token, $otp, $referrerId) {
+        DB::transaction(function () use ($r, $d, $token, $otp, $referrerId, $address) {
             $branch = SisterConcern::whereKey($d['branch_id'])->where('status', 1)->lockForUpdate()->first();
             if (! $branch) $this->fail($r, 'Select an active branch.', 'সক্রিয় শাখা নির্বাচন করুন।', 'branch_id');
             $old = DB::table('membership_registration_requests')->where('mobile_no', $d['mobile_no'])->lockForUpdate()->first();
@@ -81,6 +88,7 @@ class RegistrationController extends Controller
             DB::table('membership_registration_requests')->updateOrInsert(['mobile_no' => $d['mobile_no']], [
                 'session_hash' => hash('sha256', $token), 'device_id' => $d['device_id'],
                 'device_name' => $d['device_name'] ?? null, 'platform' => $d['platform'] ?? null,
+                'address_data' => json_encode($address),
                 'branch_id' => $branch->id, 'name' => trim($d['name']), 'email' => $d['email'] ?? null,
                 'website_password' => Hash::make($d['password']), 'referral_code' => $d['referral_code'] ?? null,
                 'referral_type' => $referrerId ? $d['referral_type'] : null, 'referrer_id' => $referrerId,
@@ -157,7 +165,8 @@ class RegistrationController extends Controller
                 }
                 \App\Services\Membership\ReferralService::ensureActive($row->referral_type, $row->referrer_id);
             }
-            $customer = Supplier::create(['name' => $row->name, 'mobile_no' => $row->mobile_no, 'email' => $row->email,
+            $address = \App\Services\Membership\RegistrationAddressService::validate(json_decode($row->address_data ?? '{}', true));
+            $customer = Supplier::create($address + ['name' => $row->name, 'mobile_no' => $row->mobile_no, 'email' => $row->email,
                 'type' => 'Customer', 'origin_sister_concern_id' => $branch->id,
                 'member_no' => generatePartyMemberNo($branch->id, 'Customer'), 'status' => 1,
                 'password' => $row->website_password, 'pin' => Hash::make($r->pin)]);

@@ -63,7 +63,7 @@ class MembershipRegistrationTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        config(['cache.default' => 'array']);
+        config(['cache.default' => 'array', 'services.sendmysms.send_in_local' => false]);
         $this->input = ['name' => 'Registration Rollback Test', 'mobile_no' => '019'.random_int(10000000, 99999999),
             'email' => null, 'branch_id' => SisterConcern::where('status', 1)->firstOrFail()->id,
             'password' => 'Website-password-42', 'password_confirmation' => 'Website-password-42',
@@ -83,6 +83,45 @@ class MembershipRegistrationTest extends TestCase
             $this->assertSame('Closed', $account->fresh()->status);
             $this->assertSame(1, $customer->shomriddhiAccount()->count());
         }
+    }
+
+    private function fullAddress(): array
+    {
+        $row = DB::table('villages as v')->join('unions as u', 'u.id', '=', 'v.union_id')
+            ->join('upazilas as z', 'z.id', '=', 'u.upazila_id')->join('districts as d', 'd.id', '=', 'z.district_id')
+            ->select('v.id as village_id', 'u.id as union_id', 'z.id as upazila_id', 'd.id as district_id', 'd.division_id')->first();
+        $this->assertNotNull($row);
+        return (array)$row + ['address' => 'House 10, Road 2'];
+    }
+
+    public function test_registration_saves_verified_address_ids_and_free_text_to_member(): void
+    {
+        $address = $this->fullAddress();
+        $this->input += $address;
+        $result = $this->postJson('/api/membership/v1/auth/register/complete', $this->verified())->assertCreated();
+        $this->assertDatabaseHas('suppliers', ['id' => $result->json('data.customer.id')] + $address);
+    }
+
+    public function test_registration_rejects_mismatched_location_hierarchy_before_sending_otp(): void
+    {
+        $address = $this->fullAddress();
+        $address['district_id'] = DB::table('districts')->where('division_id', '!=', $address['division_id'])->value('id');
+        $this->postJson('/api/membership/v1/auth/register/initiate', $this->input + $address)
+            ->assertUnprocessable()->assertJsonValidationErrors('district_id');
+        $this->assertDatabaseMissing('membership_registration_requests', ['mobile_no' => $this->input['mobile_no']]);
+    }
+
+    public function test_public_registration_location_options_are_filtered_by_parent(): void
+    {
+        $address = $this->fullAddress();
+        $options = $this->getJson('/api/membership/v1/auth/registration/options')->assertOk();
+        $this->assertNotEmpty($options->json('data.divisions'));
+        $base = '/api/membership/v1/auth/registration/locations?';
+        $districts = $this->getJson($base.http_build_query(['level' => 'districts', 'parent_id' => $address['division_id']]))->assertOk()->json('data');
+        foreach ($districts as $row) $this->assertDatabaseHas('districts', ['id' => $row['id'], 'division_id' => $address['division_id']]);
+        $villages = $this->getJson($base.http_build_query(['level' => 'villages', 'parent_id' => $address['union_id']]))->assertOk()->json('data');
+        $this->assertContains($address['village_id'], array_column($villages, 'id'));
+        $this->getJson($base.'level=unknown&parent_id=1')->assertUnprocessable();
     }
 
     private function registrationSession(): array
