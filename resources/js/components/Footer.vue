@@ -215,36 +215,29 @@
                 <span class="text-gray-700 font-medium">
                     Experience Ecommerce App on your mobile:
                 </span>
-                <div class="flex gap-3">
-                    <a
-                        href="#"
-                        target="_blank"
-                        rel="noopener"
-                        class="flex items-center gap-2 bg-white px-3 py-2 rounded-lg shadow hover:shadow-md transition"
-                    >
-                        <span
-                            class="text-[25px] bg-playstore fab fa-google-play"
-                        ></span>
+                <div class="flex flex-wrap justify-center gap-3">
+                    <button type="button" disabled aria-label="Google Play — coming soon"
+                        class="flex items-center gap-2 bg-white px-3 py-2 rounded-lg shadow opacity-50 cursor-not-allowed">
+                        <span class="text-[25px] bg-playstore fab fa-google-play" aria-hidden="true"></span>
                         <span class="flex flex-col text-sm text-gray-700">
-                            <span class="text-[10px] mb-[-5px]"
-                                >Download on</span
-                            >
+                            <span class="text-[10px]">Coming soon</span>
                             <span class="font-semibold">Google Play</span>
                         </span>
-                    </a>
-
-                    <a
-                        href="#"
-                        target="_blank"
-                        rel="noopener"
-                        class="flex items-center gap-2 bg-white px-3 py-2 rounded-lg shadow hover:shadow-md transition"
-                    >
-                        <span class="text-[25px] fab fa-app-store-ios"></span>
+                    </button>
+                    <button type="button" disabled aria-label="App Store — coming soon"
+                        class="flex items-center gap-2 bg-white px-3 py-2 rounded-lg shadow opacity-50 cursor-not-allowed">
+                        <span class="text-[25px] fab fa-app-store-ios" aria-hidden="true"></span>
                         <span class="flex flex-col text-sm text-gray-700">
-                            <span class="text-[10px] mb-[-5px]"
-                                >Download on</span
-                            >
+                            <span class="text-[10px]">Coming soon</span>
                             <span class="font-semibold">App Store</span>
+                        </span>
+                    </button>
+                    <a href="/downloads/tori-member.apk" download="tori-member.apk"
+                        class="flex items-center gap-2 bg-primary_color text-white px-3 py-2 rounded-lg shadow hover:shadow-md transition">
+                        <span class="text-[25px] fas fa-download" aria-hidden="true"></span>
+                        <span class="flex flex-col text-sm">
+                            <span class="text-[10px]">Android APK</span>
+                            <span class="font-semibold">Manual Download</span>
                         </span>
                     </a>
                 </div>
