@@ -13,11 +13,12 @@ class CashoutController extends Controller
     public function index(Request $request)
     {
         $customer = KycController::customer($request);
+        $kycStatus = \App\Services\Membership\KycEligibilityService::status($customer);
         $setting = membership_transaction_settings('cashout');
         $account = ShomriddhiAccount::where('customer_id', $customer->id)->where('status', 'Active')->first();
 
         return response()->json(['success' => true, 'data' => [
-            'customer_id' => $customer->id,
+            'customer_id' => $customer->id, 'kyc_status' => $kycStatus, 'kyc_approved' => $kycStatus === 'Verified',
             'enabled' => (bool) $setting->enabled, 'minimum_amount' => $setting->minimum_amount, 'maximum_amount' => $setting->maximum_amount ?? '0.00',
             'charge_type' => $setting->charge_type ?? 'fixed', 'charge_rate' => $setting->charge_rate ?? '0.00',
             'balance' => $account?->principal_balance ?? '0.00',

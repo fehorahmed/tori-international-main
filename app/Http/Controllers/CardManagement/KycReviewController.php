@@ -22,13 +22,24 @@ class KycReviewController extends Controller
         abort_unless($kyc->customer && $kyc->customer->origin_sister_concern_id == auth()->user()->activeConcernId(), 403);
     }
 
-    public function index()
+    public function index(Request $request)
     {
         $this->authorizeReview();
-        $submissions = CustomerKyc::with('customer')->whereHas('customer', fn ($query) => $query->where('origin_sister_concern_id', auth()->user()->activeConcernId()))
-            ->latest('id')->paginate(20);
-
-        return view('card_management.kyc.index', compact('submissions'));
+        if (! $request->ajax()) {
+            return view('card_management.kyc.index');
+        }
+        $request->validate(['from_date' => 'nullable|date_format:Y-m-d', 'to_date' => 'nullable|date_format:Y-m-d', 'status' => 'nullable|in:Pending,Verified,Rejected']);
+        if ($request->filled('from_date') && $request->filled('to_date') && $request->to_date < $request->from_date) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['to_date' => 'To date must be on or after from date.']);
+        }
+        $query = CustomerKyc::with('customer:id,member_no,origin_sister_concern_id')->whereHas('customer', fn ($q) => $q->where('origin_sister_concern_id', auth()->user()->activeConcernId()))
+            ->when($request->filled('from_date'), fn ($q) => $q->whereDate('created_at', '>=', $request->from_date))
+            ->when($request->filled('to_date'), fn ($q) => $q->whereDate('created_at', '<=', $request->to_date))
+            ->when($request->filled('status'), fn ($q) => $q->where('status', $request->status));
+        return \Yajra\DataTables\Facades\DataTables::eloquent($query)
+            ->addColumn('review', fn () => '<button type="button" class="btn btn-sm btn-primary kyc-review">View / Review</button>')
+            ->addColumn('details', fn ($submission) => view('card_management.kyc.review', compact('submission'))->render())
+            ->rawColumns(['review', 'details'])->toJson();
     }
 
     public function document(CustomerKyc $kyc, string $kind)

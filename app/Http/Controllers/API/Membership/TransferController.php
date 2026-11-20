@@ -14,10 +14,11 @@ class TransferController extends Controller
     public function index(Request $r)
     {
         $c = KycController::customer($r);
+        $kycStatus = \App\Services\Membership\KycEligibilityService::status($c);
         $s = membership_transaction_settings('transfer');
         $a = ShomriddhiAccount::where('customer_id', $c->id)->where('status', 'Active')->first();
 
-        return response()->json(['success' => true, 'data' => ['customer_id' => $c->id, 'enabled' => $s->enabled, 'minimum_amount' => $s->minimum_amount, 'maximum_amount' => $s->maximum_amount, 'charge_type' => $s->charge_type, 'charge_rate' => $s->charge_rate, 'available_balance' => CashoutService::money($a ? CashoutService::available($a) : 0), 'transfers' => MembershipTransfer::with(['sender', 'recipient'])->where(fn ($q) => $q->where('sender_id', $c->id)->orWhere('recipient_id', $c->id))->latest('id')->limit(30)->get()->map(fn ($t) => self::data($t, $c->id))]]);
+        return response()->json(['success' => true, 'data' => ['customer_id' => $c->id, 'kyc_status' => $kycStatus, 'kyc_approved' => $kycStatus === 'Verified', 'enabled' => $s->enabled, 'minimum_amount' => $s->minimum_amount, 'maximum_amount' => $s->maximum_amount, 'charge_type' => $s->charge_type, 'charge_rate' => $s->charge_rate, 'available_balance' => CashoutService::money($a ? CashoutService::available($a) : 0), 'transfers' => MembershipTransfer::with(['sender', 'recipient'])->where(fn ($q) => $q->where('sender_id', $c->id)->orWhere('recipient_id', $c->id))->latest('id')->limit(30)->get()->map(fn ($t) => self::data($t, $c->id))]]);
     }
 
     public static function data(MembershipTransfer $t, int $viewer): array

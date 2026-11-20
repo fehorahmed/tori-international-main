@@ -84,6 +84,7 @@ class DashboardController extends Controller
                     'active_fdr_count' => $fdrAccounts->count(),
                     'active_loans_count' => $activeLoans->count(),
                 ],
+                'cash_flow' => app(\App\Services\Membership\CashFlowService::class)->forCustomer($customer),
                 'recent_transactions' => app(\App\Services\Membership\RecentTransactionService::class)->forCustomer($customer),
                 'upcoming_loan_emi' => $upcomingEmi,
             ]

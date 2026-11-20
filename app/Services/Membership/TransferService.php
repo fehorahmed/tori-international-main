@@ -51,6 +51,7 @@ class TransferService
 
     public function quote(Supplier $sender, string $identifier, string $amount, ?int $recipientId = null): array
     {
+        KycEligibilityService::ensureApproved($sender);
         $s = $this->config();
         $recipient = RecipientService::resolve($sender, $identifier, $recipientId);
         $source = $this->account($sender->id);
@@ -99,6 +100,7 @@ class TransferService
                 $this->fail('This reviewed transfer was already completed. Review a new transfer.', 'এই ট্রান্সফার ইতিমধ্যে সম্পন্ন হয়েছে। নতুন ট্রান্সফার পর্যালোচনা করুন।');
             }
             $lockedSender = $customers->firstWhere('id', $sender->id);
+            KycEligibilityService::ensureApproved($lockedSender);
             if (! $lockedSender->pin || ! Hash::check($pin, $lockedSender->pin)) {
                 $this->fail('Incorrect PIN.', 'পিন সঠিক নয়।');
             }

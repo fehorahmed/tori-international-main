@@ -42,6 +42,30 @@ class MembershipProfileTest extends TestCase
         }
     }
 
+    public function test_admin_kyc_datatable_filters_status_date_and_branch(): void
+    {
+        $operator = User::firstOrFail();
+        $operator->givePermissionTo('customer_edit');
+        $branch = \App\Models\BranchManagement\SisterConcern::where('status', 1)->firstOrFail();
+        $this->customer->update(['origin_sister_concern_id' => $branch->id]);
+        foreach (['Pending', 'Verified', 'Rejected'] as $status) {
+            CustomerKyc::create(['customer_id' => $this->customer->id, 'submitted_name' => '<script>unsafe</script>',
+                'nid_number' => '1234567890', 'selfie_path' => 'selfie', 'nid_front_path' => 'front', 'nid_back_path' => 'back',
+                'status' => $status, 'created_at' => now()->subDay()]);
+        }
+        $this->actingAs($operator, 'web')->withSession(['active_sister_concern_id' => $branch->id]);
+        $request = Request::create('/admin/card-management/kyc', 'GET', ['draw' => 1, 'start' => 0, 'length' => 10,
+            'status' => 'Pending', 'from_date' => now()->subDay()->toDateString(), 'to_date' => now()->toDateString()]);
+        $request->headers->set('X-Requested-With', 'XMLHttpRequest');
+        $result = app(KycReviewController::class)->index($request)->getData(true);
+        $this->assertSame(1, $result['recordsFiltered']);
+        $this->assertSame('Pending', $result['data'][0]['status']);
+        $this->assertStringNotContainsString('<script>unsafe', $result['data'][0]['details']);
+        $this->assertStringContainsString('Approve', $result['data'][0]['details']);
+        $request->merge(['from_date' => now()->toDateString()]);
+        $this->assertSame(0, app(KycReviewController::class)->index($request)->getData(true)['recordsFiltered']);
+    }
+
     protected function setUp(): void
     {
         parent::setUp();

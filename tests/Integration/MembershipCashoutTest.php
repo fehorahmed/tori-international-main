@@ -50,6 +50,42 @@ class MembershipCashoutTest extends TestCase
 
     private string $code;
 
+    public function test_unapproved_kyc_blocks_cashout_quote_and_request(): void
+    {
+        $quote = $this->service->quote($this->customer, $this->code, '100.00');
+        \App\Models\CustomerKyc::where('customer_id', $this->customer->id)->delete();
+        foreach (['quote', 'request'] as $action) {
+            try {
+                if ($action === 'quote') {
+                    $this->service->quote($this->customer, $this->code, '100.00');
+                } else {
+                    $this->service->request($this->customer, $quote['quote'], '763921', (string) Str::uuid());
+                }
+                $this->fail('Missing KYC was allowed.');
+            } catch (ValidationException $e) {
+                $this->assertArrayHasKey('kyc', $e->errors());
+            }
+        }
+        $this->assertSame(0, MembershipCashout::where('customer_id', $this->customer->id)->count());
+    }
+
+    public function test_kyc_revoked_after_acceptance_blocks_payout_but_allows_rejection(): void
+    {
+        $cashout = $this->requestCash();
+        $this->service->change($cashout, 'accept', $this->operator);
+        \App\Models\CustomerKyc::where('customer_id', $this->customer->id)->update(['status' => 'Rejected']);
+        $before = Voucher::count();
+        try {
+            $this->service->change($cashout, 'complete', $this->operator);
+            $this->fail('Revoked KYC was allowed to receive cash.');
+        } catch (ValidationException $e) {
+            $this->assertArrayHasKey('kyc', $e->errors());
+        }
+        $this->assertSame($before, Voucher::count());
+        $this->assertSame('10000.00', $this->account->fresh()->principal_balance);
+        $this->assertSame('Rejected', $this->service->change($cashout, 'reject', $this->operator, 'KYC required')->status);
+    }
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -58,6 +94,9 @@ class MembershipCashoutTest extends TestCase
         $this->branch = SisterConcern::where('status', 1)->firstOrFail();
         $this->customer = Supplier::create(['type' => 'Customer', 'name' => 'Cashout rollback test',
             'status' => 1, 'origin_sister_concern_id' => $this->branch->id, 'pin' => Hash::make('763921')]);
+        \App\Models\CustomerKyc::create(['customer_id' => $this->customer->id, 'submitted_name' => $this->customer->name,
+            'nid_number' => '1234567890', 'nid_front_path' => 'test/front', 'nid_back_path' => 'test/back',
+            'selfie_path' => 'test/selfie', 'status' => 'Verified']);
         $this->account = ShomriddhiAccount::create(['customer_id' => $this->customer->id,
             'origin_sister_concern_id' => $this->branch->id, 'principal_balance' => '10000.00', 'status' => 'Active']);
         $this->operator = User::firstOrFail();

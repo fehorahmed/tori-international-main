@@ -101,6 +101,7 @@ class CashoutService
 
     public function quote(Supplier $customer, string $code, string $amount): array
     {
+        KycEligibilityService::ensureApproved($customer);
         $setting = $this->config();
         $booth = $this->booth($code);
         $account = $this->account($customer);
@@ -139,6 +140,7 @@ class CashoutService
         }
 
         return DB::transaction(function () use ($customer, $quote, $token, $key) {
+            $customer = Supplier::whereKey($customer->id)->lockForUpdate()->firstOrFail();
             $account = $this->account($customer, true);
             $existing = MembershipCashout::where('customer_id', $customer->id)->where('idempotency_key', $key)->first();
             if ($existing) {
@@ -146,6 +148,7 @@ class CashoutService
 
                 return $existing;
             }
+            KycEligibilityService::ensureApproved($customer);
             $setting = $this->config();
             $booth = $this->booth($quote['code']);
             if ($quote['expires'] < now()->timestamp || $quote['version'] !== $this->version($setting)) {
@@ -177,6 +180,7 @@ class CashoutService
         }
 
         return DB::transaction(function () use ($cashout, $action, $operator, $reason) {
+            Supplier::whereKey($cashout->customer_id)->lockForUpdate()->firstOrFail();
             $account = ShomriddhiAccount::whereKey($cashout->account_id)->lockForUpdate()->firstOrFail();
             $cashout = MembershipCashout::whereKey($cashout->id)->lockForUpdate()->firstOrFail();
             if ($action === 'complete' && $cashout->status === 'Completed') {
@@ -220,6 +224,7 @@ class CashoutService
 
     private function validatePayout(MembershipCashout $cashout, ShomriddhiAccount $account): void
     {
+        KycEligibilityService::ensureApproved($cashout->customer);
         if (! $cashout->branch || $cashout->branch->status != 1) {
             self::fail('Cash-out branch is inactive.');
         }

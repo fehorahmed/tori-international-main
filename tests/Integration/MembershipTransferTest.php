@@ -73,6 +73,37 @@ class MembershipTransferTest extends TestCase
         $this->transfer->quote($this->customer, $oldCode, '100.00', $this->recipient->id);
     }
 
+    public function test_unapproved_kyc_blocks_quote_and_api_without_posting(): void
+    {
+        foreach (['Pending', 'Rejected', 'Not submitted'] as $status) {
+            \App\Models\CustomerKyc::where('customer_id', $this->customer->id)->update(['status' => $status]);
+            try {
+                $this->transferQuote();
+                $this->fail('Unapproved KYC was allowed.');
+            } catch (ValidationException $e) {
+                $this->assertArrayHasKey('kyc', $e->errors());
+            }
+        }
+        Sanctum::actingAs($this->customer, ['*'], 'sanctum');
+        $this->postJson('/api/membership/v1/transfers/quote', ['recipient' => $this->recipient->member_no, 'amount' => '100'])->assertStatus(422)->assertJsonValidationErrors('kyc');
+        $this->assertSame('10000.00', $this->account->fresh()->principal_balance);
+    }
+
+    public function test_kyc_changed_after_quote_blocks_transfer_without_debit(): void
+    {
+        $quote = $this->transferQuote();
+        \App\Models\CustomerKyc::where('customer_id', $this->customer->id)->update(['status' => 'Rejected']);
+        $before = Voucher::count();
+        try {
+            $this->transfer->send($this->customer, $quote['quote'], '763921', (string) Str::uuid());
+            $this->fail('Revoked KYC was allowed.');
+        } catch (ValidationException $e) {
+            $this->assertArrayHasKey('kyc', $e->errors());
+        }
+        $this->assertSame($before, Voucher::count());
+        $this->assertSame('10000.00', $this->account->fresh()->principal_balance);
+    }
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -82,6 +113,9 @@ class MembershipTransferTest extends TestCase
         $this->branch = SisterConcern::where('status', 1)->firstOrFail();
         $this->customer = Supplier::create(['type' => 'Customer', 'name' => 'Cashout rollback test',
             'status' => 1, 'origin_sister_concern_id' => $this->branch->id, 'pin' => Hash::make('763921')]);
+        \App\Models\CustomerKyc::create(['customer_id' => $this->customer->id, 'submitted_name' => $this->customer->name,
+            'nid_number' => '1234567890', 'nid_front_path' => 'test/front', 'nid_back_path' => 'test/back',
+            'selfie_path' => 'test/selfie', 'status' => 'Verified']);
         $this->account = ShomriddhiAccount::create(['customer_id' => $this->customer->id,
             'origin_sister_concern_id' => $this->branch->id, 'principal_balance' => '10000.00', 'status' => 'Active']);
         $this->operator = User::firstOrFail();
