@@ -151,6 +151,7 @@ class MembershipRegistrationTest extends TestCase
         $this->assertTrue(Hash::check($this->input['password'], $customer->password));
         $this->assertTrue(Hash::check('067891', $customer->pin));
         $this->assertNotEmpty($customer->member_no);
+        $this->assertSame('app', $customer->registration_source);
         $this->assertTrue($customer->shomriddhiAccount()->exists());
         $account = $customer->shomriddhiAccount;
         $this->assertSame('0.00', $account->principal_balance);

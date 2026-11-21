@@ -18,7 +18,7 @@ class EcommerceRegistrationTest extends TestCase
         $upazila = DB::table('upazilas')->first();
         $district = DB::table('districts')->find($upazila->district_id);
         return $extra + ['name' => 'Ecommerce registration fixture', 'mobile' => '019'.random_int(10000000, 99999999),
-            'password' => 'test-password-123', 'agree' => true, 'division_id' => $district->division_id,
+            'password' => 'test-password-123', 'agree' => true, 'registration_source' => 'app', 'division_id' => $district->division_id,
             'district_id' => $district->id, 'upazila_id' => $upazila->id, 'address' => 'Test address'];
     }
 
@@ -38,6 +38,7 @@ class EcommerceRegistrationTest extends TestCase
         $this->assertSame(201, $response->status(), $response->getContent());
         $user = Supplier::where('mobile_no', $data['mobile'])->firstOrFail();
         $this->assertNotEmpty($user->member_no);
+        $this->assertSame('ecommerce', $user->registration_source);
         $account = \App\Models\ShomriddhiAdvance\ShomriddhiAccount::where('customer_id', $user->id)->sole();
         $this->assertEquals(0, $account->principal_balance);
         $this->assertSame('Active', $account->status);

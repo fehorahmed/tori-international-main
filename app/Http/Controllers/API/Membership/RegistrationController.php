@@ -167,7 +167,7 @@ class RegistrationController extends Controller
             }
             $address = \App\Services\Membership\RegistrationAddressService::validate(json_decode($row->address_data ?? '{}', true));
             $customer = Supplier::create($address + ['name' => $row->name, 'mobile_no' => $row->mobile_no, 'email' => $row->email,
-                'type' => 'Customer', 'origin_sister_concern_id' => $branch->id,
+                'type' => 'Customer', 'origin_sister_concern_id' => $branch->id, 'registration_source' => 'app',
                 'member_no' => generatePartyMemberNo($branch->id, 'Customer'), 'status' => 1,
                 'password' => $row->website_password, 'pin' => Hash::make($r->pin)]);
             \App\Services\Membership\RegistrationSavingsService::ensure($customer);

@@ -63,6 +63,7 @@ class FrontendController extends Controller
                 if ($referrer) \App\Services\Membership\ReferralService::ensureActive($validated['referral_type'], $referrer);
                 $user = Supplier::create($address + [
                     'name' => $validated['name'], 'origin_sister_concern_id' => $branch->id,
+                    'registration_source' => 'ecommerce',
                     'member_no' => generatePartyMemberNo($branch->id, SupplierType::$CUSTOMER),
                     'type' => SupplierType::$CUSTOMER, 'mobile_no' => $validated['mobile'],
                     'email' => $validated['email'] ?? null, 'password' => Hash::make($validated['password']), 'status' => 1,
