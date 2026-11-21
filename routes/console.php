@@ -32,7 +32,6 @@ Schedule::command('shomriddhi:accrue-daily-interest')
 Schedule::command('shomriddhi:capitalize-monthly-interest')
     ->everyFiveMinutes()
     ->between('23:20', '23:40')
-    ->when(fn () => now()->isLastDayOfMonth())
     ->withoutOverlapping();
 
 // Shomriddhi FDR Crons

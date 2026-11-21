@@ -36,24 +36,45 @@ class FrontendController extends Controller
     public function register(Request $request)
     {
         try {
-            // Validate input
+            $request->merge(['referral_code' => trim((string) $request->input('referral_code')) ?: null]);
             $validated = $request->validate([
                 'name'     => 'required|string|max:255',
-                'mobile'   => 'required|string|max:20|unique:suppliers,mobile_no',
+                'mobile'   => ['required', 'string', 'regex:/^01[3-9][0-9]{8}$/D', 'unique:suppliers,mobile_no'],
                 'email'    => 'nullable|string|email|max:255|unique:suppliers,email',
-                'password' => 'required|string|min:8',
-            ]);
+                'password' => 'required|string|min:8|max:128',
+                'agree' => 'required|accepted',
+                'branch_id' => 'nullable|integer|exists:sister_concerns,id',
+                'division_id' => 'required|integer', 'district_id' => 'required|integer', 'upazila_id' => 'required|integer',
+                'referral_code' => 'nullable|string|max:64',
+                'referral_type' => 'nullable|required_with:referral_code|in:member,agent',
+            ], ['mobile.regex' => 'Enter a valid 11-digit Bangladesh mobile number (e.g. 01712345678), without commas or other characters.']);
 
-            // Create customer in suppliers table
-            $user = Supplier::create([
-                'name'     => $validated['name'],
-                'origin_sister_concern_id' => 1,
-                'type'     => SupplierType::$CUSTOMER,
-                'mobile_no'   => $validated['mobile'],
-                'email'    => $validated['email'] ?? null,
-                'password' => Hash::make($validated['password']),
-                'status'   => 1
-            ]);
+            $address = \App\Services\Membership\RegistrationAddressService::validate($request->all());
+            $user = DB::transaction(function () use ($validated, $address) {
+                $branch = \App\Models\BranchManagement\SisterConcern::whereKey($validated['branch_id'] ?? 1)
+                    ->where('status', 1)->lockForUpdate()->first();
+                if (! $branch) throw \Illuminate\Validation\ValidationException::withMessages(['branch_id' => 'Select an active branch.']);
+                $mobile = $validated['mobile'];
+                if (Supplier::withTrashed()->whereIn('mobile_no', [$mobile, substr($mobile, 1), '88'.$mobile, '+88'.$mobile])->exists()) {
+                    throw \Illuminate\Validation\ValidationException::withMessages(['mobile' => 'This mobile number already has an account. Please sign in or contact your branch.']);
+                }
+                $referrer = !empty($validated['referral_code'])
+                    ? \App\Services\Membership\ReferralService::resolve($validated['referral_type'], $validated['referral_code']) : null;
+                if ($referrer) \App\Services\Membership\ReferralService::ensureActive($validated['referral_type'], $referrer);
+                $user = Supplier::create($address + [
+                    'name' => $validated['name'], 'origin_sister_concern_id' => $branch->id,
+                    'member_no' => generatePartyMemberNo($branch->id, SupplierType::$CUSTOMER),
+                    'type' => SupplierType::$CUSTOMER, 'mobile_no' => $validated['mobile'],
+                    'email' => $validated['email'] ?? null, 'password' => Hash::make($validated['password']), 'status' => 1,
+                ]);
+                \App\Services\Membership\RegistrationSavingsService::ensure($user);
+                if ($referrer) DB::table('membership_referrals')->insert([
+                    'customer_id' => $user->id, 'referrer_type' => $validated['referral_type'],
+                    'referrer_id' => $referrer, 'referral_code' => $validated['referral_code'],
+                    'created_at' => now(), 'updated_at' => now(),
+                ]);
+                return $user;
+            }, 3);
 
             Auth::guard('customer')->login($user);
 

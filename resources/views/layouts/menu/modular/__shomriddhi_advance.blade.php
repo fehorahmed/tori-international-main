@@ -24,6 +24,33 @@
         <p>Member List</p>
     </a>
 </li>
+@endif
+
+@can('customer_edit')
+<li class="nav-item">
+    <a href="{{ route('card-management.kyc.index') }}" class="nav-link {{ request()->routeIs('card-management.kyc.*') ? 'active' : '' }}">
+        <i class="fas fa-user-check nav-icon"></i>
+        <p>Membership KYC</p>
+    </a>
+</li>
+@endcan
+
+@if(auth()->user()->role === 'Admin' || auth()->user()->can('shomriddhi_advance_transaction_approve'))
+<li class="nav-item">
+    <a href="{{ route('card-management.cashout.index') }}" class="nav-link {{ request()->routeIs('card-management.cashout.index') ? 'active' : '' }}">
+        <i class="nav-icon fas fa-money-bill-wave"></i><p>Membership Cash-out</p>
+    </a>
+</li>
+@endif
+
+@if(auth()->user()->role === 'Admin' || auth()->user()->can('shomriddhi_advance_transaction_approve'))
+<li class="nav-item"><a href="{{ route('card-management.transfers.index') }}" class="nav-link {{ request()->routeIs('card-management.transfers.index') ? 'active' : '' }}"><i class="nav-icon fas fa-exchange-alt"></i><p>Member Send Money</p></a></li>
+@endif
+@if(auth()->user()->role === 'Admin')
+<li class="nav-item"><a href="{{ route('card-management.referrals.index') }}" class="nav-link {{ request()->routeIs('card-management.referrals.*') ? 'active' : '' }}"><i class="nav-icon fas fa-gift"></i><p>Referral Bonus &amp; Commission</p></a></li>
+@endif
+
+@if(auth()->user()->can('shomriddhi_advance_transaction_create'))
 
 <li class="nav-item">
     <a href="{{ route('shomriddhi-advance.field-officers.index') }}" class="nav-link {{ request()->routeIs('shomriddhi-advance.field-officers.*') ? 'active' : '' }}">

@@ -5,6 +5,8 @@ namespace App\Http\Controllers\ShomriddhiAdvance;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\ShomriddhiAdvance\ShomriddhiInterestSlab;
+use App\Services\ShomriddhiAdvance\InterestRateHistoryService;
+use Illuminate\Support\Facades\DB;
 
 class SlabController extends Controller
 {
@@ -23,7 +25,12 @@ class SlabController extends Controller
             'interest_rate' => 'required|numeric|min:0|max:100',
         ]);
 
-        ShomriddhiInterestSlab::create($request->all());
+        DB::transaction(function () use ($request) {
+            $history = app(InterestRateHistoryService::class);
+            $history->lock();
+            ShomriddhiInterestSlab::create($request->only('min_amount', 'max_amount', 'interest_rate'));
+            $history->capture();
+        });
 
         return redirect()->back()->with('success', 'Interest slab added successfully.');
     }
@@ -36,14 +43,24 @@ class SlabController extends Controller
             'interest_rate' => 'required|numeric|min:0|max:100',
         ]);
 
-        $slab->update($request->all());
+        DB::transaction(function () use ($request, $slab) {
+            $history = app(InterestRateHistoryService::class);
+            $history->lock();
+            $slab->update($request->only('min_amount', 'max_amount', 'interest_rate'));
+            $history->capture();
+        });
 
         return redirect()->back()->with('success', 'Interest slab updated successfully.');
     }
 
     public function destroy(ShomriddhiInterestSlab $slab)
     {
-        $slab->delete();
+        DB::transaction(function () use ($slab) {
+            $history = app(InterestRateHistoryService::class);
+            $history->lock();
+            $slab->delete();
+            $history->capture();
+        });
         return redirect()->back()->with('success', 'Interest slab deleted successfully.');
     }
 }

@@ -6,6 +6,11 @@ use App\Models\ShomriddhiAdvance\ShomriddhiInterestSlab;
 
 class DynamicInterestSlabService
 {
+    public function getRateForAmountOn($amount, string $date): float
+    {
+        return app(InterestRateHistoryService::class)->rate($amount, $date);
+    }
+
     /**
      * Get the applicable annual interest rate for a given principal balance.
      */

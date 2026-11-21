@@ -32,6 +32,8 @@ use Illuminate\Support\Facades\Route;
 Route::middleware(['ecommerce'])->group(function() {
     Route::post('login', [FrontendController::class, 'login']);
     Route::post('register', [FrontendController::class, 'register']);
+    Route::get('registration-options', [\App\Http\Controllers\API\Membership\RegistrationController::class, 'options']);
+    Route::get('registration-locations', [\App\Http\Controllers\API\Membership\RegistrationController::class, 'locations']);
     Route::post('forgot-password', [FrontendController::class, 'forgotPassword']);
     Route::post('reset-password', [FrontendController::class, 'resetPassword']);
 

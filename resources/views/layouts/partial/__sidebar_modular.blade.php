@@ -168,6 +168,10 @@
         }
     }
     }
+    // Member services use the savings workspace while retaining their existing URLs.
+    if (request()->routeIs('card-management.kyc.*', 'card-management.cashout.*', 'card-management.transfers.*', 'card-management.referrals.*')) {
+        $activeModule = 'shomriddhi_advance';
+    }
 @endphp
 
 <!-- Back to Apps Button (Shows when inside a module) -->

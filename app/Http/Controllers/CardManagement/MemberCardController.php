@@ -349,14 +349,25 @@ class MemberCardController extends Controller
         return view('card_management.member.print_logs', compact('pageTitle'));
     }
 
-    public function printLogsDataTable()
+    public function printLogsDataTable(Request $request)
     {
+        $request->validate(['start_date' => 'nullable|date_format:Y-m-d', 'end_date' => 'nullable|date_format:Y-m-d']);
+        if ($request->filled('start_date') && $request->filled('end_date') && $request->end_date < $request->start_date) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['end_date' => 'End date must be on or after start date.']);
+        }
         $logs = CardPrintLog::with(['card.cardable', 'printer'])
             ->where('card_print_logs.origin_sister_concern_id', auth()->user()->activeConcernId())
             ->whereHas('card', function($q) {
                 $q->where('cardable_type', Supplier::class);
             })
             ->orderBy('card_print_logs.id', 'DESC');
+
+        if ($request->filled('start_date')) {
+            $logs->where('card_print_logs.printed_at', '>=', Carbon::parse($request->start_date)->startOfDay());
+        }
+        if ($request->filled('end_date')) {
+            $logs->where('card_print_logs.printed_at', '<', Carbon::parse($request->end_date)->addDay()->startOfDay());
+        }
 
         return DataTables::of($logs)
             ->addColumn('card_number', function(CardPrintLog $log) {
