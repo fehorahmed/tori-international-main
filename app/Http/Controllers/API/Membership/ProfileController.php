@@ -26,6 +26,11 @@ class ProfileController extends Controller
                 'id' => $customer->id,
                 'name' => $customer->name,
                 'member_no' => $customer->member_no,
+                'registration_branch' => $customer->originSisterConcern ? [
+                    'id' => $customer->originSisterConcern->id,
+                    'code' => $customer->originSisterConcern->code,
+                    'name' => $customer->originSisterConcern->name,
+                ] : null,
                 'referred_by' => \App\Services\Membership\ReferralService::forCustomer($customer->id),
                 'mobile_no' => $customer->mobile_no,
                 'email' => $customer->email,

@@ -32,7 +32,7 @@
             'report.area_manager', 'report.branch_manager'
         ],
         'settings' => [
-            'settings.dashboard', 'warehouses.', 'product-categories.', 
+            'settings.dashboard', 'sms_management.', 'warehouses.', 'product-categories.',
             'sub-category.', 'brand.', 'unit.', 'product.', 'price_book.',
             'locations.',
             'report.brand', 'report.category', 'report.sub_category', 'report.product', 'report.price_book', 'report.price_book_history'
@@ -104,9 +104,6 @@
         ],
         'incentive_management' => [
             'incentive-settings.', 'incentive-payments.'
-        ],
-        'sms_management' => [
-            'sms_management.'
         ],
         'fixed_asset' => [
             'fixed-assets.'

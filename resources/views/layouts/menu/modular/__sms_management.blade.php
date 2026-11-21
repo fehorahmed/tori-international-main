@@ -12,7 +12,7 @@
             <a href="{{ route('sms_management.dashboard') }}"
                class="nav-link {{ $currentRoute == 'sms_management.dashboard' ? 'active' : '' }}">
                 <i class="nav-icon fas fa-tachometer-alt"></i>
-                <p>Dashboard</p>
+                <p>SMS Dashboard</p>
             </a>
         </li>
     @endif
@@ -39,7 +39,7 @@
 
     @if(auth()->user()->hasPermissionTo('sms_templates'))
         <li class="nav-header text-uppercase font-weight-bold text-muted" style="font-size: 0.7rem; padding-left: 10px; margin-top: 15px;">
-            Settings
+            SMS Settings
         </li>
 
         <li class="nav-item">

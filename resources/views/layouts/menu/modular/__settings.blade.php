@@ -132,3 +132,6 @@
     </li>
     @endif
 @endif
+
+{{-- SMS tools share the Settings workspace and retain their SMS permissions. --}}
+@include('layouts.menu.modular.__sms_management')

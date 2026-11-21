@@ -92,6 +92,18 @@ class MembershipProfileTest extends TestCase
         $this->assertStringNotContainsString('/documents/', view('shomriddhi_advance.members.referral_kyc', $data)->render());
     }
 
+    public function test_profile_returns_registration_branch_not_active_staff_branch(): void
+    {
+        $branch = \App\Models\BranchManagement\SisterConcern::firstOrFail();
+        $this->customer->update(['origin_sister_concern_id' => $branch->id]);
+        $this->getJson('/api/membership/v1/profile')->assertOk()
+            ->assertJsonPath('data.registration_branch.id', $branch->id)
+            ->assertJsonPath('data.registration_branch.name', $branch->name);
+        $this->customer->update(['origin_sister_concern_id' => null]);
+        $this->customer->unsetRelation('originSisterConcern');
+        $this->getJson('/api/membership/v1/profile')->assertOk()->assertJsonPath('data.registration_branch', null);
+    }
+
     protected function setUp(): void
     {
         parent::setUp();
