@@ -258,10 +258,12 @@ class AuthController extends Controller
             ], 404);
         }
 
-        CustomerDevice::where('customer_id', $customer->id)->update(['trusted_token_hash' => null]);
+        CustomerDevice::where('customer_id', $customer->id)->update(['trusted_token_hash' => null, 'is_biometric_registered' => 0, 'biometric_token_hash' => null]);
         $deviceToken = $this->rememberDevice($customer, $request);
 
         // Save hashed PIN
+        $customer->is_biometric_enabled = 0;
+        $customer->biometric_token = null;
         $customer->pin = Hash::make($request->pin);
         $customer->save();
 
@@ -287,78 +289,48 @@ class AuthController extends Controller
      */
     public function loginBiometric(Request $request)
     {
-        $request->validate([
-            'mobile_no' => 'required|string',
-            'biometric_token' => 'required|string',
-            'device_name' => 'nullable|string',
-        ]);
-
-        $mobileNo = preg_replace('/[^0-9]/', '', $request->mobile_no);
-        if (str_starts_with($mobileNo, '880')) {
-            $mobileNo = '0'.substr($mobileNo, 3);
-        } elseif (strlen($mobileNo) === 10 && str_starts_with($mobileNo, '1')) {
-            $mobileNo = '0'.$mobileNo;
-        }
-
-        $customer = Supplier::where(function ($q) use ($mobileNo) {
-            $q->where('mobile_no', $mobileNo)
-                ->orWhere('mobile_no', '88'.$mobileNo);
-        })->where('type', '!=', SupplierType::$SUPPLIER)->first();
-
-        if (! $customer || ! $customer->is_biometric_enabled || empty($customer->biometric_token)) {
-            return response()->json([
-                'success' => false,
-                'message' => $this->message('Biometric login is not enabled.', 'বায়োমেট্রিক লগইন সক্রিয় নেই।'),
-            ], 403);
-        }
-
-        if (! Hash::check($request->biometric_token, $customer->biometric_token)) {
-            return response()->json([
-                'success' => false,
-                'message' => $this->message('Biometric authentication failed.', 'বায়োমেট্রিক অথেন্টিকেশন ব্যর্থ হয়েছে।'),
-            ], 401);
-        }
-
-        $deviceName = $request->device_name ?: 'Biometric Device';
-        $token = $customer->createToken($deviceName)->plainTextToken;
-
-        return response()->json([
-            'success' => true,
-            'message' => $this->message('Biometric login successful.', 'বায়োমেট্রিক লগইন সফল হয়েছে।'),
-            'data' => [
-                'token' => $token,
+        $d = $request->validate(['mobile_no' => 'required|string|max:20', 'device_id' => 'required|string|max:128',
+            'biometric_token' => 'required|string|size:64']);
+        return \Illuminate\Support\Facades\DB::transaction(function () use ($d) {
+            $mobile = $this->normalizeMobile($d['mobile_no']);
+            $customer = Supplier::whereIn('mobile_no', [$mobile, substr($mobile, 1), '88'.$mobile, '+88'.$mobile])
+                ->where('type', 'Customer')->where('status', 1)->lockForUpdate()->first();
+            $device = $customer ? \App\Models\CustomerDevice::where('customer_id', $customer->id)
+                ->where('device_id', $d['device_id'])->lockForUpdate()->first() : null;
+            if (!$customer || !$customer->is_biometric_enabled || !$device || !$device->is_biometric_registered || !$device->biometric_token_hash
+                || !Hash::check($d['biometric_token'], $device->biometric_token_hash)) {
+                return response()->json(['success' => false, 'message' => 'Fingerprint login unavailable. Please sign in with OTP/PIN.'], 401);
+            }
+            $device->update(['last_active_at' => now()]);
+            return response()->json(['success' => true, 'data' => [
+                'token' => $customer->createToken($device->device_name ?: 'Biometric Device')->plainTextToken,
                 'customer' => $this->formatCustomerProfile($customer),
-            ],
-        ]);
+            ]]);
+        });
     }
 
-    /**
-     * Enable/Disable Biometrics
-     * Endpoint: POST /api/membership/v1/auth/toggle-biometric (auth:sanctum)
-     */
     public function toggleBiometric(Request $request)
     {
-        $request->validate([
-            'enable' => 'required|boolean',
-            'biometric_token' => 'nullable|string|required_if:enable,true',
-        ]);
-
-        $customer = $request->user();
-
-        if ($request->enable) {
-            $customer->is_biometric_enabled = 1;
-            $customer->biometric_token = Hash::make($request->biometric_token);
-        } else {
-            $customer->is_biometric_enabled = 0;
-            $customer->biometric_token = null;
-        }
-
-        $customer->save();
-
-        return response()->json([
-            'success' => true,
-            'message' => $request->enable ? $this->message('Biometric login has been enabled.', 'বায়োমেট্রিক লগইন চালু করা হয়েছে।') : $this->message('Biometric login has been disabled.', 'বায়োমেট্রিক লগইন বন্ধ করা হয়েছে।'),
-        ]);
+        $d = $request->validate(['enable' => 'required|boolean', 'device_id' => 'required|string|max:128',
+            'pin' => 'required_if:enable,true|nullable|digits:6', 'device_token' => 'nullable|string|max:128']);
+        return \Illuminate\Support\Facades\DB::transaction(function () use ($request, $d) {
+            $customer = Supplier::whereKey($request->user()->id)->where('type', 'Customer')->where('status', 1)->lockForUpdate()->firstOrFail();
+            $device = \App\Models\CustomerDevice::where('customer_id', $customer->id)->where('device_id', $d['device_id'])->lockForUpdate()->first();
+            abort_unless($device, 403, 'Sign in on this device first.');
+            $credential = null;
+            if ($d['enable']) {
+                if (!$customer->pin || !Hash::check($d['pin'], $customer->pin)) {
+                    throw \Illuminate\Validation\ValidationException::withMessages(['pin' => 'Incorrect PIN.']);
+                }
+                abort_unless($device->trusted_token_hash && !empty($d['device_token'])
+                    && hash_equals($device->trusted_token_hash, hash('sha256', $d['device_token'])), 403, 'Verify this device with OTP first.');
+                $credential = bin2hex(random_bytes(32));
+            }
+            $device->update(['is_biometric_registered' => $d['enable'],
+                'biometric_token_hash' => $credential ? Hash::make($credential) : null]);
+            $customer->update(['is_biometric_enabled' => \App\Models\CustomerDevice::where('customer_id', $customer->id)->where('is_biometric_registered', 1)->exists(), 'biometric_token' => null]);
+            return response()->json(['success' => true, 'data' => ['biometric_token' => $credential]]);
+        });
     }
 
     /**

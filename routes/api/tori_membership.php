@@ -33,14 +33,14 @@ Route::prefix('v1')->group(function () {
         Route::post('set-pin', [\App\Http\Controllers\API\Membership\AuthController::class, 'setPin']);
 
         // Biometric Login (Fingerprint / FaceID)
-        Route::post('login-biometric', [\App\Http\Controllers\API\Membership\AuthController::class, 'loginBiometric']);
+        Route::post('login-biometric', [\App\Http\Controllers\API\Membership\AuthController::class, 'loginBiometric'])->middleware('throttle:6,1');
     });
 
     // Protected Routes (Sanctum Authenticated for Customer / Member)
     Route::middleware(['auth:sanctum'])->group(function () {
         Route::prefix('auth')->group(function () {
             Route::post('logout', [\App\Http\Controllers\API\Membership\AuthController::class, 'logout']);
-            Route::post('toggle-biometric', [\App\Http\Controllers\API\Membership\AuthController::class, 'toggleBiometric']);
+            Route::post('toggle-biometric', [\App\Http\Controllers\API\Membership\AuthController::class, 'toggleBiometric'])->middleware('throttle:6,1');
         });
 
         Route::post('referrals/milestones/collect', [\App\Http\Controllers\API\Membership\ReferralController::class, 'collectMilestones'])->middleware('throttle:6,1');

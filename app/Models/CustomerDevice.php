@@ -11,7 +11,7 @@ class CustomerDevice extends Model
 
     protected $guarded = [];
 
-    protected $hidden = ['trusted_token_hash'];
+    protected $hidden = ['trusted_token_hash', 'biometric_token_hash'];
 
     public function customer()
     {
