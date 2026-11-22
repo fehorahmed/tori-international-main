@@ -6,6 +6,18 @@
         <p class="text-muted">Manage your profile, orders, and preferences from your personal dashboard.</p>
       </div>
 
+      <div v-if="user.type === 'Customer' && user.member_no && Number(user.status) === 1" class="card premium-card shadow-sm border-0 mb-4">
+        <div class="card-body p-4">
+          <h5 class="fw-bold">Share your referral link</h5>
+          <p class="text-muted">Referral ID: <strong>{{ user.member_no }}</strong></p>
+          <div class="d-flex flex-wrap" style="gap: 10px">
+            <input ref="referralLinkInput" :value="referralLink" readonly aria-label="Your referral link" class="form-control" style="flex: 1 1 240px; min-width: 0" />
+            <button type="button" class="btn btn-primary" @click="copyReferralLink">Copy Link</button>
+          </div>
+          <p v-if="copyMessage" class="small mt-2 mb-0" role="status">{{ copyMessage }}</p>
+        </div>
+      </div>
+
       <div class="row">
         <div class="col-md-6 mb-4">
           <div class="card premium-card shadow-sm border-0 h-100 bg-dark text-white member-card-bg">
@@ -104,7 +116,9 @@ import { mapState, mapGetters, mapActions } from 'vuex';
 export default {
   name: "Dashboard",
 
+  data() { return { copyMessage: '' }; },
   computed: {
+    referralLink() { return new URL(this.$router.resolve({ name: 'register', query: { ref: this.user.member_no, type: 'member' } }).href, window.location.origin).href; },
     ...mapState('auth', ['user', 'loading']),
     ...mapGetters('auth', ['isLoggedIn']),
   },
@@ -115,6 +129,16 @@ export default {
 
   methods: {
     ...mapActions('auth', ['fetchUser']),
+    async copyReferralLink() {
+      try {
+        if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(this.referralLink);
+        else {
+          this.$refs.referralLinkInput.select();
+          if (!document.execCommand('copy')) throw new Error('Copy unavailable');
+        }
+        this.copyMessage = 'Referral link copied. You can now share it.';
+      } catch { this.copyMessage = 'Please select and copy the link manually.'; }
+    },
     formatCardNumber(num) {
       if (!num) return '';
       return num.toString().match(/.{1,4}/g)?.join(' ') || num;

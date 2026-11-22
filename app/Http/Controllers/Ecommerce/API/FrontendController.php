@@ -33,10 +33,21 @@ use Exception;
 
 class FrontendController extends Controller
 {
+    public function registrationReferrer(Request $request)
+    {
+        $d = $request->validate(['type' => 'required|in:member,agent', 'code' => 'required|string|max:64']);
+        $code = trim($d['code']);
+        $id = \App\Services\Membership\ReferralService::resolve($d['type'], $code);
+        $referrer = $d['type'] === 'member' ? Supplier::findOrFail($id) : User::findOrFail($id);
+        return response()->json(['name' => $referrer->name, 'type' => $d['type'], 'code' => $code]);
+    }
+
     public function register(Request $request)
     {
         try {
-            $request->merge(['referral_code' => trim((string) $request->input('referral_code')) ?: null]);
+            if (is_string($request->input('referral_code'))) {
+                $request->merge(['referral_code' => trim($request->input('referral_code')) ?: null]);
+            }
             $validated = $request->validate([
                 'name'     => 'required|string|max:255',
                 'mobile'   => ['required', 'string', 'regex:/^01[3-9][0-9]{8}$/D', 'unique:suppliers,mobile_no'],

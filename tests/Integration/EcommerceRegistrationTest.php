@@ -65,6 +65,17 @@ class EcommerceRegistrationTest extends TestCase
         $this->assertDatabaseHas('membership_referrals', ['customer_id' => $user->id, 'referrer_id' => $agent->id, 'referrer_type' => 'agent']);
     }
 
+    public function test_referral_preview_returns_only_public_name_type_and_code(): void
+    {
+        $member = Supplier::create(['name' => 'Public referrer fixture', 'type' => 'Customer', 'status' => 1, 'member_no' => 'LINK'.random_int(100000,999999)]);
+        $request = Request::create('/', 'GET', ['type' => 'member', 'code' => $member->member_no]);
+        $data = app(FrontendController::class)->registrationReferrer($request)->getData(true);
+        $this->assertSame(['name' => $member->name, 'type' => 'member', 'code' => $member->member_no], $data);
+        $member->update(['status' => 0]);
+        $this->expectException(\Illuminate\Validation\ValidationException::class);
+        app(FrontendController::class)->registrationReferrer($request);
+    }
+
     public function test_invalid_referral_cannot_create_customer(): void
     {
         $data = $this->payload(['referral_type' => 'member', 'referral_code' => 'INVALID-REFERRAL-FIXTURE']);

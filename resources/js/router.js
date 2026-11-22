@@ -1,3 +1,4 @@
+import { captureReferral } from './utils/referralLink';
 import SpecialOffersPage from './views/SpecialOffersPage.vue';
 import { createRouter, createWebHistory } from 'vue-router';
 import store from './store';
@@ -63,6 +64,7 @@ const router = createRouter({
 
 // Auth guard
 router.beforeEach(async (to, from, next) => {
+  captureReferral(to.query);
   if (!store.getters['auth/user']) {
     await store.dispatch('auth/fetchUser');
   }

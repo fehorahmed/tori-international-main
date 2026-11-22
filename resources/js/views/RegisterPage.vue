@@ -100,6 +100,7 @@
               </div>
               <div class="col-sm-6 mb-3"><label>Referrer type{{ user.referral_code.trim() ? "*" : " (Optional)" }}</label><select v-model="user.referral_type" class="form-control"><option value="">Select Member / Agent</option><option value="member">Member</option><option value="agent">Agent</option></select><p v-if="errors.referral_type" class="text-danger small mt-1">{{ errors.referral_type[0] }}</p></div>
               <div class="col-sm-6 mb-3"><label>Referral code (Optional)</label><input v-model="user.referral_code" class="form-control" /><p v-if="errors.referral_code" class="text-danger small mt-1">{{ errors.referral_code[0] }}</p></div>
+              <div v-if="referrerName" class="col-12 mb-3 small text-success" role="status">আপনি <strong>{{ referrerName }}</strong>-এর referral-এ registration করছেন।</div>
               <div v-for="field in addressFields" :key="field.key" class="col-sm-6 mb-3">
                 <label>{{ field.label }}{{ ["area", "village_id"].includes(field.key) ? " (Optional)" : "*" }}</label>
                 <select v-model="user[field.key]" class="form-control" :disabled="!field.enabled" @change="addressChanged(field.key)">
@@ -159,6 +160,7 @@
 
 <script>
 import axios from "@/axios";
+import { readReferral, saveReferral, clearReferral } from "../utils/referralLink";
 import { mapActions } from "vuex";
 import Header from "../components/Header.vue";
 import Footer from "../components/Footer.vue";
@@ -177,12 +179,18 @@ export default {
         division_id: "", district_id: "", upazila_id: "", area: "", village_id: "", address: "",
       },
       branches: [], divisions: [], districts: [], upazilas: [], areas: [], villages: [],
+      referrerName: '', referralTimer: null, referralVersion: 0,
       locationVersion: 0,
       submitted: false,
       isSubmitting: false,
       errors: {}, 
     };
   },
+  watch: {
+    'user.referral_type': 'referralChanged',
+    'user.referral_code': 'referralChanged',
+  },
+  beforeUnmount() { clearTimeout(this.referralTimer); ++this.referralVersion; },
   computed: {
     addressFields() {
       return [
@@ -195,6 +203,16 @@ export default {
     },
   },
   async mounted() {
+    const referral = readReferral();
+    if (referral) { this.user.referral_type = referral.type; this.user.referral_code = referral.code; }
+    if (Object.hasOwn(this.$route.query, 'ref')) {
+      if (typeof this.$route.query.ref === 'string') {
+        this.user.referral_code = this.$route.query.ref;
+        this.user.referral_type = ['member', 'agent'].includes(this.$route.query.type) ? this.$route.query.type : '';
+      }
+      const query = { ...this.$route.query }; delete query.ref; delete query.type;
+      this.$router.replace({ path: this.$route.path, query });
+    }
     try {
       const { data } = await axios.get('/api/registration-options');
       this.branches = data.data.branches;
@@ -204,6 +222,25 @@ export default {
   methods: {
     ...mapActions("auth", ["register"]),
 
+    referralChanged() {
+      clearTimeout(this.referralTimer);
+      const version = ++this.referralVersion;
+      this.referrerName = '';
+      delete this.errors.referral_code;
+      delete this.errors.referral_type;
+      const type = this.user.referral_type, code = this.user.referral_code.trim();
+      saveReferral(type, code);
+      if (code && !type) this.errors.referral_type = ['Please select Member or Agent.'];
+      if (!type || !code) return;
+      this.referralTimer = setTimeout(async () => {
+        try {
+          const { data } = await axios.get('/api/registration-referrer', { params: { type, code } });
+          if (version === this.referralVersion) this.referrerName = data.name;
+        } catch (error) {
+          if (version === this.referralVersion) this.errors.referral_code = error.response?.data?.errors?.referral_code || ['Unable to verify referral. Please check the code.'];
+        }
+      }, 400);
+    },
     addressError(key) {
       if (key === 'area') return this.errors.union_id?.[0] || this.errors.pourashava_id?.[0];
       return this.errors[key]?.[0];
@@ -267,6 +304,7 @@ export default {
         }
         delete payload.area;
         await this.register(payload);
+        clearReferral();
         this.$router.push({ name: "account.dashboard" });
       } catch (err) {
         if (err.response?.status === 422) {
