@@ -165,6 +165,7 @@
                         >
                             <li
                                 v-for="page in pages"
+                                :key="page.slug"
                                 class="inline-block !w-auto md:!w-[48%] lg:!w-[32%] leading-5 m-0"
                             >
                                 <router-link

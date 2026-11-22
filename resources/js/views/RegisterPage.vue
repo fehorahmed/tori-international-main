@@ -122,7 +122,10 @@
                 class="mr-2 w-5 h-5 border-2 border-gray-400 rounded !accent-primary_color focus:ring-2 focus:ring-blue-300"
               />
               <label for="agree" class="text-sm mt-2">
-                I agree to the terms and conditions and the privacy policy
+                I agree to the
+                <router-link :to="{ name: 'dynamic_pages', params: { slug: 'terms-and-conditions' } }" target="_blank" rel="noopener">Terms &amp; Conditions</router-link>
+                and the
+                <router-link :to="{ name: 'dynamic_pages', params: { slug: 'privacy-policy' } }" target="_blank" rel="noopener">Privacy Policy</router-link>
               </label>
             </div>
             <p v-if="submitted && !user.agree" class="text-red-500 text-sm">

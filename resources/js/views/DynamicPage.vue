@@ -22,7 +22,7 @@
       </div>
 
       <!-- Page content -->
-      <div class="container mx-auto">
+      <div class="container mx-auto py-4">
         <!-- Skeleton Loader -->
         <div v-if="pageLoading" class="space-y-3">
           <div class="h-8 bg-gray-200 animate-pulse w-1/3 rounded"></div>
@@ -34,7 +34,7 @@
         <!-- Actual Page -->
         <div v-else>
           <h1 class="text-2xl font-bold mb-4">{{ page?.title }}</h1>
-          <div v-html="page?.content"></div>
+          <div class="page-copy" v-html="page?.content"></div>
         </div>
       </div>
     </div>
@@ -89,3 +89,10 @@ export default {
   },
 };
 </script>
+
+<style scoped>
+.page-copy { line-height: 1.85; overflow-wrap: anywhere; padding-bottom: 1.5rem; }
+.page-copy :deep(h2) { font-size: 1.25rem; font-weight: 600; margin: 1.5rem 0 .6rem; }
+.page-copy :deep(p) { margin-bottom: 1rem; }
+.page-copy :deep(img) { max-width: 100%; height: auto; }
+</style>

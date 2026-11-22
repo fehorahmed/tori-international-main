@@ -22,7 +22,8 @@ class PageController extends Controller
         return DataTables::eloquent($query)
             ->addIndexColumn()
             ->addColumn('action', function(Page $page) {
-                if(auth()->user()->can('blog_edit')) {
+                $btn = '';
+                if(auth()->user()->can('ecommerce_page_edit')) {
                     $btn = '<a href="'.route('ecom_page.edit',['page'=>$page->id]).'" class="btn btn-info bg-gradient-info btn-sm btn-edit"><i class="fa fa-edit"></i></a>'.'&nbsp;';
                 }
                 return $btn;

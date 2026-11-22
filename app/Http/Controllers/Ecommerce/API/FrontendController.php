@@ -327,7 +327,7 @@ class FrontendController extends Controller
         return response()->json($products);
     }
     public function getPages(){
-        $pages = Page::select('title','slug','status')->where('status', 1)->get();
+        $pages = Page::select('title','slug','status')->where('status', 1)->orderBy('sort')->orderBy('id')->get();
        
         return response()->json([
             'pages' => $pages,
