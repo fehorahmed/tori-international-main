@@ -13,7 +13,16 @@
           <div class="d-flex flex-wrap" style="gap: 10px">
             <input ref="referralLinkInput" :value="referralLink" readonly aria-label="Your referral link" class="form-control" style="flex: 1 1 240px; min-width: 0" />
             <button type="button" class="btn btn-primary" @click="copyReferralLink">Copy Link</button>
+            <button type="button" class="btn btn-outline-primary" :aria-expanded="shareOpen" aria-controls="referral-share-options" @click="shareOpen = !shareOpen"><i class="fas fa-share-alt mr-1" aria-hidden="true"></i> Share</button>
           </div>
+          <div v-if="shareOpen" id="referral-share-options" class="referral-share-options mt-3" aria-label="Share referral link">
+            <a :href="shareUrls.whatsapp" target="_blank" rel="noopener noreferrer" class="btn btn-outline-success"><i class="fab fa-whatsapp mr-1" aria-hidden="true"></i> WhatsApp</a>
+            <a :href="shareUrls.facebook" target="_blank" rel="noopener noreferrer" class="btn btn-outline-primary"><i class="fab fa-facebook mr-1" aria-hidden="true"></i> Facebook</a>
+            <button type="button" class="btn btn-outline-primary" @click="nativeShare(true)"><i class="fab fa-facebook-messenger mr-1" aria-hidden="true"></i> Messenger</button>
+            <a :href="shareUrls.telegram" target="_blank" rel="noopener noreferrer" class="btn btn-outline-info"><i class="fab fa-telegram mr-1" aria-hidden="true"></i> Telegram</a>
+            <button v-if="canNativeShare" type="button" class="btn btn-outline-secondary" @click="nativeShare(false)">More apps…</button>
+          </div>
+          <p v-if="shareMessage" class="small mt-2 mb-0" role="status">{{ shareMessage }} <a v-if="messengerFallback" href="https://www.messenger.com/" target="_blank" rel="noopener noreferrer">Open Messenger</a></p>
           <p v-if="copyMessage" class="small mt-2 mb-0" role="status">{{ copyMessage }}</p>
         </div>
       </div>
@@ -116,8 +125,17 @@ import { mapState, mapGetters, mapActions } from 'vuex';
 export default {
   name: "Dashboard",
 
-  data() { return { copyMessage: '' }; },
+  data() { return { copyMessage: '', shareOpen: false, shareMessage: '', messengerFallback: false, canNativeShare: typeof navigator.share === 'function' }; },
   computed: {
+    shareText() { return 'Join Tori International using my referral link.'; },
+    shareUrls() {
+      const url = encodeURIComponent(this.referralLink), text = encodeURIComponent(this.shareText);
+      return {
+        whatsapp: 'https://wa.me/?text=' + encodeURIComponent(this.shareText + '\n' + this.referralLink),
+        facebook: 'https://www.facebook.com/sharer/sharer.php?u=' + url,
+        telegram: 'https://t.me/share/url?url=' + url + '&text=' + text,
+      };
+    },
     referralLink() { return new URL(this.$router.resolve({ name: 'register', query: { ref: this.user.member_no, type: 'member' } }).href, window.location.origin).href; },
     ...mapState('auth', ['user', 'loading']),
     ...mapGetters('auth', ['isLoggedIn']),
@@ -129,6 +147,18 @@ export default {
 
   methods: {
     ...mapActions('auth', ['fetchUser']),
+    async nativeShare(messenger = false) {
+      this.shareMessage = '';
+      this.messengerFallback = false;
+      if (this.canNativeShare) {
+        try {
+          await navigator.share({ title: 'Tori International Referral', text: this.shareText, url: this.referralLink });
+          return;
+        } catch (error) { if (error.name === 'AbortError') return; }
+      }
+      this.messengerFallback = messenger;
+      this.shareMessage = messenger ? 'Use Copy Link, then paste the link into your Messenger chat.' : 'Sharing is unavailable here. Please use Copy Link.';
+    },
     async copyReferralLink() {
       try {
         if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(this.referralLink);
@@ -148,6 +178,8 @@ export default {
 </script>
 
 <style scoped>
+.referral-share-options { display: flex; flex-wrap: wrap; gap: 10px; }
+.referral-share-options .btn { flex: 1 1 130px; }
 .letter-spacing-1 {
   letter-spacing: 2px;
 }
