@@ -47,6 +47,8 @@
 <li class="nav-item"><a href="{{ route('card-management.transfers.index') }}" class="nav-link {{ request()->routeIs('card-management.transfers.index') ? 'active' : '' }}"><i class="nav-icon fas fa-exchange-alt"></i><p>Member Send Money</p></a></li>
 @endif
 @if(auth()->user()->role === 'Admin')
+<li class="nav-item"><a class="nav-link {{ request()->routeIs('card-management.agents.index') ? 'active' : '' }}" href="{{ route('card-management.agents.index') }}"><i class="nav-icon fas fa-user-tie"></i><p>Member Agents</p></a></li>
+<li class="nav-item"><a class="nav-link {{ request()->routeIs('card-management.agents.transactions') ? 'active' : '' }}" href="{{ route('card-management.agents.transactions') }}"><i class="nav-icon fas fa-exchange-alt"></i><p>Agent Transactions</p></a></li>
 <li class="nav-item"><a href="{{ route('card-management.referrals.index') }}" class="nav-link {{ request()->routeIs('card-management.referrals.*') ? 'active' : '' }}"><i class="nav-icon fas fa-gift"></i><p>Referral Bonus &amp; Commission</p></a></li>
 @endif
 

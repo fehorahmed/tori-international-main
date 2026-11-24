@@ -26,14 +26,20 @@ class MembershipTransactionSetting extends Model
             'referral.agent_bonus' => '30.00', 'referral.expense_head_id' => null,
             'referral.payable_head_id' => null, 'referral.posting_user_id' => null,
             'membership_discount.enabled' => true, 'membership_discount.minimum_balance' => '1000.00',
+            'transaction_window.enabled' => false, 'transaction_window.start_time' => '20:00', 'transaction_window.end_time' => '22:00',
             'cashout.enabled' => false, 'cashout.minimum_amount' => '1.00', 'cashout.maximum_amount' => '0.00',
             'cashout.charge_type' => 'fixed', 'cashout.charge_rate' => '0.00',
             'cashout.hold_minutes' => 10, 'cashout.income_head_id' => null,
             'transfer.enabled' => false, 'transfer.minimum_amount' => '1.00', 'transfer.maximum_amount' => '0.00',
             'transfer.charge_type' => 'fixed', 'transfer.charge_rate' => '0.00',
             'transfer.income_head_id' => null, 'transfer.posting_user_id' => null,
-            // Reserved until the Cash In workflow is implemented.
             'cashin.enabled' => false,
+            'agent_cashin.enabled' => false, 'agent_cashin.minimum_amount' => '1.00', 'agent_cashin.maximum_amount' => '100000.00',
+            'agent_cashin.charge_type' => 'fixed', 'agent_cashin.charge_rate' => '0.00', 'agent_cashin.income_head_id' => null, 'agent_cashin.posting_user_id' => null,
+            'agent_cashout.enabled' => false, 'agent_cashout.minimum_amount' => '1.00', 'agent_cashout.maximum_amount' => '100000.00',
+            'agent_cashout.charge_type' => 'fixed', 'agent_cashout.charge_rate' => '0.00', 'agent_cashout.income_head_id' => null, 'agent_cashout.posting_user_id' => null,
+            'agent_cashout.commission_type' => 'fixed', 'agent_cashout.commission_rate' => '0.00', 'agent_cashout.expense_head_id' => null,
+
         ];
     }
 
@@ -69,7 +75,7 @@ class MembershipTransactionSetting extends Model
                 }
                 if ($field === 'enabled') {
                     $value = (bool) $value;
-                } elseif (in_array($field, ['minimum_amount', 'maximum_amount', 'minimum_balance', 'charge_rate', 'registration_fee', 'account_hold_amount', 'point_value', 'agent_bonus'], true)) {
+                } elseif (in_array($field, ['minimum_amount', 'maximum_amount', 'minimum_balance', 'charge_rate', 'registration_fee', 'account_hold_amount', 'point_value', 'agent_bonus', 'commission_rate'], true)) {
                     $value = number_format((float) $value, 2, '.', '');
                 } elseif (in_array($field, ['hold_minutes', 'income_head_id', 'posting_user_id', 'expense_head_id', 'payable_head_id', 'member_points'], true)) {
                     $value = $value === null || $value === '' ? null : (int) $value;

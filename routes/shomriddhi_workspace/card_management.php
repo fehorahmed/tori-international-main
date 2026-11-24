@@ -1,40 +1,53 @@
 <?php
 
-use App\Http\Controllers\CardManagement\DashboardController;
-use App\Http\Controllers\CardManagement\MemberCardController;
-use App\Http\Controllers\CardManagement\EmployeeCardController;
-use App\Http\Controllers\CardManagement\ReportController;
+use App\Http\Controllers\CardManagement\AgentController;
+use App\Http\Controllers\CardManagement\CardCollectionController;
 use App\Http\Controllers\CardManagement\CardSettingController;
+use App\Http\Controllers\CardManagement\CashoutController;
+use App\Http\Controllers\CardManagement\DashboardController;
+use App\Http\Controllers\CardManagement\EmployeeCardController;
+use App\Http\Controllers\CardManagement\KycReviewController;
+use App\Http\Controllers\CardManagement\MemberCardController;
+use App\Http\Controllers\CardManagement\ReferralController;
+use App\Http\Controllers\CardManagement\ReportController;
+use App\Http\Controllers\CardManagement\TransactionSettingController;
+use App\Http\Controllers\CardManagement\TransferController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('card-management')->name('card-management.')->group(function () {
-    Route::prefix('transaction-settings')->name('transaction-settings.')->controller(\App\Http\Controllers\CardManagement\TransactionSettingController::class)->group(function () {
+    Route::prefix('transaction-settings')->name('transaction-settings.')->controller(TransactionSettingController::class)->group(function () {
         Route::get('/', 'index')->name('index');
-        Route::post('{group}', 'update')->whereIn('group', ['cashout', 'transfer', 'membership', 'membership_discount', 'referral', 'referral_milestones'])->name('update');
+        Route::post('{group}', 'update')->whereIn('group', ['cashout', 'transfer', 'membership', 'membership_discount', 'referral', 'referral_milestones', 'transaction_window', 'agent_cashin', 'agent_cashout'])->name('update');
     });
 
-    Route::get('referrals', [\App\Http\Controllers\CardManagement\ReferralController::class, 'index'])->name('referrals.index');
-    Route::post('referrals/{reward}/pay', [\App\Http\Controllers\CardManagement\ReferralController::class, 'pay'])->whereNumber('reward')->name('referrals.pay');
+    Route::get('agents', [AgentController::class, 'index'])->name('agents.index');
+    Route::post('agents', [AgentController::class, 'store'])->name('agents.store');
+    Route::get('agents/{id}/qr', [AgentController::class, 'qr'])->whereNumber('id')->name('agents.qr');
+    Route::post('agents/{id}/status', [AgentController::class, 'status'])->whereNumber('id')->name('agents.status');
+    Route::get('agent-transactions', [AgentController::class, 'transactions'])->name('agents.transactions');
 
-    Route::prefix('transfers')->name('transfers.')->controller(\App\Http\Controllers\CardManagement\TransferController::class)->group(function () {
+    Route::get('referrals', [ReferralController::class, 'index'])->name('referrals.index');
+    Route::post('referrals/{reward}/pay', [ReferralController::class, 'pay'])->whereNumber('reward')->name('referrals.pay');
+
+    Route::prefix('transfers')->name('transfers.')->controller(TransferController::class)->group(function () {
         Route::get('/', 'index')->name('index');
     });
 
-    Route::prefix('cashout')->name('cashout.')->controller(\App\Http\Controllers\CardManagement\CashoutController::class)->group(function () {
+    Route::prefix('cashout')->name('cashout.')->controller(CashoutController::class)->group(function () {
         Route::get('/', 'index')->name('index');
         Route::post('booth', 'booth')->name('booth');
         Route::get('qr', 'qr')->name('qr');
         Route::post('{cashout}/{action}', 'change')->name('change');
     });
 
-    Route::get('kyc', [\App\Http\Controllers\CardManagement\KycReviewController::class, 'index'])->name('kyc.index');
-    Route::get('kyc/{kyc}/documents/{kind}', [\App\Http\Controllers\CardManagement\KycReviewController::class, 'document'])->name('kyc.document');
-    Route::post('kyc/{kyc}/review', [\App\Http\Controllers\CardManagement\KycReviewController::class, 'review'])->name('kyc.review');
+    Route::get('kyc', [KycReviewController::class, 'index'])->name('kyc.index');
+    Route::get('kyc/{kyc}/documents/{kind}', [KycReviewController::class, 'document'])->name('kyc.document');
+    Route::post('kyc/{kyc}/review', [KycReviewController::class, 'review'])->name('kyc.review');
     // Collection Group
     Route::prefix('collection')->name('collection.')->group(function () {
-        Route::get('/', [\App\Http\Controllers\CardManagement\CardCollectionController::class, 'index'])->name('index');
-        Route::get('/datatable', [\App\Http\Controllers\CardManagement\CardCollectionController::class, 'dataTable'])->name('datatable');
-        Route::post('/receive', [\App\Http\Controllers\CardManagement\CardCollectionController::class, 'receivePayment'])->name('receive');
+        Route::get('/', [CardCollectionController::class, 'index'])->name('index');
+        Route::get('/datatable', [CardCollectionController::class, 'dataTable'])->name('datatable');
+        Route::post('/receive', [CardCollectionController::class, 'receivePayment'])->name('receive');
     });
 
     // Dashboard
@@ -79,7 +92,7 @@ Route::prefix('card-management')->name('card-management.')->group(function () {
 
     // Reports Group
     Route::prefix('reports')->name('reports.')->group(function () {
-        
+
         // Collection Report
         Route::get('/collection', [ReportController::class, 'collectionReport'])->name('collection');
 

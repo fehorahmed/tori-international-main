@@ -98,7 +98,7 @@
                 <select v-model="user.branch_id" class="form-control"><option value="">Default branch</option><option v-for="branch in branches" :key="branch.id" :value="branch.id">{{ branch.code }} - {{ branch.name }}</option></select>
                 <p v-if="errors.branch_id" class="text-danger small mt-1">{{ errors.branch_id[0] }}</p>
               </div>
-              <div class="col-sm-6 mb-3"><label>Referrer type{{ user.referral_code.trim() ? "*" : " (Optional)" }}</label><select v-model="user.referral_type" class="form-control"><option value="">Select Member / Agent</option><option value="member">Member</option><option value="agent">Agent</option></select><p v-if="errors.referral_type" class="text-danger small mt-1">{{ errors.referral_type[0] }}</p></div>
+              <div class="col-sm-6 mb-3"><label>Referrer type{{ user.referral_code.trim() ? "*" : " (Optional)" }}</label><select v-model="user.referral_type" class="form-control"><option value="">Select Member / Employee</option><option value="member">Member</option><option value="agent">Employee</option></select><p v-if="errors.referral_type" class="text-danger small mt-1">{{ errors.referral_type[0] }}</p></div>
               <div class="col-sm-6 mb-3"><label>Referral code (Optional)</label><input v-model="user.referral_code" class="form-control" /><p v-if="errors.referral_code" class="text-danger small mt-1">{{ errors.referral_code[0] }}</p></div>
               <div v-if="referrerName" class="col-12 mb-3 small text-success" role="status">আপনি <strong>{{ referrerName }}</strong>-এর referral-এ registration করছেন।</div>
               <div v-for="field in addressFields" :key="field.key" class="col-sm-6 mb-3">
@@ -233,7 +233,7 @@ export default {
       delete this.errors.referral_type;
       const type = this.user.referral_type, code = this.user.referral_code.trim();
       saveReferral(type, code);
-      if (code && !type) this.errors.referral_type = ['Please select Member or Agent.'];
+      if (code && !type) this.errors.referral_type = ['Please select Member or Employee.'];
       if (!type || !code) return;
       this.referralTimer = setTimeout(async () => {
         try {

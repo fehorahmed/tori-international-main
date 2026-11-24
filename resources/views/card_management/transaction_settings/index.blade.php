@@ -5,6 +5,18 @@
     <p>Configure membership transaction limits and charges. Changes apply to new transaction quotes; existing cash-out requests retain their quoted amounts.</p>
     @if(session('success'))<div class="alert alert-success">{{ session('success') }}</div>@endif
     @if($errors->any())<div class="alert alert-danger">{{ $errors->first() }}</div>@endif
+    @php($window = membership_transaction_settings('transaction_window'))
+    <div class="card" id="transaction-window">
+        <div class="card-header"><h4 class="card-title">Daily Closing Hours — Send Money &amp; Member Cash-in</h4></div>
+        <div class="card-body"><form method="post" action="{{ route('card-management.transaction-settings.update', 'transaction_window') }}">@csrf
+            <input type="hidden" name="_group" value="transaction_window">
+            <label><input type="checkbox" name="enabled" value="1" @checked(old('_group') === 'transaction_window' ? old('enabled', false) : $window->enabled)> Enable daily closing hours</label>
+            <div class="row"><div class="col-md-4 form-group"><label>Close from (Bangladesh time)</label><input class="form-control" type="time" name="start_time" required value="{{ old('_group') === 'transaction_window' ? old('start_time', $window->start_time) : $window->start_time }}"></div>
+            <div class="col-md-4 form-group"><label>Reopen at (Bangladesh time)</label><input class="form-control" type="time" name="end_time" required value="{{ old('_group') === 'transaction_window' ? old('end_time', $window->end_time) : $window->end_time }}"></div></div>
+            <p>Applies every day. Overnight periods are supported (for example 23:00–05:00). Cash-out is unaffected. Disable to allow transactions all day, subject to other limits.</p>
+            <button class="btn btn-primary">Save Closing Hours</button>
+        </form></div>
+    </div>
     <div class="card" id="membership">
         <div class="card-header"><h4 class="card-title">Membership</h4></div>
         <div class="card-body">
@@ -85,7 +97,7 @@
             <button class="btn btn-primary" type="submit">Save Membership Discount settings</button>
         </form></div>
     </div>
-    @foreach(['cashout' => ['Cash Out', $cashout], 'transfer' => ['Send Money / Transfer', $transfer]] as $group => [$title, $setting])
+    @foreach(['cashout' => ['Cash Out', $cashout], 'transfer' => ['Send Money / Transfer', $transfer], 'agent_cashin' => ['Member Cash-in', membership_transaction_settings('agent_cashin')], 'agent_cashout' => ['Agent Cash-out', membership_transaction_settings('agent_cashout')]] as $group => [$title, $setting])
     @php($value = fn($key) => old('_group') === $group ? old($key, $setting->{$key} ?? null) : ($setting->{$key} ?? null))
     <div class="card" id="{{ $group }}">
         <div class="card-header"><h4 class="card-title">{{ $title }}</h4></div>
@@ -102,6 +114,13 @@
                     @if($group === 'cashout')<div class="col-md-2 form-group"><label>Pending expiry (minutes)</label><input class="form-control" type="number" name="hold_minutes" min="1" max="60" value="{{ $value('hold_minutes') }}" required></div>@endif
                     <div class="col-md-3 form-group"><label>Charge income ledger</label><select class="form-control" name="income_head_id"><option value="">No charge</option>@foreach($incomeHeads as $head)<option value="{{ $head->id }}" @selected($head->id == $value('income_head_id'))>{{ $head->name }}</option>@endforeach</select></div>
                 </div>
+                @if($group === 'agent_cashin')<p>Member Cash-in is free. Charge fields are ignored; only an active Agent can initiate it.</p>@endif
+                @if($group === 'agent_cashout')
+                <div class="row"><div class="col-md-3 form-group"><label>Agent commission type</label><select class="form-control" name="commission_type"><option value="fixed" @selected($value('commission_type') === 'fixed')>Fixed Tk</option><option value="percentage" @selected($value('commission_type') === 'percentage')>Percentage (%)</option></select></div>
+                <div class="col-md-3 form-group"><label>Agent commission rate</label><input name="commission_rate" class="form-control" type="number" min="0" max="10000000" step="0.01" required value="{{ $value('commission_rate') }}"></div>
+                <div class="col-md-6 form-group"><label>Commission expense ledger</label><select name="expense_head_id" class="form-control"><option value="">Select expense ledger</option>@foreach($referralHeads->filter(fn($h) => $h->nature === 'Debit' && $h->accountGroup?->top_reserved_id == 5) as $head)<option value="{{ $head->id }}" @selected($value('expense_head_id') == $head->id)>{{ $head->name }}</option>@endforeach</select></div></div>
+                <p>Customer charge and Agent commission are independent. Commission is credited to the Agent's existing savings after a successful cash-out.</p>
+                @endif
                 <p>Charges are deducted in addition to the amount. Set charge rate to zero for free transactions.</p>
                 @if($group === 'transfer')<p>Automatic journal postings are recorded under the admin saving these transfer settings. Sending and receiving members are recorded separately for each transfer.</p>@endif
                 <button class="btn btn-primary" type="submit">Save {{ $title }} settings</button>
@@ -109,7 +128,7 @@
         </div>
     </div>
     @endforeach
-    <div class="card" id="cashin"><div class="card-header">Cash In</div><div class="card-body"><span class="badge badge-secondary">Not available yet</span><p class="mt-2">Cash In remains disabled until its workflow is implemented.</p></div></div>
+
 </div>
 @endsection
 

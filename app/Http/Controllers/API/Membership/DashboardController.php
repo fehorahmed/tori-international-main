@@ -3,10 +3,17 @@
 namespace App\Http\Controllers\API\Membership;
 
 use App\Http\Controllers\Controller;
+use App\Models\MembershipAgent;
+use App\Models\MembershipCashout;
 use App\Models\ShomriddhiAdvance\ShomriddhiAccount;
 use App\Models\ShomriddhiDps\DpsAccount;
 use App\Models\ShomriddhiFdr\FdrAccount;
 use App\Models\ShomriddhiLoan\LoanAccount;
+use App\Services\Membership\CashFlowService;
+use App\Services\Membership\CashoutService;
+use App\Services\Membership\RecentTransactionService;
+use App\Services\Membership\ReferralRewardService;
+use App\Services\Membership\TransactionWindowService;
 use Illuminate\Http\Request;
 
 class DashboardController extends Controller
@@ -61,6 +68,8 @@ class DashboardController extends Controller
         return response()->json([
             'success' => true,
             'data' => [
+                'agent' => MembershipAgent::data($customer->id),
+                'transaction_window' => TransactionWindowService::status(),
                 'customer' => [
                     'id' => $customer->id,
                     'name' => $customer->name,
@@ -71,11 +80,11 @@ class DashboardController extends Controller
                     'is_verified' => true,
                 ],
                 'summary' => [
-                    'referral_points' => \App\Services\Membership\ReferralRewardService::points($customer->id),
+                    'referral_points' => ReferralRewardService::points($customer->id),
                     'savings_balance' => (float) $savingsBalance,
-                    'available_savings_balance' => $savingsAccount ? \App\Services\Membership\CashoutService::available($savingsAccount) / 100 : 0,
-                    'minimum_savings_balance' => \App\Services\Membership\CashoutService::minimumBalance() / 100,
-                    'held_savings_balance' => $savingsAccount ? \App\Models\MembershipCashout::held($savingsAccount->id) / 100 : 0,
+                    'available_savings_balance' => $savingsAccount ? CashoutService::available($savingsAccount) / 100 : 0,
+                    'minimum_savings_balance' => CashoutService::minimumBalance() / 100,
+                    'held_savings_balance' => $savingsAccount ? MembershipCashout::held($savingsAccount->id) / 100 : 0,
                     'dps_balance' => (float) $totalDpsBalance,
                     'fdr_balance' => (float) $totalFdrBalance,
                     'total_assets' => (float) ($savingsBalance + $totalDpsBalance + $totalFdrBalance),
@@ -84,10 +93,10 @@ class DashboardController extends Controller
                     'active_fdr_count' => $fdrAccounts->count(),
                     'active_loans_count' => $activeLoans->count(),
                 ],
-                'cash_flow' => app(\App\Services\Membership\CashFlowService::class)->forCustomer($customer),
-                'recent_transactions' => app(\App\Services\Membership\RecentTransactionService::class)->forCustomer($customer),
+                'cash_flow' => app(CashFlowService::class)->forCustomer($customer),
+                'recent_transactions' => app(RecentTransactionService::class)->forCustomer($customer),
                 'upcoming_loan_emi' => $upcomingEmi,
-            ]
+            ],
         ]);
     }
 }

@@ -29,7 +29,7 @@ class TransferController extends Controller
         }
         $branch = auth()->user()->activeConcernId();
         $query = MembershipTransfer::select(['id', 'reference', 'created_at', 'sender_id', 'recipient_id', 'amount', 'fee', 'total'])
-            ->with(['sender:id,name,member_no', 'recipient:id,name,member_no'])->where(function ($q) use ($branch) {
+            ->where('channel', 'transfer')->with(['sender:id,name,member_no', 'recipient:id,name,member_no'])->where(function ($q) use ($branch) {
                 $q->whereIn('voucher_id', Voucher::where('sister_concern_id', $branch)->select('id'))
                     ->orWhereIn('recipient_voucher_id', Voucher::where('sister_concern_id', $branch)->select('id'));
             })
@@ -40,6 +40,7 @@ class TransferController extends Controller
                 $this->filterMember($query, $relation, trim($request->input($relation)));
             }
         }
+
         return DataTables::eloquent($query)
             ->addColumn('sender_label', fn ($row) => trim(($row->sender?->name ?? '').' / '.($row->sender?->member_no ?? ''), ' /'))
             ->addColumn('recipient_label', fn ($row) => trim(($row->recipient?->name ?? '').' / '.($row->recipient?->member_no ?? ''), ' /'))

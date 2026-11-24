@@ -2,11 +2,14 @@
 
 namespace App\Services\Membership;
 
+use App\Models\Account\Voucher;
+use App\Models\MembershipAgentTransaction;
 use App\Models\MembershipCashout;
 use App\Models\MembershipTransfer;
 use App\Models\ShomriddhiAdvance\ShomriddhiTransaction;
 use App\Models\Supplier;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class RecentTransactionService
 {
@@ -14,10 +17,10 @@ class RecentTransactionService
     {
         $logs = ShomriddhiTransaction::where('customer_id', $customer->id)->where('status', 'Approved')->orderByDesc('date')->orderByDesc('id')->limit(150)->get();
         $ids = $logs->pluck('voucher_id')->filter()->unique();
-        $registrationFees = \Illuminate\Support\Facades\DB::table('membership_registration_fees')->where('customer_id', $customer->id)
+        $registrationFees = DB::table('membership_registration_fees')->where('customer_id', $customer->id)
             ->whereNotNull('paid_at')->get()->keyBy('voucher_id');
-        $redemptions = \App\Models\Account\Voucher::whereIn('id', $ids)->whereIn('payment_purpose', [ReferralRewardService::REDEMPTION, MilestoneBonusService::PURPOSE])->get()->keyBy('id');
-        $orderVouchers = \App\Models\Account\Voucher::whereIn('id', $ids)->whereIn('payment_purpose', [OrderPaymentService::PAYMENT, OrderPaymentService::REFUND])->get()->keyBy('id');
+        $redemptions = Voucher::whereIn('id', $ids)->whereIn('payment_purpose', [ReferralRewardService::REDEMPTION, MilestoneBonusService::PURPOSE])->get()->keyBy('id');
+        $orderVouchers = Voucher::whereIn('id', $ids)->whereIn('payment_purpose', [OrderPaymentService::PAYMENT, OrderPaymentService::REFUND])->get()->keyBy('id');
         $transfers = MembershipTransfer::with(['sender', 'recipient'])->where(fn ($q) => $q->where('sender_id', $customer->id)->orWhere('recipient_id', $customer->id))->where(function ($q) use ($ids) {
             $q->whereIn('voucher_id', $ids)->orWhereIn('recipient_voucher_id', $ids)->orWhereIn('fee_voucher_id', $ids);
         })->get();
@@ -36,6 +39,8 @@ class RecentTransactionService
                 $cashoutMap[$id] = $t;
             }
         }
+        $agentCommissions = MembershipAgentTransaction::whereIn('commission_voucher_id', $ids)
+            ->whereHas('agent', fn ($q) => $q->where('customer_id', $customer->id))->get()->keyBy('commission_voucher_id');
         $seen = [];
         $rows = [];
         foreach ($logs as $log) {
@@ -52,7 +57,14 @@ class RecentTransactionService
             $en = $credit ? 'Savings deposit' : 'Savings withdrawal';
             $bn = $credit ? 'সঞ্চয় জমা' : 'সঞ্চয় উত্তোলন';
             $at = $log->date;
-            if ($redemption = $redemptions[$log->voucher_id] ?? null) {
+            if ($agentCommission = $agentCommissions[$log->voucher_id] ?? null) {
+                $en = 'Agent cash-out commission';
+                $bn = 'এজেন্ট ক্যাশ আউট কমিশন';
+                $category = 'Agent commission';
+                $categoryBn = 'এজেন্ট কমিশন';
+                $reference = $agentCommission->reference;
+                $at = $log->created_at;
+            } elseif ($redemption = $redemptions[$log->voucher_id] ?? null) {
                 $en = $redemption->payment_purpose == MilestoneBonusService::PURPOSE ? 'Referral milestone bonus' : 'Referral points redeemed';
                 $bn = $redemption->payment_purpose == MilestoneBonusService::PURPOSE ? 'রেফারেল মাইলস্টোন বোনাস' : 'রেফারেল পয়েন্ট রিডিম';
                 $category = 'Referral bonus';
@@ -89,6 +101,13 @@ class RecentTransactionService
                 $categoryBn = 'সেন্ড মানি';
                 $icon = 'transfer';
                 $at = $t->created_at;
+                if ($t->channel !== 'transfer') {
+                    $label = $t->channel === 'agent_cashin' ? 'Member Cash-in' : 'Agent Cash-out';
+                    $en = $label.' — '.$name;
+                    $bn = ($t->channel === 'agent_cashin' ? 'মেম্বার ক্যাশ ইন' : 'এজেন্ট ক্যাশ আউট').' — '.$name;
+                    $category = $label;
+                    $categoryBn = $t->channel === 'agent_cashin' ? 'মেম্বার ক্যাশ ইন' : 'এজেন্ট ক্যাশ আউট';
+                }
                 $note = null;
             } elseif ($t = $cashoutMap[$log->voucher_id] ?? null) {
                 $id = 'cashout-'.$t->id;
@@ -112,6 +131,6 @@ class RecentTransactionService
         }
         usort($rows, fn ($a, $b) => Carbon::parse($b['occurred_at'])->timestamp <=> Carbon::parse($a['occurred_at'])->timestamp);
 
-        return array_slice($rows,0,50);
+        return array_slice($rows, 0, 50);
     }
 }

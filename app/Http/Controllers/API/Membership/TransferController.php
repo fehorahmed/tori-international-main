@@ -3,9 +3,12 @@
 namespace App\Http\Controllers\API\Membership;
 
 use App\Http\Controllers\Controller;
+use App\Models\MembershipAgent;
 use App\Models\MembershipTransfer;
 use App\Models\ShomriddhiAdvance\ShomriddhiAccount;
 use App\Services\Membership\CashoutService;
+use App\Services\Membership\KycEligibilityService;
+use App\Services\Membership\TransactionWindowService;
 use App\Services\Membership\TransferService;
 use Illuminate\Http\Request;
 
@@ -14,11 +17,11 @@ class TransferController extends Controller
     public function index(Request $r)
     {
         $c = KycController::customer($r);
-        $kycStatus = \App\Services\Membership\KycEligibilityService::status($c);
+        $kycStatus = KycEligibilityService::status($c);
         $s = membership_transaction_settings('transfer');
         $a = ShomriddhiAccount::where('customer_id', $c->id)->where('status', 'Active')->first();
 
-        return response()->json(['success' => true, 'data' => ['customer_id' => $c->id, 'kyc_status' => $kycStatus, 'kyc_approved' => $kycStatus === 'Verified', 'enabled' => $s->enabled, 'minimum_amount' => $s->minimum_amount, 'maximum_amount' => $s->maximum_amount, 'charge_type' => $s->charge_type, 'charge_rate' => $s->charge_rate, 'available_balance' => CashoutService::money($a ? CashoutService::available($a) : 0), 'transfers' => MembershipTransfer::with(['sender', 'recipient'])->where(fn ($q) => $q->where('sender_id', $c->id)->orWhere('recipient_id', $c->id))->latest('id')->limit(30)->get()->map(fn ($t) => self::data($t, $c->id))]]);
+        return response()->json(['success' => true, 'data' => ['customer_id' => $c->id, 'kyc_status' => $kycStatus, 'kyc_approved' => $kycStatus === 'Verified', 'enabled' => $s->enabled && ! MembershipAgent::where('customer_id', $c->id)->exists() && ! TransactionWindowService::status()['blocked'], 'transaction_window' => TransactionWindowService::status(), 'minimum_amount' => $s->minimum_amount, 'maximum_amount' => $s->maximum_amount, 'charge_type' => $s->charge_type, 'charge_rate' => $s->charge_rate, 'available_balance' => CashoutService::money($a ? CashoutService::available($a) : 0), 'transfers' => MembershipTransfer::with(['sender', 'recipient'])->where('channel', 'transfer')->where(fn ($q) => $q->where('sender_id', $c->id)->orWhere('recipient_id', $c->id))->latest('id')->limit(30)->get()->map(fn ($t) => self::data($t, $c->id))]]);
     }
 
     public static function data(MembershipTransfer $t, int $viewer): array

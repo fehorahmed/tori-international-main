@@ -5,7 +5,9 @@ namespace App\Http\Controllers\CardManagement;
 use App\Http\Controllers\Controller;
 use App\Models\Account\AccountHead;
 use App\Models\MembershipTransactionSetting;
+use App\Services\Membership\ReferralRewardService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class TransactionSettingController extends Controller
@@ -29,7 +31,15 @@ class TransactionSettingController extends Controller
     public function update(Request $request, string $group)
     {
         abort_unless(auth()->user()->role === 'Admin', 403);
-        abort_unless(in_array($group, ['cashout', 'transfer', 'membership', 'membership_discount', 'referral', 'referral_milestones'], true), 404);
+        abort_unless(in_array($group, ['cashout', 'transfer', 'membership', 'membership_discount', 'referral', 'referral_milestones', 'transaction_window', 'agent_cashin', 'agent_cashout'], true), 404);
+        if ($group === 'transaction_window') {
+            $data = $request->validate(['enabled' => 'sometimes|boolean',
+                'start_time' => 'required|date_format:H:i', 'end_time' => 'required|date_format:H:i|different:start_time']);
+            $data['enabled'] = $request->boolean('enabled');
+            MembershipTransactionSetting::writeGroup($group, $data);
+
+            return back()->with('success', 'Daily transaction closing hours saved.');
+        }
         if ($group === 'referral_milestones') {
             $data = $request->validate([
                 'enabled' => 'sometimes|boolean', 'tiers' => 'required|array|min:1|max:100',
@@ -40,15 +50,22 @@ class TransactionSettingController extends Controller
             $old = collect(membership_transaction_settings('referral_milestones')->tiers)->keyBy('id');
             $tiers = [];
             foreach ($data['tiers'] as $tier) {
-                if (! empty($tier['id']) && ! $old->has($tier['id'])) throw ValidationException::withMessages(['tiers' => 'Unknown milestone ID. Reload this page.']);
-                $tiers[] = ['id' => ($tier['id'] ?? null) ?: (string) \Illuminate\Support\Str::uuid(),
+                if (! empty($tier['id']) && ! $old->has($tier['id'])) {
+                    throw ValidationException::withMessages(['tiers' => 'Unknown milestone ID. Reload this page.']);
+                }
+                $tiers[] = ['id' => ($tier['id'] ?? null) ?: (string) Str::uuid(),
                     'threshold' => (int) $tier['threshold'], 'percentage' => number_format((float) $tier['percentage'], 2, '.', ''), 'enabled' => (bool) $tier['enabled']];
             }
             // Existing IDs cannot be removed/recreated to bypass the lifetime once-only rule.
             $ids = array_column($tiers, 'id');
-            foreach ($old as $id => $tier) if (! in_array($id, $ids, true)) $tiers[] = array_merge($tier, ['enabled' => false]);
+            foreach ($old as $id => $tier) {
+                if (! in_array($id, $ids, true)) {
+                    $tiers[] = array_merge($tier, ['enabled' => false]);
+                }
+            }
             usort($tiers, fn ($a, $b) => $a['threshold'] <=> $b['threshold']);
             MembershipTransactionSetting::writeGroup($group, ['enabled' => $request->boolean('enabled'), 'tiers' => $tiers]);
+
             return redirect()->to(route('card-management.transaction-settings.index').'#referral-milestones')->with('success', 'Referral milestone settings saved.');
         }
         if ($group === 'referral') {
@@ -60,17 +77,21 @@ class TransactionSettingController extends Controller
             ]);
             $data['enabled'] = $request->boolean('enabled');
             if ($data['enabled']) {
-                \App\Services\Membership\ReferralRewardService::ledger($data['expense_head_id'] ?? null, 'Debit', 5);
-                if ($data['agent_bonus'] > 0) \App\Services\Membership\ReferralRewardService::ledger($data['payable_head_id'] ?? null, 'Credit', 2);
+                ReferralRewardService::ledger($data['expense_head_id'] ?? null, 'Debit', 5);
+                if ($data['agent_bonus'] > 0) {
+                    ReferralRewardService::ledger($data['payable_head_id'] ?? null, 'Credit', 2);
+                }
             }
             $data['posting_user_id'] = auth()->id();
             MembershipTransactionSetting::writeGroup('referral', $data);
+
             return redirect()->to(route('card-management.transaction-settings.index').'#referral')->with('success', 'Referral settings saved.');
         }
         if ($group === 'membership_discount') {
             $data = $request->validate(['minimum_balance' => 'required|numeric|decimal:0,2|min:0|max:10000000', 'enabled' => 'sometimes|boolean']);
             $data['enabled'] = $request->boolean('enabled');
             MembershipTransactionSetting::writeGroup($group, $data);
+
             return redirect()->to(route('card-management.transaction-settings.index').'#membership-discount')->with('success', 'Membership discount settings saved.');
         }
         if ($group === 'membership') {
@@ -96,7 +117,25 @@ class TransactionSettingController extends Controller
         if ($group === 'cashout') {
             $rules['hold_minutes'] = 'required|integer|min:1|max:60';
         }
+        if ($group === 'agent_cashout') {
+            $rules['commission_type'] = 'required|in:fixed,percentage';
+            $rules['commission_rate'] = 'required|numeric|decimal:0,2|min:0|max:10000000';
+            $rules['expense_head_id'] = 'nullable|integer';
+        }
         $data = $request->validate($rules);
+        if ($group === 'agent_cashin') {
+            $data['charge_type'] = 'fixed';
+            $data['charge_rate'] = '0.00';
+            $data['income_head_id'] = null;
+        }
+        if ($group === 'agent_cashout') {
+            if ($data['commission_type'] === 'percentage' && $data['commission_rate'] > 100) {
+                throw ValidationException::withMessages(['commission_rate' => 'Percentage cannot exceed 100.']);
+            }
+            if ($data['commission_rate'] > 0) {
+                ReferralRewardService::ledger($data['expense_head_id'] ?? null, 'Debit', 5);
+            }
+        }
         if ($data['charge_type'] === 'percentage' && $data['charge_rate'] > 100) {
             throw ValidationException::withMessages(['charge_rate' => 'Percentage cannot exceed 100.']);
         }
@@ -108,7 +147,7 @@ class TransactionSettingController extends Controller
         }
         $data['enabled'] = $request->boolean('enabled');
         $data['income_head_id'] = $data['income_head_id'] ?? null;
-        if ($group === 'transfer') {
+        if (in_array($group, ['transfer', 'agent_cashin', 'agent_cashout'], true)) {
             $data['posting_user_id'] = auth()->id();
         }
         MembershipTransactionSetting::writeGroup($group, $data);

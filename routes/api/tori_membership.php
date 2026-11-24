@@ -1,5 +1,17 @@
 <?php
 
+use App\Http\Controllers\API\Membership\AgentTransactionController;
+use App\Http\Controllers\API\Membership\AuthController;
+use App\Http\Controllers\API\Membership\BeneficiaryController;
+use App\Http\Controllers\API\Membership\CardController;
+use App\Http\Controllers\API\Membership\CashoutController;
+use App\Http\Controllers\API\Membership\DashboardController;
+use App\Http\Controllers\API\Membership\FdrController;
+use App\Http\Controllers\API\Membership\KycController;
+use App\Http\Controllers\API\Membership\ProfileController;
+use App\Http\Controllers\API\Membership\ReferralController;
+use App\Http\Controllers\API\Membership\RegistrationController;
+use App\Http\Controllers\API\Membership\TransferController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -12,70 +24,74 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::prefix('v1')->group(function () {
-    Route::get('auth/registration/locations', [\App\Http\Controllers\API\Membership\RegistrationController::class, 'locations'])->middleware('throttle:60,1');
+    Route::get('auth/registration/locations', [RegistrationController::class, 'locations'])->middleware('throttle:60,1');
     // Guest / Authentication Routes (Rate Limited)
     Route::prefix('auth')->middleware(['throttle:10,1'])->group(function () {
-        Route::get('registration/options', [\App\Http\Controllers\API\Membership\RegistrationController::class, 'options']);
-        Route::post('register/initiate', [\App\Http\Controllers\API\Membership\RegistrationController::class, 'initiate']);
-        Route::post('register/resend', [\App\Http\Controllers\API\Membership\RegistrationController::class, 'resend']);
-        Route::post('register/verify-otp', [\App\Http\Controllers\API\Membership\RegistrationController::class, 'verify']);
-        Route::post('register/complete', [\App\Http\Controllers\API\Membership\RegistrationController::class, 'complete']);
+        Route::get('registration/options', [RegistrationController::class, 'options']);
+        Route::post('register/initiate', [RegistrationController::class, 'initiate']);
+        Route::post('register/resend', [RegistrationController::class, 'resend']);
+        Route::post('register/verify-otp', [RegistrationController::class, 'verify']);
+        Route::post('register/complete', [RegistrationController::class, 'complete']);
         // Step 1: Submit mobile number -> Send OTP
-        Route::post('initiate', [\App\Http\Controllers\API\Membership\AuthController::class, 'initiate']);
+        Route::post('initiate', [AuthController::class, 'initiate']);
 
         // Step 2: Verify OTP -> Receive short-lived verification token
-        Route::post('verify-otp', [\App\Http\Controllers\API\Membership\AuthController::class, 'verifyOtp']);
+        Route::post('verify-otp', [AuthController::class, 'verifyOtp']);
 
         // Step 3 (A): Login with 6-Digit PIN
-        Route::post('login-pin', [\App\Http\Controllers\API\Membership\AuthController::class, 'loginWithPin']);
+        Route::post('login-pin', [AuthController::class, 'loginWithPin']);
 
         // Step 3 (B): Set / Reset 6-Digit PIN (First time or reset)
-        Route::post('set-pin', [\App\Http\Controllers\API\Membership\AuthController::class, 'setPin']);
+        Route::post('set-pin', [AuthController::class, 'setPin']);
 
         // Biometric Login (Fingerprint / FaceID)
-        Route::post('login-biometric', [\App\Http\Controllers\API\Membership\AuthController::class, 'loginBiometric'])->middleware('throttle:6,1');
+        Route::post('login-biometric', [AuthController::class, 'loginBiometric'])->middleware('throttle:6,1');
     });
 
     // Protected Routes (Sanctum Authenticated for Customer / Member)
     Route::middleware(['auth:sanctum'])->group(function () {
+        Route::prefix('agent/{kind}')->where(['kind' => 'agent_cashin|agent_cashout'])->group(function () {
+            Route::get('/', [AgentTransactionController::class, 'index']);
+            Route::post('quote', [AgentTransactionController::class, 'quote'])->middleware('throttle:20,1');
+            Route::post('/', [AgentTransactionController::class, 'store'])->middleware('throttle:10,1');
+        });
         Route::prefix('fdr')->group(function () {
-            Route::get('/', [\App\Http\Controllers\API\Membership\FdrController::class,'index']);
-            Route::post('quote', [\App\Http\Controllers\API\Membership\FdrController::class,'quote'])->middleware('throttle:30,1');
-            Route::post('open', [\App\Http\Controllers\API\Membership\FdrController::class,'open'])->middleware('throttle:6,1');
-            Route::get('{id}', [\App\Http\Controllers\API\Membership\FdrController::class,'show'])->whereNumber('id');
-            Route::post('{id}/encash', [\App\Http\Controllers\API\Membership\FdrController::class,'requestEncash'])->middleware('throttle:6,1')->whereNumber('id');
+            Route::get('/', [FdrController::class, 'index']);
+            Route::post('quote', [FdrController::class, 'quote'])->middleware('throttle:30,1');
+            Route::post('open', [FdrController::class, 'open'])->middleware('throttle:6,1');
+            Route::get('{id}', [FdrController::class, 'show'])->whereNumber('id');
+            Route::post('{id}/encash', [FdrController::class, 'requestEncash'])->middleware('throttle:6,1')->whereNumber('id');
         });
 
         Route::prefix('auth')->group(function () {
-            Route::post('logout', [\App\Http\Controllers\API\Membership\AuthController::class, 'logout']);
-            Route::post('toggle-biometric', [\App\Http\Controllers\API\Membership\AuthController::class, 'toggleBiometric'])->middleware('throttle:6,1');
+            Route::post('logout', [AuthController::class, 'logout']);
+            Route::post('toggle-biometric', [AuthController::class, 'toggleBiometric'])->middleware('throttle:6,1');
         });
 
-        Route::post('referrals/milestones/collect', [\App\Http\Controllers\API\Membership\ReferralController::class, 'collectMilestones'])->middleware('throttle:6,1');
-        Route::get('referrals/history', [\App\Http\Controllers\API\Membership\ReferralController::class, 'history']);
-        Route::get('referrals', [\App\Http\Controllers\API\Membership\ReferralController::class, 'index']);
-        Route::post('referrals/redeem', [\App\Http\Controllers\API\Membership\ReferralController::class, 'redeem'])->middleware('throttle:6,1');
+        Route::post('referrals/milestones/collect', [ReferralController::class, 'collectMilestones'])->middleware('throttle:6,1');
+        Route::get('referrals/history', [ReferralController::class, 'history']);
+        Route::get('referrals', [ReferralController::class, 'index']);
+        Route::post('referrals/redeem', [ReferralController::class, 'redeem'])->middleware('throttle:6,1');
 
         // Dashboard & Profile
-        Route::get('dashboard', [\App\Http\Controllers\API\Membership\DashboardController::class, 'index']);
-        Route::get('profile', [\App\Http\Controllers\API\Membership\ProfileController::class, 'getProfile']);
-        Route::get('card', [\App\Http\Controllers\API\Membership\CardController::class, 'show']);
-        Route::get('beneficiaries', [\App\Http\Controllers\API\Membership\BeneficiaryController::class, 'index']);
-        Route::post('beneficiaries/lookup', [\App\Http\Controllers\API\Membership\BeneficiaryController::class, 'lookup'])->middleware('throttle:20,1');
-        Route::post('beneficiaries', [\App\Http\Controllers\API\Membership\BeneficiaryController::class, 'store']);
-        Route::patch('beneficiaries/{beneficiary}', [\App\Http\Controllers\API\Membership\BeneficiaryController::class, 'update'])->whereNumber('beneficiary');
-        Route::delete('beneficiaries/{beneficiary}', [\App\Http\Controllers\API\Membership\BeneficiaryController::class, 'destroy'])->whereNumber('beneficiary');
-        Route::get('transfers', [\App\Http\Controllers\API\Membership\TransferController::class, 'index']);
-        Route::post('transfers/quote', [\App\Http\Controllers\API\Membership\TransferController::class, 'quote'])->middleware('throttle:20,1');
-        Route::post('transfers', [\App\Http\Controllers\API\Membership\TransferController::class, 'store'])->middleware('throttle:10,1');
-        Route::get('cashout', [\App\Http\Controllers\API\Membership\CashoutController::class, 'index']);
-        Route::post('cashout/quote', [\App\Http\Controllers\API\Membership\CashoutController::class, 'quote'])->middleware('throttle:20,1');
-        Route::post('cashouts', [\App\Http\Controllers\API\Membership\CashoutController::class, 'store'])->middleware('throttle:10,1');
-        Route::get('cashouts/{cashout}', [\App\Http\Controllers\API\Membership\CashoutController::class, 'show']);
-        Route::post('cashouts/{cashout}/cancel', [\App\Http\Controllers\API\Membership\CashoutController::class, 'cancel']);
-        Route::put('profile', [\App\Http\Controllers\API\Membership\ProfileController::class, 'update']);
-        Route::post('kyc', [\App\Http\Controllers\API\Membership\KycController::class, 'store'])->middleware('throttle:6,1');
-        Route::get('kyc/{kyc}/documents/{kind}', [\App\Http\Controllers\API\Membership\KycController::class, 'document']);
+        Route::get('dashboard', [DashboardController::class, 'index']);
+        Route::get('profile', [ProfileController::class, 'getProfile']);
+        Route::get('card', [CardController::class, 'show']);
+        Route::get('beneficiaries', [BeneficiaryController::class, 'index']);
+        Route::post('beneficiaries/lookup', [BeneficiaryController::class, 'lookup'])->middleware('throttle:20,1');
+        Route::post('beneficiaries', [BeneficiaryController::class, 'store']);
+        Route::patch('beneficiaries/{beneficiary}', [BeneficiaryController::class, 'update'])->whereNumber('beneficiary');
+        Route::delete('beneficiaries/{beneficiary}', [BeneficiaryController::class, 'destroy'])->whereNumber('beneficiary');
+        Route::get('transfers', [TransferController::class, 'index']);
+        Route::post('transfers/quote', [TransferController::class, 'quote'])->middleware('throttle:20,1');
+        Route::post('transfers', [TransferController::class, 'store'])->middleware('throttle:10,1');
+        Route::get('cashout', [CashoutController::class, 'index']);
+        Route::post('cashout/quote', [CashoutController::class, 'quote'])->middleware('throttle:20,1');
+        Route::post('cashouts', [CashoutController::class, 'store'])->middleware('throttle:10,1');
+        Route::get('cashouts/{cashout}', [CashoutController::class, 'show']);
+        Route::post('cashouts/{cashout}/cancel', [CashoutController::class, 'cancel']);
+        Route::put('profile', [ProfileController::class, 'update']);
+        Route::post('kyc', [KycController::class, 'store'])->middleware('throttle:6,1');
+        Route::get('kyc/{kyc}/documents/{kind}', [KycController::class, 'document']);
     });
 });
-

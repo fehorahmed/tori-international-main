@@ -40,7 +40,7 @@ class ReferralService
     {
         $message = request()->getPreferredLanguage(['en', 'bn']) === 'bn'
             ? 'নির্বাচিত ধরনের জন্য রেফারেল কোডটি ভুল, নিষ্ক্রিয় অথবা একাধিক ব্যক্তির সঙ্গে মিলে গেছে।'
-            : 'Referral code is invalid, inactive or ambiguous for the selected Member / Agent type.';
+            : 'Referral code is invalid, inactive or ambiguous for the selected Member / Employee type.';
         throw ValidationException::withMessages(['referral_code' => $message]);
     }
 }

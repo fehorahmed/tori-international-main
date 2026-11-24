@@ -7,6 +7,7 @@ use App\Models\Account\InterCompanySettlement;
 use App\Models\Account\Transaction;
 use App\Models\Account\Voucher;
 use App\Models\BranchManagement\SisterConcern;
+use App\Models\MembershipAgent;
 use App\Models\MembershipTransfer;
 use App\Models\ShomriddhiAdvance\ShomriddhiAccount;
 use App\Models\ShomriddhiAdvance\ShomriddhiTransaction;
@@ -19,6 +20,34 @@ use Illuminate\Support\Str;
 
 class TransferService
 {
+    public function __construct(private string $channel = 'transfer')
+    {
+        if (! in_array($channel, ['transfer', 'agent_cashin', 'agent_cashout'], true)) {
+            throw new \InvalidArgumentException('Unknown transfer channel');
+        }
+    }
+
+    private function participants(Supplier $sender, Supplier $recipient, bool $lock = false): void
+    {
+        if ($this->channel === 'transfer') {
+            if (MembershipAgent::where('customer_id', $sender->id)->exists()) {
+                $this->fail('Agents must use Member Cash-in instead of Send Money.', 'এজেন্টদের সেন্ড মানির পরিবর্তে মেম্বার ক্যাশ-ইন ব্যবহার করতে হবে।');
+            }
+
+            return;
+        }
+        $member = $this->channel === 'agent_cashin' ? $sender : $recipient;
+        $query = MembershipAgent::where('customer_id', $member->id);
+        if ($lock) {
+            $query->lockForUpdate();
+        }
+        $agent = $query->first();
+        if (! $agent || $agent->status !== 'Active') {
+            $this->fail('Agent is unavailable.', 'এজেন্ট বর্তমানে সক্রিয় নেই।');
+        }
+        KycEligibilityService::ensureApproved($member);
+    }
+
     private function fail(string $en, string $bn): never
     {
         CashoutService::fail($en, $bn);
@@ -36,9 +65,12 @@ class TransferService
 
     private function config(): object
     {
-        $s = membership_transaction_settings('transfer');
+        if ($this->channel !== 'agent_cashout') {
+            TransactionWindowService::ensureOpen();
+        }
+        $s = membership_transaction_settings($this->channel);
         if (! $s->enabled || ! $s->posting_user_id) {
-            $this->fail('Send Money is currently unavailable.', 'সেন্ড মানি বর্তমানে বন্ধ আছে।');
+            $this->fail('This transaction service is currently unavailable.', 'এই লেনদেন সেবাটি বর্তমানে বন্ধ আছে।');
         }
 
         return $s;
@@ -46,7 +78,7 @@ class TransferService
 
     private function version($s): string
     {
-        return hash('sha256', json_encode([$s->enabled, $s->minimum_amount, $s->maximum_amount, $s->charge_type, $s->charge_rate, $s->income_head_id, $s->posting_user_id]));
+        return hash('sha256', json_encode([$this->channel, $s]));
     }
 
     public function quote(Supplier $sender, string $identifier, string $amount, ?int $recipientId = null): array
@@ -54,6 +86,7 @@ class TransferService
         KycEligibilityService::ensureApproved($sender);
         $s = $this->config();
         $recipient = RecipientService::resolve($sender, $identifier, $recipientId);
+        $this->participants($sender, $recipient);
         $source = $this->account($sender->id);
         $target = $this->account($recipient->id);
         $net = CashoutService::minor($amount);
@@ -64,7 +97,7 @@ class TransferService
         if ($net + $fee > CashoutService::available($source)) {
             $this->fail('Insufficient available savings balance.', 'ব্যবহারযোগ্য সঞ্চয় ব্যালেন্স পর্যাপ্ত নয়।');
         }
-        $payload = ['sender' => $sender->id, 'recipient' => $recipient->id, 'source' => $source->id, 'target' => $target->id, 'amount' => $net, 'fee' => $fee, 'version' => $this->version($s), 'expires' => now()->addMinutes(2)->timestamp, 'nonce' => Str::random(24)];
+        $payload = ['settings' => (array) $s, 'channel' => $this->channel, 'sender' => $sender->id, 'recipient' => $recipient->id, 'source' => $source->id, 'target' => $target->id, 'amount' => $net, 'fee' => $fee, 'version' => $this->version($s), 'expires' => now()->addMinutes(2)->timestamp, 'nonce' => Str::random(24)];
 
         return ['recipient_id' => $recipient->id, 'quote' => Crypt::encryptString(json_encode($payload)), 'recipient_name' => $recipient->name, 'recipient_member_no' => $recipient->member_no, 'minimum_amount' => $s->minimum_amount, 'maximum_amount' => $s->maximum_amount, 'amount' => CashoutService::money($net), 'fee' => CashoutService::money($fee), 'total' => CashoutService::money($net + $fee)];
     }
@@ -76,7 +109,7 @@ class TransferService
         } catch (\Throwable) {
             $this->fail('Invalid transfer quote.', 'ট্রান্সফার তথ্য সঠিক নয়।');
         }
-        if (($p['sender'] ?? null) !== $sender->id) {
+        if (($p['sender'] ?? null) !== $sender->id || ($p['channel'] ?? 'transfer') !== $this->channel) {
             $this->fail('Invalid transfer quote.', 'ট্রান্সফার তথ্য সঠিক নয়।');
         }
 
@@ -87,7 +120,7 @@ class TransferService
             $target = $accounts->get($p['target']);
             $existing = MembershipTransfer::where('sender_id', $sender->id)->where('idempotency_key', $key)->first();
             if ($existing) {
-                if (! hash_equals($existing->quote_hash, hash('sha256', $quote))) {
+                if ($existing->channel !== $this->channel || ! hash_equals($existing->quote_hash, hash('sha256', $quote))) {
                     $this->fail('Request key already used.', 'অনুরোধটি আগে ব্যবহার হয়েছে।');
                 }
 
@@ -104,6 +137,7 @@ class TransferService
             if (! $lockedSender->pin || ! Hash::check($pin, $lockedSender->pin)) {
                 $this->fail('Incorrect PIN.', 'পিন সঠিক নয়।');
             }
+            $this->participants($lockedSender, $customers->firstWhere('id', $p['recipient']), true);
             $s = $this->config();
             if ($p['expires'] < now()->timestamp || $p['version'] !== $this->version($s)) {
                 $this->fail('Review a fresh transfer quote.', 'আবার ট্রান্সফারের তথ্য পর্যালোচনা করুন।');
@@ -135,7 +169,7 @@ class TransferService
             if (($from->sister_concern_id && $from->sister_concern_id != $origin) || ($to->sister_concern_id && $to->sister_concern_id != $destination)) {
                 $this->fail('Savings ledger branch does not match the account.', 'সঞ্চয় লেজারের শাখা হিসাবের সাথে মিলছে না।');
             }
-            $t = MembershipTransfer::create(['reference' => 'SM-'.Str::upper((string) Str::ulid()), 'sender_id' => $sender->id, 'recipient_id' => $p['recipient'], 'sender_account_id' => $source->id, 'recipient_account_id' => $target->id, 'idempotency_key' => $key, 'quote_hash' => hash('sha256', $quote), 'amount' => CashoutService::money($p['amount']), 'fee' => CashoutService::money($p['fee']), 'total' => CashoutService::money($total)]);
+            $t = MembershipTransfer::create(['channel' => $this->channel, 'reference' => ($this->channel === 'transfer' ? 'SM-' : ($this->channel === 'agent_cashin' ? 'ACI-' : 'ACO-')).Str::upper((string) Str::ulid()), 'sender_id' => $sender->id, 'recipient_id' => $p['recipient'], 'sender_account_id' => $source->id, 'recipient_account_id' => $target->id, 'idempotency_key' => $key, 'quote_hash' => hash('sha256', $quote), 'amount' => CashoutService::money($p['amount']), 'fee' => CashoutService::money($p['fee']), 'total' => CashoutService::money($total)]);
             $v = $this->voucher($origin, $p['amount'], $s->posting_user_id, $t->reference, 28);
             $this->entry($v, $from->id, 1, $p['amount']);
             $receiver = $v;
@@ -148,7 +182,7 @@ class TransferService
                 $receiver = $this->voucher($destination, $p['amount'], $s->posting_user_id, $t->reference, 28);
                 $this->entry($receiver, $receivable->id, 1, $p['amount']);
                 $this->entry($receiver, $to->id, 2, $p['amount']);
-                $settlement = InterCompanySettlement::create(['payment_no' => $t->reference, 'from_sister_concern_id' => $origin, 'to_sister_concern_id' => $destination, 'date' => $v->date, 'amount' => $t->amount, 'sender_voucher_id' => $v->id, 'receiver_voucher_id' => $receiver->id, 'status' => 2, 'create_user_id' => $s->posting_user_id, 'received_user_id' => $s->posting_user_id, 'notes' => 'Member Send Money '.$t->reference]);
+                $settlement = InterCompanySettlement::create(['payment_no' => $t->reference, 'from_sister_concern_id' => $origin, 'to_sister_concern_id' => $destination, 'date' => $v->date, 'amount' => $t->amount, 'sender_voucher_id' => $v->id, 'receiver_voucher_id' => $receiver->id, 'status' => 2, 'create_user_id' => $s->posting_user_id, 'received_user_id' => $s->posting_user_id, 'notes' => 'Member transaction '.$t->reference]);
                 $t->settlement_id = $settlement->id;
             }
             $this->log($sender->id, 'withdraw', $v, $p['amount']);

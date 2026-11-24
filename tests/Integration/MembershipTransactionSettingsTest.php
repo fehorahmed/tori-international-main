@@ -3,6 +3,7 @@
 namespace Tests\Integration;
 
 use App\Http\Controllers\CardManagement\TransactionSettingController;
+use App\Models\Account\AccountHead;
 use App\Models\MembershipTransactionSetting;
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
@@ -30,7 +31,7 @@ class MembershipTransactionSettingsTest extends TestCase
 
     private function registrationIncomeHead(): int
     {
-        return \App\Models\Account\AccountHead::with('accountGroup')->where('nature', 'Credit')->whereNull('sister_concern_id')->where('status', 1)->get()->first(fn ($head) => $head->accountGroup?->top_reserved_id == 4)->id;
+        return AccountHead::with('accountGroup')->where('nature', 'Credit')->whereNull('sister_concern_id')->where('status', 1)->get()->first(fn ($head) => $head->accountGroup?->top_reserved_id == 4)->id;
     }
 
     public function test_membership_settings_can_be_saved_through_the_post_route(): void
@@ -111,7 +112,7 @@ class MembershipTransactionSettingsTest extends TestCase
         $this->assertSame($admin->id, membership_transaction_setting('transfer.posting_user_id'));
         $this->assertFalse(membership_transaction_setting('cashin.enabled'));
         $this->assertSame('card_management.transaction_settings.index', $controller->index()->name());
-        $this->assertStringContainsString('Not available yet', $controller->index()->with('errors', new ViewErrorBag)->render());
+        $this->assertStringContainsString('Member Cash-in', $controller->index()->with('errors', new ViewErrorBag)->render());
     }
 
     public function test_non_admin_cannot_change_global_settings(): void
