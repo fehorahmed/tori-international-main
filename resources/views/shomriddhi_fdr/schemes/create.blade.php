@@ -81,7 +81,7 @@
                         </div>
                     </div>
                     
-                    <div class="row mt-3">
+                    <div class="form-group mt-3"><input type="hidden" name="visible_on_app" value="0"><label><input type="checkbox" name="visible_on_app" value="1" {{ old('visible_on_app') ? 'checked' : '' }}> Visible on App</label><small class="d-block text-muted">Only Active and visible schemes appear for new app FDRs.</small></div><div class="row mt-3">
                         <div class="col-12 text-right">
                             <button type="reset" class="btn btn-warning">Reset</button>
                             <button type="submit" class="btn btn-success">

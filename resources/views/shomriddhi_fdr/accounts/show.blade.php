@@ -183,7 +183,7 @@
                     <div class="row">
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label for="payment_mode">Payment Mode (Received To) <span class="text-danger">*</span></label>
+                                <label>Payment Source</label><select name="payment_source" id="payment_source" class="form-control mb-2"><option value="cash_bank">Cash / Bank</option><option value="savings">Member Savings</option></select><label for="payment_mode">Payment Mode (Received To) <span class="text-danger">*</span></label>
                                 <select class="form-control select2" id="payment_mode" name="payment_mode" required style="width: 100%;">
                                     <option value="">-- Select Payment Mode --</option>
                                     @foreach($paymentModes as $pm)
@@ -241,6 +241,7 @@
 @section('script')
 <script>
     $(document).ready(function() {
+        $('#payment_source').on('change',function(){const savings=this.value==='savings';$('#payment_mode').prop('required',!savings).prop('disabled',savings);});
         if ($.fn.select2) {
             $('.select2').select2();
         }
@@ -250,12 +251,12 @@
             let paymentMode = $('#payment_mode').val();
             let paymentText = $('#payment_mode option:selected').text();
             
-            if (!paymentMode) {
+            if ($('#payment_source').val() !== 'savings' && !paymentMode) {
                 Swal.fire('Error!', 'Please select a payment mode.', 'error');
                 return;
             }
 
-            $('#prev_payment_mode').text(paymentText);
+            $('#prev_payment_mode').text($('#payment_source').val()==='savings'?'Member Savings':paymentText);
             $('#previewApproveModal').modal('show');
         });
 
@@ -283,7 +284,7 @@
                         url: "/admin/shomriddhi-fdr/accounts/" + id + "/approve",
                         data: { 
                             _token: '{{ csrf_token() }}',
-                            payment_mode: paymentMode
+                            payment_source: $('#payment_source').val(), payment_mode: paymentMode
                         },
                         success: function(response) {
                             if (response.success) {

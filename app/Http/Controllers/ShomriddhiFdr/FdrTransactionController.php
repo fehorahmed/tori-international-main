@@ -3,9 +3,9 @@
 namespace App\Http\Controllers\ShomriddhiFdr;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
 use App\Models\ShomriddhiFdr\FdrTransaction;
-
+use Carbon\Carbon;
+use Illuminate\Http\Request;
 use Yajra\DataTables\Facades\DataTables;
 
 class FdrTransactionController extends Controller
@@ -31,15 +31,16 @@ class FdrTransactionController extends Controller
         return DataTables::of($query)
             ->addIndexColumn()
             ->addColumn('date', function ($row) {
-                return \Carbon\Carbon::parse($row->date)->format('d-M-Y');
+                return Carbon::parse($row->date)->format('d-M-Y');
             })
             ->addColumn('account_no', function ($row) {
-                return '<span class="font-weight-bold">' . ($row->account ? $row->account->fdr_no : 'N/A') . '</span>';
+                return '<span class="font-weight-bold">'.($row->account ? $row->account->fdr_no : 'N/A').'</span>';
             })
             ->addColumn('customer', function ($row) {
                 if ($row->account && $row->account->customer) {
-                    return e($row->account->customer->name) . '<br><small class="text-muted">' . e($row->account->customer->phone) . '</small>';
+                    return e($row->account->customer->name).'<br><small class="text-muted">'.e($row->account->customer->mobile_no).'</small>';
                 }
+
                 return '-';
             })
             ->addColumn('type', function ($row) {
@@ -50,11 +51,11 @@ class FdrTransactionController extends Controller
                 } elseif ($row->type == 'Interest Payout') {
                     return '<span class="badge badge-primary"><i class="fas fa-gift"></i> Interest Payout</span>';
                 } else {
-                    return '<span class="badge badge-warning">' . e($row->type) . '</span>';
+                    return '<span class="badge badge-warning">'.e($row->type).'</span>';
                 }
             })
             ->addColumn('amount', function ($row) {
-                return '<span class="font-weight-bold text-dark">৳ ' . number_format($row->amount, 2) . '</span>';
+                return '<span class="font-weight-bold text-dark">৳ '.number_format($row->amount, 2).'</span>';
             })
             ->addColumn('note', function ($row) {
                 return $row->note ?? '-';

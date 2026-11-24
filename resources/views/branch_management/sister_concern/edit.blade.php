@@ -128,15 +128,6 @@
                                 @enderror
                             </div>
                         </div>
-                        <div class="form-group row {{ $errors->has('business_date') ? 'has-error' :'' }}">
-                            <label for="business_date" class="col-sm-2 col-form-label">Business Date <span class="text-danger">*</span></label>
-                            <div class="col-sm-10">
-                                <input type="text" value="{{ old('business_date',date('d-m-Y',strtotime($sisterConcern->business_date))) }}" name="business_date" class="form-control date-picker" id="business_date" placeholder="Enter Business Date" autocomplete="off">
-                                @error('business_date')
-                                <span class="help-block">{{ $message }}</span>
-                                @enderror 
-                            </div>
-                        </div>
                         <div class="form-group row {{ $errors->has('establishment_date') ? 'has-error' :'' }}">
                             <label for="establishment_date" class="col-sm-2 col-form-label">Establishment Date</label>
                             <div class="col-sm-10">

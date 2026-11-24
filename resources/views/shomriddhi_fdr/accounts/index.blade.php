@@ -10,7 +10,7 @@
                     <i class="fas fa-file-invoice-dollar mr-2"></i> FDR Accounts List
                 </h5>
                 <div class="card-tools">
-                    @if(auth()->user()->can('shomriddhi_fdr_account_create') || true)
+                    @if(auth()->user()->can('shomriddhi_fdr_account_create'))
                     <a href="{{ route('shomriddhi-fdr.accounts.create') }}" class="btn btn-sm btn-success">
                         <i class="fa fa-plus"></i> Open New Account
                     </a>
@@ -85,7 +85,7 @@
                             <h5 class="text-right font-weight-bold border-top pt-2">Net Payable: <span id="encash_net_payable" class="text-primary">0.00</span></h5>
                         </div>
                         <div class="col-md-12 form-group mt-2">
-                            <label for="encash_payment_mode">Payment Mode (Paid From) <span class="text-danger">*</span></label>
+                            <label>Payment Source</label><select name="payment_source" id="encash_payment_source" class="form-control mb-2"><option value="cash_bank">Cash / Bank</option><option value="savings">Member Savings</option></select><label for="encash_payment_mode">Payment Mode (Paid From) <span class="text-danger">*</span></label>
                             <select class="form-control select2" id="encash_payment_mode" name="payment_mode" required style="width: 100%;">
                                 <option value="">-- Select Payment Mode --</option>
                                 @foreach($paymentModes as $pm)
@@ -106,6 +106,7 @@
 
 <script>
     $(document).ready(function() {
+        $('#encash_payment_source').on('change',function(){const savings=this.value==='savings';$('#encash_payment_mode').prop('required',!savings).prop('disabled',savings);});
         let table = $('#table').DataTable({
             processing: true,
             serverSide: true,
@@ -219,7 +220,7 @@
                 url: "/admin/shomriddhi-fdr/accounts/" + id + "/encash",
                 data: { 
                     _token: '{{ csrf_token() }}',
-                    payment_mode: paymentMode,
+                    payment_source: $('#encash_payment_source').val(), payment_mode: paymentMode,
                     interest_amount: $('#encash_interest').val(),
                     penalty_amount: $('#encash_penalty').val()
                 },

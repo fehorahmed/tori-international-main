@@ -5,18 +5,18 @@ namespace App\Models;
 use App\Models\BranchManagement\SisterConcern;
 use App\Models\CardManagement\Card;
 use App\Models\Hrm\Employee;
+use App\Models\UserManagement\UserDeviceToken;
+use App\Support\ApplicationDate;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 use Spatie\Permission\Traits\HasRoles;
-use App\Models\UserManagement\UserDeviceToken;
 
 class User extends Authenticatable
 {
-    use HasApiTokens, HasFactory, Notifiable,SoftDeletes,HasRoles;
-
+    use HasApiTokens, HasFactory, HasRoles,Notifiable,SoftDeletes;
 
     /**
      * The attributes that are mass assignable.
@@ -55,8 +55,7 @@ class User extends Authenticatable
 
     public function getBusinessDateAttribute()
     {
-        $concern = $this->active_sister_concern;
-        return $concern ? $concern->business_date : date('Y-m-d');
+        return ApplicationDate::today();
     }
 
     /**
@@ -85,6 +84,7 @@ class User extends Authenticatable
     {
         return $this->belongsTo(Employee::class);
     }
+
     public function sisterConcern()
     {
         return $this->belongsTo(SisterConcern::class);
@@ -99,6 +99,4 @@ class User extends Authenticatable
     {
         return $this->hasMany(Card::class, 'created_by');
     }
-
 }
-

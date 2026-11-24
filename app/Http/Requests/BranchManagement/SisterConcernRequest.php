@@ -28,9 +28,9 @@ class SisterConcernRequest extends FormRequest
         $rules = [
             'name' => [
                 'required', 'max:255',
-                Rule::unique('sister_concerns')->ignore($sisterConcernId)
+                Rule::unique('sister_concerns')->ignore($sisterConcernId),
             ],
-            'business_date' => ['required', 'date'],
+            'business_date' => ['prohibited'],
             'logo' => ['nullable', 'file', 'image', 'max:2048'],
             'auth_signature' => ['nullable', 'file', 'image', 'max:2048'],
             'official_seal' => ['nullable', 'file', 'image', 'max:2048'],
@@ -53,7 +53,7 @@ class SisterConcernRequest extends FormRequest
         if ($this->isMethod('put') || $this->isMethod('patch')) {
             $rules['code'] = [
                 'required', 'max:255',
-                Rule::unique('sister_concerns')->ignore($sisterConcernId)
+                Rule::unique('sister_concerns')->ignore($sisterConcernId),
             ];
         }
 

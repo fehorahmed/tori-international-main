@@ -24,9 +24,7 @@
                     {{ auth()->user()->activeSisterConcern->name ?? auth()->user()->sisterConcern->name ?? '' }}
                 </h3>
                 @php
-                    $activeConcernId = auth()->user()->activeConcernId();
-                    $activeSisterConcern = \App\Models\BranchManagement\SisterConcern::find($activeConcernId);
-                    $businessDate = $activeSisterConcern->business_date ?? null;
+                    $businessDate = \App\Support\ApplicationDate::today();
                 @endphp
                 @if($businessDate)
                     <span class="badge bg-soft-blue text-primary ml-0 ml-md-3 px-1 navbar-business-date" style="border: 1px solid rgba(59, 130, 246, 0.2); border-radius: 4px; padding-top: 1px; padding-bottom: 1px; margin-top: 0; line-height: 1.1;">

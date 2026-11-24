@@ -83,10 +83,6 @@
                                 <table class="table table-bordered table-striped">
                                     <tbody>
                                         <tr>
-                                            <th>Business Date</th>
-                                            <td>{{ $sisterConcern->business_date ? \Carbon\Carbon::parse($sisterConcern->business_date)->format('d-m-Y') : 'N/A' }}</td>
-                                        </tr>
-                                        <tr>
                                             <th>Establishment Date</th>
                                             <td>{{ $sisterConcern->establishment_date ? \Carbon\Carbon::parse($sisterConcern->establishment_date)->format('d-m-Y') : 'N/A' }}</td>
                                         </tr>

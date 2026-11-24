@@ -2,14 +2,14 @@
 
 namespace App\Models\ShomriddhiFdr;
 
+use App\Models\Supplier;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use App\Models\Supplier;
 
 class FdrAccount extends Model
 {
     use SoftDeletes;
-    
+
     protected $guarded = [];
 
     public function scheme()

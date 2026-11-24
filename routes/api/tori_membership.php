@@ -38,6 +38,14 @@ Route::prefix('v1')->group(function () {
 
     // Protected Routes (Sanctum Authenticated for Customer / Member)
     Route::middleware(['auth:sanctum'])->group(function () {
+        Route::prefix('fdr')->group(function () {
+            Route::get('/', [\App\Http\Controllers\API\Membership\FdrController::class,'index']);
+            Route::post('quote', [\App\Http\Controllers\API\Membership\FdrController::class,'quote'])->middleware('throttle:30,1');
+            Route::post('open', [\App\Http\Controllers\API\Membership\FdrController::class,'open'])->middleware('throttle:6,1');
+            Route::get('{id}', [\App\Http\Controllers\API\Membership\FdrController::class,'show'])->whereNumber('id');
+            Route::post('{id}/encash', [\App\Http\Controllers\API\Membership\FdrController::class,'requestEncash'])->middleware('throttle:6,1')->whereNumber('id');
+        });
+
         Route::prefix('auth')->group(function () {
             Route::post('logout', [\App\Http\Controllers\API\Membership\AuthController::class, 'logout']);
             Route::post('toggle-biometric', [\App\Http\Controllers\API\Membership\AuthController::class, 'toggleBiometric'])->middleware('throttle:6,1');

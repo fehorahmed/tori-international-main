@@ -10,7 +10,7 @@
                     <i class="fas fa-layer-group mr-2"></i> FDR Schemes
                 </h5>
                 <div class="card-tools">
-                    @if(auth()->user()->can('shomriddhi_fdr_scheme_create') || true)
+                    @if(auth()->user()->can('shomriddhi_fdr_scheme_create'))
                     <a href="{{ route('shomriddhi-fdr.schemes.create') }}" class="btn btn-sm btn-success">
                         <i class="fa fa-plus"></i> Add New Scheme
                     </a>
@@ -28,7 +28,7 @@
                             <th>Interest Rate</th>
                             <th>Penalty Rate</th>
                             <th>Min Amount</th>
-                            <th>Status</th>
+                            <th>Status</th><th>Visible on App</th>
                             <th width="10%" class="text-center">Action</th>
                         </tr>
                     </thead>
@@ -56,6 +56,7 @@
                 {data: 'penalty_rate', name: 'penalty_rate'},
                 {data: 'min_amount', name: 'min_amount'},
                 {data: 'status', name: 'status', orderable: false, searchable: false},
+                {data: 'visible_on_app', name: 'visible_on_app', render: function(data,type,row) { return '<button class="btn btn-sm btn-outline-primary visibility-toggle" data-id="'+row.id+'">'+data+'</button>'; }},
                 {data: 'action', name: 'action', orderable: false, searchable: false, className: 'text-center'}
             ]
         });
@@ -85,6 +86,7 @@
             });
         });
 
+        $(document).on('click','.visibility-toggle',function(){ $.post('/admin/shomriddhi-fdr/schemes/'+$(this).data('id')+'/toggle-visibility',{_token:'{{ csrf_token() }}'}).done(function(){table.ajax.reload(null,false);}).fail(function(){toastr.error('Unable to change app visibility.');}); });
         $('body').on('click', '.btn-delete', function () {
             let id = $(this).data('id');
             Swal.fire({

@@ -46,7 +46,6 @@
                                     <th class="text-center">Code</th>
                                     <th class="text-center">Contact</th>
                                     <th class="text-center">Email</th>
-                                    <th class="text-center">Business Date</th>
                                     <th class="text-center">Area Manager</th>
                                     <th class="text-center">Branch Manager</th>
                                     <th class="text-center">Address</th>
@@ -61,7 +60,6 @@
                                         <td class="text-center">{{ $branch->code }}</td>
                                         <td class="text-center">{{ $branch->contact ?? 'N/A' }}</td>
                                         <td>{{ $branch->email ?? 'N/A' }}</td>
-                                        <td class="text-center">{{ date('d-m-Y', strtotime($branch->business_date)) }}</td>
                                         <td>{{ $branch->areaManager->name ?? 'N/A' }}</td>
                                         <td>{{ $branch->branchManager->name ?? 'N/A' }}</td>
                                         <td>{{ $branch->address ?? 'N/A' }}</td>
@@ -75,7 +73,7 @@
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="10" class="text-center text-danger">No branches found</td>
+                                        <td colspan="9" class="text-center text-danger">No branches found</td>
                                     </tr>
                                 @endforelse
                             </tbody>

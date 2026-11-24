@@ -3,13 +3,11 @@
 namespace App\Http\Controllers\ShomriddhiFdr;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
 use App\Models\ShomriddhiFdr\FdrAccount;
-use App\Models\ShomriddhiFdr\FdrTransaction;
 use App\Models\ShomriddhiFdr\FdrScheme;
-use App\Models\Supplier;
-use App\Models\Division;
+use App\Models\ShomriddhiFdr\FdrTransaction;
 use Carbon\Carbon;
+use Illuminate\Http\Request;
 
 class ReportController extends Controller
 {
@@ -22,12 +20,17 @@ class ReportController extends Controller
 
             $query = FdrAccount::with(['customer', 'scheme'])
                 ->where('origin_sister_concern_id', auth()->user()->activeConcernId())
-                ->where('status', 'Active');
+                ->whereIn('status', ['Active', 'Matured']);
 
-            if ($startDate) $query->whereDate('maturity_date', '>=', $startDate);
-            if ($endDate) $query->whereDate('maturity_date', '<=', $endDate);
+            if ($startDate) {
+                $query->whereDate('maturity_date', '>=', $startDate);
+            }
+            if ($endDate) {
+                $query->whereDate('maturity_date', '<=', $endDate);
+            }
 
             $accounts = $query->orderBy('maturity_date', 'asc')->get();
+
             return view('shomriddhi_fdr.reports.maturity_report', compact('accounts'));
         }
 
@@ -49,10 +52,15 @@ class ReportController extends Controller
             if ($request->type) {
                 $query->where('fdr_transactions.type', $request->type);
             }
-            if ($startDate) $query->whereDate('fdr_transactions.date', '>=', $startDate);
-            if ($endDate) $query->whereDate('fdr_transactions.date', '<=', $endDate);
+            if ($startDate) {
+                $query->whereDate('fdr_transactions.date', '>=', $startDate);
+            }
+            if ($endDate) {
+                $query->whereDate('fdr_transactions.date', '<=', $endDate);
+            }
 
             $transactions = $query->orderBy('fdr_transactions.date', 'desc')->get();
+
             return view('shomriddhi_fdr.reports.transaction_report', compact('transactions'));
         }
 
@@ -64,7 +72,7 @@ class ReportController extends Controller
         $accounts = FdrAccount::with('customer')
             ->where('origin_sister_concern_id', auth()->user()->activeConcernId())
             ->get();
-            
+
         $transactions = [];
         $fdrAccount = null;
 
@@ -79,6 +87,7 @@ class ReportController extends Controller
                     ->orderBy('date', 'asc')
                     ->orderBy('id', 'asc')
                     ->get();
+
                 return view('shomriddhi_fdr.reports.ledger_report', compact('fdrAccount', 'transactions'));
             }
         }
@@ -93,16 +102,18 @@ class ReportController extends Controller
             $query = FdrAccount::with(['customer', 'scheme'])
                 ->where('origin_sister_concern_id', auth()->user()->activeConcernId())
                 ->where('status', 'Active');
-                
+
             if ($request->scheme_id) {
                 $query->where('scheme_id', $request->scheme_id);
             }
 
             $accounts = $query->orderBy('id', 'desc')->get();
+
             return view('shomriddhi_fdr.reports.active_accounts_report', compact('accounts'));
         }
-        
+
         $schemes = FdrScheme::all();
+
         return view('shomriddhi_fdr.reports.active_accounts', compact('schemes'));
     }
 
@@ -112,12 +123,13 @@ class ReportController extends Controller
         if ($request->has('search')) {
             $query = FdrAccount::with(['customer', 'scheme'])
                 ->where('origin_sister_concern_id', auth()->user()->activeConcernId())
-                ->whereIn('status', ['Closed', 'Matured']); // assuming closed state
+                ->where('status', 'Closed');
 
             $accounts = $query->orderBy('updated_at', 'desc')->get();
+
             return view('shomriddhi_fdr.reports.closed_accounts_report', compact('accounts'));
         }
-        
+
         return view('shomriddhi_fdr.reports.closed_accounts');
     }
 
@@ -127,15 +139,15 @@ class ReportController extends Controller
         if ($request->has('search')) {
             $schemes = FdrScheme::withCount(['accounts' => function ($query) {
                 $query->where('origin_sister_concern_id', auth()->user()->activeConcernId())
-                      ->where('status', 'Active');
+                    ->where('status', 'Active');
             }])->withSum(['accounts' => function ($query) {
                 $query->where('origin_sister_concern_id', auth()->user()->activeConcernId())
-                      ->where('status', 'Active');
+                    ->where('status', 'Active');
             }], 'principal_amount')->get();
 
             return view('shomriddhi_fdr.reports.scheme_summary_report', compact('schemes'));
         }
-        
+
         return view('shomriddhi_fdr.reports.scheme_summary');
     }
 }

@@ -22,6 +22,10 @@
     </a>
 </li>
 
+@can('shomriddhi_fdr_accounts')
+<li class="nav-item"><a href="{{ route('shomriddhi-fdr.encashment-requests') }}" class="nav-link {{ request()->routeIs('shomriddhi-fdr.encashment-requests*') ? 'active' : '' }}"><i class="fas fa-check-circle nav-icon"></i><p>Encashment Requests</p></a></li>
+@endcan
+
 @if(auth()->user()->can('shomriddhi_fdr_reports'))
 <li class="nav-header text-uppercase font-weight-bold text-muted mt-2" style="font-size: 0.75rem;">Reports</li>
 @if(auth()->user()->can('shomriddhi_fdr_maturity_report'))

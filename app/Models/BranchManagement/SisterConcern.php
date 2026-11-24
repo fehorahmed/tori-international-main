@@ -4,6 +4,7 @@ namespace App\Models\BranchManagement;
 
 use App\Models\Hrm\Employee;
 use App\Models\ManagerManagement\ManagerAssignment;
+use App\Support\ApplicationDate;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -13,12 +14,30 @@ class SisterConcern extends Model
 
     protected $guarded = [];
 
+    protected static function booted(): void
+    {
+        static::creating(function (self $branch) {
+            unset($branch->attributes['business_date']);
+        });
+    }
+
+    // Compatibility for existing callers: a business date is no longer stored per branch.
+    public function getBusinessDateAttribute(): string
+    {
+        return ApplicationDate::today();
+    }
+
+    public function setBusinessDateAttribute($value): void
+    {
+        // Ignore legacy writes without altering the previously stored value.
+    }
+
     /**
      * Get the display name for dropdowns (Branch Code - Branch Name)
      */
     public function getDisplayNameAttribute()
     {
-        return $this->code ? $this->code . ' - ' . $this->name : $this->name;
+        return $this->code ? $this->code.' - '.$this->name : $this->name;
     }
 
     /**
