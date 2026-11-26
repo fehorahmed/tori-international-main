@@ -100,6 +100,7 @@
                                 <th>Name</th>
                                 <th>Member No</th>
                                 <th>Group</th>
+                                <th>Branch</th>
                                 <th>Mobile No.</th>
                                 <th>Address</th>
                                 <th>Status</th>
@@ -167,6 +168,7 @@
                     },
                     {data: 'member_no', name: 'member_no'},
                     {data: 'group_name', name: 'group_name'},
+                    {data: 'branch_name', name: 'branch_name', orderable: false, searchable: false},
                     {data: 'mobile_no', name: 'mobile_no'},
                     {data: 'address', name: 'address', orderable: false, searchable: false},
                     {

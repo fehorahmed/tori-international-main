@@ -56,7 +56,7 @@ class MemberController extends Controller
         $request->validate(['branch_id' => ['nullable', 'integer', Rule::exists(SisterConcern::class, 'id')]]);
         $query = Supplier::where('type', SupplierType::$CUSTOMER)
             // where('origin_sister_concern_id', auth()->user()->activeConcernId())
-            ->with('division', 'district', 'upazila', 'union', 'shomriddhiGroup')
+            ->with('division', 'district', 'upazila', 'union', 'shomriddhiGroup', 'originSisterConcern')
             ->orderBy('id', 'desc');
 
         if ($request->filled('branch_id')) {
@@ -117,6 +117,7 @@ class MemberController extends Controller
                 }
                 return dropdownMenuContainer($btn);
             })
+            ->addColumn('branch_name', fn (Supplier $supplier) => $supplier->originSisterConcern?->name ?? '—')
             ->addColumn('group_name', function(Supplier $supplier) {
                 return $supplier->shomriddhiGroup ? $supplier->shomriddhiGroup->code . ' - ' . $supplier->shomriddhiGroup->name_en : '—';
             })
