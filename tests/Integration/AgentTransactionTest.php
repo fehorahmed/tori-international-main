@@ -284,4 +284,152 @@ class AgentTransactionTest extends TestCase
         $other = SisterConcern::whereKeyNot($this->branch->id)->firstOrFail();
         $this->withSession(['active_sister_concern_id' => $other->id])->get('/admin/card-management/agents/'.$a->id.'/qr')->assertForbidden();
     }
+    public function test_agent_datatable_search_sort_pagination_and_branch_scope(): void
+    {
+        $this->withoutMiddleware();
+        $this->operator->update(['role' => 'Admin']);
+        $mobile = '019'.str_pad((string) $this->agentMember->id, 8, '0', STR_PAD_LEFT);
+        $this->agentMember->update(['name' => 'Zebra <Agent>', 'mobile_no' => $mobile]);
+        $this->customer->update(['name' => 'Alpha Agent', 'mobile_no' => '01850637286']);
+        MembershipAgent::create(['customer_id' => $this->customer->id, 'agent_code' => 'AG-'.$this->customer->id, 'status' => 'Suspended', 'approved_by' => $this->operator->id, 'approved_at' => now()]);
+        $other = SisterConcern::whereKeyNot($this->branch->id)->firstOrFail();
+        $foreign = Supplier::create(['type' => 'Customer', 'name' => 'Outside Agent', 'status' => 1, 'origin_sister_concern_id' => $other->id]);
+        MembershipAgent::create(['customer_id' => $foreign->id, 'agent_code' => 'AG-'.$foreign->id, 'status' => 'Active', 'approved_by' => $this->operator->id, 'approved_at' => now()]);
+        $columns = collect([
+            ['agent_code', 'agent_code'], ['member_name', 'customer.name'], ['member_no', 'customer.member_no'],
+            ['mobile_no', 'customer.mobile_no'], ['status', 'status'], ['action', 'action'],
+        ])->map(fn ($c) => ['data' => $c[0], 'name' => $c[1], 'searchable' => 'true', 'orderable' => 'true'])->all();
+        $params = ['draw' => 1, 'start' => 0, 'length' => 1, 'columns' => $columns,
+            'order' => [['column' => 1, 'dir' => 'asc']], 'search' => ['value' => '']];
+        $request = fn ($p) => $this->withSession(['active_sister_concern_id' => $this->branch->id])->getJson(route('card-management.agents.index', $p), ['X-Requested-With' => 'XMLHttpRequest']);
+        view()->share('errors', new \Illuminate\Support\ViewErrorBag);
+        $this->get(route('card-management.agents.index'))->assertOk()->assertSee('agents-table');
+        foreach ([$mobile, $this->agentMember->member_no, $this->agent->agent_code, 'Zebra'] as $term) {
+            $response = $request(array_replace($params, ['search' => ['value' => $term]]));
+            $this->assertSame(1, $response->json('recordsFiltered'), 'Search failed for fixture term');
+            $response->assertOk()
+                ->assertJsonPath('recordsFiltered', 1)->assertJsonPath('data.0.id', $this->agent->id)
+                ->assertJsonPath('data.0.member_name', 'Zebra &lt;Agent&gt;')
+                ->assertJsonPath('data.0.mobile_no', $mobile);
+        }
+        $request(array_replace($params, ['search' => ['value' => 'Outside Agent']]))->assertOk()->assertJsonPath('recordsFiltered', 0);
+        $page = $request(array_replace($params, ['search' => ['value' => 'Agent']]))->assertOk();
+        $this->assertCount(1, $page->json('data'));
+        $this->assertSame('Alpha Agent', $page->json('data.0.member_name'));
+        $request(array_replace($params, ['search' => ['value' => str_repeat('x', 101)]]))->assertUnprocessable();
+        $this->operator->update(['role' => 'Staff']);
+        $request($params)->assertForbidden();
+    }
+
+    public function test_removed_agent_returns_to_member_without_changing_balances_or_history_and_can_be_restored(): void
+    {
+        $record = $this->complete();
+        $stale = $this->quote();
+        $balances = [$this->source->fresh()->principal_balance, $this->target->fresh()->principal_balance];
+        $transactionCount = Transaction::count();
+        $this->withoutMiddleware();
+        $this->operator->update(['role' => 'Admin']);
+        $url = '/admin/card-management/agents/'.$this->agent->id.'/status';
+        $this->withSession(['active_sister_concern_id' => $this->branch->id])->post($url, ['status' => 'Removed'])->assertRedirect();
+        $this->assertSame('Removed', $this->agent->fresh()->status);
+        $this->assertNull(MembershipAgent::data($this->agentMember->id));
+        $this->assertSame($balances, [$this->source->fresh()->principal_balance, $this->target->fresh()->principal_balance]);
+        $this->assertSame($transactionCount, Transaction::count());
+        $this->assertSame('Completed', $record->fresh()->status);
+        $this->assertEquals(12, $record->fresh()->agent_commission);
+        $this->assertSame($this->agent->id, $record->fresh()->agent->id);
+        try {
+            $this->complete('agent_cashout', $stale);
+            $this->fail('A reviewed agent cashout must be blocked after removal');
+        } catch (ValidationException) {
+        }
+        foreach (['agent_cashin', 'agent_cashout'] as $kind) {
+            try {
+                $this->quote($kind);
+                $this->fail('Removed agent services must be blocked');
+            } catch (ValidationException) {
+            }
+        }
+        $normal = (new TransferService)->quote($this->agentMember, $this->customer->member_no, '10.00');
+        $this->assertArrayHasKey('quote', $normal);
+        $this->assertSame($balances, [$this->source->fresh()->principal_balance, $this->target->fresh()->principal_balance]);
+        $this->withSession(['active_sister_concern_id' => $this->branch->id])->postJson($url, ['status' => 'Suspended'])->assertUnprocessable();
+        $this->withSession(['active_sister_concern_id' => $this->branch->id])->get('/admin/card-management/agents/'.$this->agent->id.'/qr')->assertNotFound();
+        // Make Agent on the original member reuses the same record and history.
+        $this->withSession(['active_sister_concern_id' => $this->branch->id])->post('/admin/card-management/agents', ['member' => $this->agentMember->member_no])->assertRedirect();
+        $this->assertSame('Active', $this->agent->fresh()->status);
+        $this->assertSame($this->agent->id, MembershipAgent::data($this->agentMember->id)['id']);
+        $this->assertSame($balances, [$this->source->fresh()->principal_balance, $this->target->fresh()->principal_balance]);
+        $this->assertArrayHasKey('quote', $this->quote());
+    }
+
+    public function test_removal_requires_admin_and_own_branch(): void
+    {
+        $this->withoutMiddleware();
+        $this->operator->update(['role' => 'Admin']);
+        $other = SisterConcern::whereKeyNot($this->branch->id)->firstOrFail();
+        $url = '/admin/card-management/agents/'.$this->agent->id.'/status';
+        $this->withSession(['active_sister_concern_id' => $other->id])->post($url, ['status' => 'Removed'])->assertForbidden();
+        $this->operator->update(['role' => 'Staff']);
+        $this->withSession(['active_sister_concern_id' => $this->branch->id])->post($url, ['status' => 'Removed'])->assertForbidden();
+        $this->assertSame('Active', $this->agent->fresh()->status);
+    }
+
+    public function test_agent_transaction_datatable_filters_searches_and_preserves_branch_scope(): void
+    {
+        $cashout = $this->complete();
+        $cashin = $this->complete('agent_cashin');
+        $cashout->update(['completed_at' => '2026-11-23 23:59:59']);
+        $cashin->update(['completed_at' => '2026-11-24 00:00:00']);
+        $this->agentMember->update(['name' => 'UniqueAgent <Test>']);
+        $mobile = '019'.str_pad((string) $this->customer->id, 8, '0', STR_PAD_LEFT);
+        $this->customer->update(['mobile_no' => $mobile]);
+        $this->withoutMiddleware();
+        $this->operator->update(['role' => 'Admin']);
+        view()->share('errors', new \Illuminate\Support\ViewErrorBag);
+        $this->get(route('card-management.agents.transactions'))->assertOk()->assertSee('agent-transactions-table');
+        $params = ['draw' => 1, 'start' => 0, 'length' => 1, 'columns' => [
+            ['data' => 'completed_at', 'name' => 'completed_at', 'orderable' => 'true', 'searchable' => 'true'],
+        ], 'order' => [['column' => 0, 'dir' => 'desc']], 'search' => ['value' => '']];
+        $request = fn ($extra) => $this->withSession(['active_sister_concern_id' => $this->branch->id])
+            ->getJson(route('card-management.agents.transactions', array_replace($params, $extra)), ['X-Requested-With' => 'XMLHttpRequest']);
+        $request(['search' => ['value' => $this->agent->agent_code]])->assertOk()->assertJsonPath('recordsFiltered', 2)
+            ->assertJsonPath('data.0.id', $cashin->id)->assertJsonPath('data.0.type_label', 'Member Cash-in');
+        $request(['type' => 'agent_cashout', 'search' => ['value' => $mobile]])->assertOk()->assertJsonPath('recordsFiltered', 1)
+            ->assertJsonPath('data.0.id', $cashout->id)->assertJsonPath('data.0.customer_charge', '20.00')
+            ->assertJsonPath('data.0.agent_commission', '12.00');
+        $request(['start_date' => '2026-11-24', 'end_date' => '2026-11-24', 'search' => ['value' => 'UniqueAgent']])
+            ->assertOk()->assertJsonPath('recordsFiltered', 1)->assertJsonPath('data.0.id', $cashin->id)
+            ->assertJsonPath('data.0.agent_label', 'UniqueAgent &lt;Test&gt; / '.$this->agent->agent_code);
+        $request(['search' => ['value' => $cashout->reference]])->assertOk()->assertJsonPath('recordsFiltered', 1);
+        $request(['search' => ['value' => $this->customer->member_no]])->assertOk()->assertJsonPath('recordsFiltered', 2);
+        $request(['start_date' => '2026-11-25', 'end_date' => '2026-11-24'])->assertUnprocessable();
+        $request(['type' => 'bad'])->assertUnprocessable();
+        // Records remain visible when the agent returns to regular membership.
+        $this->agent->update(['status' => 'Removed']);
+        $request(['search' => ['value' => $cashout->reference]])->assertOk()->assertJsonPath('recordsFiltered', 1);
+        $other = SisterConcern::whereKeyNot($this->branch->id)->firstOrFail();
+        $this->withSession(['active_sister_concern_id' => $other->id])->getJson(route('card-management.agents.transactions', array_replace($params, ['search' => ['value' => $cashout->reference]])), ['X-Requested-With' => 'XMLHttpRequest'])
+            ->assertOk()->assertJsonPath('recordsFiltered', 0);
+        $this->operator->update(['role' => 'Staff']);
+        $request([])->assertForbidden();
+    }
+
+    public function test_make_agent_wrong_branch_returns_field_error_and_keeps_input(): void
+    {
+        $this->withoutMiddleware();
+        $this->operator->update(['role' => 'Admin']);
+        $other = SisterConcern::whereKeyNot($this->branch->id)->firstOrFail();
+        $url = route('card-management.agents.index');
+        $this->withSession(['active_sister_concern_id' => $other->id])->from($url)
+            ->post($url, ['member' => $this->customer->member_no])
+            ->assertRedirect($url)->assertSessionHasErrors('member')
+            ->assertSessionHasInput('member', $this->customer->member_no);
+        $this->assertFalse(MembershipAgent::where('customer_id', $this->customer->id)->exists());
+        $this->withSession(['active_sister_concern_id' => $other->id])->postJson($url, ['member' => $this->customer->member_no])
+            ->assertUnprocessable()->assertJsonValidationErrors('member');
+        $this->withSession(['active_sister_concern_id' => $this->branch->id])->post($url, ['member' => $this->customer->member_no])->assertRedirect();
+        $this->assertSame('Active', MembershipAgent::where('customer_id', $this->customer->id)->value('status'));
+    }
+
 }

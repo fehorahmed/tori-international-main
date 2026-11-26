@@ -30,7 +30,7 @@ class TransferService
     private function participants(Supplier $sender, Supplier $recipient, bool $lock = false): void
     {
         if ($this->channel === 'transfer') {
-            if (MembershipAgent::where('customer_id', $sender->id)->exists()) {
+            if (MembershipAgent::where('customer_id', $sender->id)->where('status', '!=', 'Removed')->exists()) {
                 $this->fail('Agents must use Member Cash-in instead of Send Money.', 'এজেন্টদের সেন্ড মানির পরিবর্তে মেম্বার ক্যাশ-ইন ব্যবহার করতে হবে।');
             }
 

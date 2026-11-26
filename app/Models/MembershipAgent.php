@@ -15,7 +15,7 @@ class MembershipAgent extends Model
 
     public static function data(int $customer): ?array
     {
-        $a = static::where('customer_id', $customer)->first();
+        $a = static::where('customer_id', $customer)->where('status', '!=', 'Removed')->first();
 
         return $a ? ['id' => $a->id, 'code' => $a->agent_code, 'status' => $a->status] : null;
     }

@@ -17,10 +17,10 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use SakibRahaman\DecimalToWords\DecimalToWords;
-use App\Models\Sales\SaleOrder;
-use App\Models\Purchase\PurchaseOrder;
-use App\Models\StockTransfer\StockTransfer;
-use App\Models\StockTransfer\StockTransferItem;
+use App\Services\Reports\DailyTransactionReport;
+use App\Support\ApplicationDate;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class ReportController extends Controller
 {
@@ -572,259 +572,62 @@ class ReportController extends Controller
         return view('accounts.reports.inter_company_ledger', compact('branches', 'transactions', 'openingBalance', 'selectedBranch', 'receivableHead', 'payableHead'));
     }
 
+    private function dailyReportFilters(Request $request): array
+    {
+        $validated = $request->validate([
+            'start_date' => ['nullable', 'date_format:Y-m-d,d-m-Y'],
+            'end_date' => ['nullable', 'date_format:Y-m-d,d-m-Y'],
+            'branch_id' => ['nullable', 'integer', 'exists:sister_concerns,id'],
+            'category' => ['nullable', Rule::in(array_merge(['all'], array_keys(DailyTransactionReport::SECTIONS)))],
+            'account_head_id' => ['nullable', 'integer', 'min:1'],
+        ]);
+        $startDate = isset($validated['start_date']) ? Carbon::parse($validated['start_date'])->format('Y-m-d') : ApplicationDate::today();
+        $endDate = isset($validated['end_date']) ? Carbon::parse($validated['end_date'])->format('Y-m-d') : ApplicationDate::today();
+        if ($endDate < $startDate) {
+            throw ValidationException::withMessages(['end_date' => 'End date must be on or after start date.']);
+        }
+        $activeBranch = auth()->user()->activeConcernId();
+        $requestedBranch = $validated['branch_id'] ?? null;
+        // Branch users cannot widen their scope by editing the report URL.
+        abort_if($activeBranch !== null && $requestedBranch !== null && (int) $activeBranch !== (int) $requestedBranch, 403);
+        $branchId = $activeBranch !== null ? (int) $activeBranch : ($requestedBranch !== null ? (int) $requestedBranch : null);
+        $category = $validated['category'] ?? 'all';
+        return compact('startDate', 'endDate', 'branchId', 'category');
+    }
+
     public function dailyTransactions(Request $request)
     {
-        $startDate = $request->start_date ? Carbon::parse($request->start_date)->format('Y-m-d') : date('Y-m-d', strtotime(auth()->user()->business_date));
-        $endDate = $request->end_date ? Carbon::parse($request->end_date)->format('Y-m-d') : date('Y-m-d', strtotime(auth()->user()->business_date));
-        $branchId = $request->branch_id ?? auth()->user()->activeConcernId();
-
-        $query = Transaction::whereBetween('date', [$startDate, $endDate])
-            ->where('is_opening_balance', 0);
-
-        if ($branchId) {
-            $query->where('sister_concern_id', $branchId);
-        }
-
-        // To map purpose integer to human readable name
-        $purposeNames = PaymentPurpose::names();
-
-        // Fetch transactions joined with account head to find cash/bank movements
-        $cashBankTransactions = clone $query;
-        $cashBankTransactions = $cashBankTransactions->with(['accountHead', 'voucher.saleOrder.saleOrderItems.product'])->whereHas('accountHead', function ($q) {
-            $q->where('payment_mode', '>', 0); // Only Cash or Bank accounts
-        })->get();
-
-        $summary = [
-            'sales_invoice' => [
-                'id' => 'sales_invoice',
-                'name' => 'Sales (All Invoices)',
-                'count' => 0,
-                'sales' => 0,
-                'purchase' => 0,
-                'transfer' => 0,
-                'payment' => 0,
-                'receipt' => 0,
-                'orders' => []
-            ],
-            'purchase_bill' => [
-                'id' => 'purchase_bill',
-                'name' => 'Purchase (All Bills)',
-                'count' => 0,
-                'sales' => 0,
-                'purchase' => 0,
-                'transfer' => 0,
-                'payment' => 0,
-                'receipt' => 0,
-                'orders' => []
-            ],
-            'stock_transfer_sent' => [
-                'id' => 'stock_transfer_sent',
-                'name' => 'Stock Transfer (Sent)',
-                'count' => 0,
-                'sales' => 0,
-                'purchase' => 0,
-                'transfer' => 0,
-                'payment' => 0,
-                'receipt' => 0,
-                'orders' => []
-            ],
-            'stock_transfer_received' => [
-                'id' => 'stock_transfer_received',
-                'name' => 'Stock Transfer (Received)',
-                'count' => 0,
-                'sales' => 0,
-                'purchase' => 0,
-                'transfer' => 0,
-                'payment' => 0,
-                'receipt' => 0,
-                'orders' => []
-            ],
-        ];
-
-        // 1. Invoiced Sales Total
-        // 1. Invoiced Sales Total
-        $salesQ = SaleOrder::whereBetween('date', [$startDate, $endDate]);
-        if ($branchId)
-            $salesQ->where('sister_concern_id', $branchId);
-        $summary['sales_invoice']['sales'] = $salesQ->sum('total');
-
-        // 2. Billed Purchase Total
-        $purchaseQ = PurchaseOrder::whereBetween('date', [$startDate, $endDate]);
-        if ($branchId)
-            $purchaseQ->where('sister_concern_id', $branchId);
-        $summary['purchase_bill']['purchase'] = $purchaseQ->sum('total');
-
-        // 3. Stock Transfer Sent
-        $transferOutQ = StockTransfer::whereBetween('date', [$startDate, $endDate])->where('is_return', 0);
-        if ($branchId)
-            $transferOutQ->where('from_sister_concern_id', $branchId);
-        $summary['stock_transfer_sent']['transfer'] = StockTransferItem::whereHas('stockTransfer', function ($q) use ($startDate, $endDate, $branchId) {
-            $q->whereBetween('date', [$startDate, $endDate])->where('is_return', 0);
-            if ($branchId)
-                $q->where('from_sister_concern_id', $branchId);
-        })->sum(DB::raw('quantity * COALESCE(transfer_price, unit_price)'));
-
-        // 4. Stock Transfer Received
-        $transferInQ = StockTransfer::whereBetween('date', [$startDate, $endDate])->where('is_return', 0);
-        if ($branchId)
-            $transferInQ->where('to_sister_concern_id', $branchId);
-        $summary['stock_transfer_received']['transfer'] = StockTransferItem::whereHas('stockTransfer', function ($q) use ($startDate, $endDate, $branchId) {
-            $q->whereBetween('date', [$startDate, $endDate])->where('is_return', 0);
-            if ($branchId)
-                $q->where('to_sister_concern_id', $branchId);
-        })->sum(DB::raw('quantity * COALESCE(transfer_price, unit_price)'));
-
-        foreach ($purposeNames as $id => $name) {
-            if (!isset($summary[$id])) {
-                $summary[$id] = [
-                    'id' => $id,
-                    'name' => $name,
-                    'count' => 0,
-                    'sales' => 0,
-                    'purchase' => 0,
-                    'transfer' => 0,
-                    'payment' => 0,
-                    'receipt' => 0,
-                    'orders' => []
-                ];
-            }
-        }
-
-        foreach ($cashBankTransactions as $tx) {
-            $purpose = $tx->payment_purpose;
-
-            if (!$purpose) {
-                if ($tx->transaction_type == TransactionType::$DEBIT) {
-                    $purpose = 'other_receipts';
-                } else {
-                    $purpose = 'other_payments';
-                }
-            }
-
-            // Map Instant Cash Sales to the main 'sales_invoice' row
-            if ($purpose == PaymentPurpose::$INSTANT_COLLECTION) {
-                $purpose = 'sales_invoice';
-            }
-            // Map Instant Cash Purchase to the main 'purchase_bill' row
-            else if ($purpose == PaymentPurpose::$INSTANT_PAYMENT) {
-                $purpose = 'purchase_bill';
-            }
-            // Map Stock Transfer to stock transfer rows? Wait, Stock Transfer payment is Inter-Company Settlement
-
-            $purposeName = $purposeNames[$purpose] ?? 'Other / Unknown (' . $purpose . ')';
-
-            if (!isset($summary[$purpose])) {
-                $summary[$purpose] = [
-                    'id' => $purpose,
-                    'name' => $purposeName,
-                    'count' => 0,
-                    'sales' => 0,
-                    'purchase' => 0,
-                    'transfer' => 0,
-                    'payment' => 0,
-                    'receipt' => 0,
-                    'orders' => []
-                ];
-            }
-
-            $summary[$purpose]['count']++;
-
-            if ($tx->voucher && $tx->voucher->saleOrder) {
-                $orderStr = "<b>Order #" . $tx->voucher->saleOrder->order_no . ":</b> ";
-                $products = [];
-                if ($tx->voucher->saleOrder->saleOrderItems) {
-                    foreach ($tx->voucher->saleOrder->saleOrderItems as $item) {
-                        $products[] = ($item->product->name ?? 'Unknown Product') . ' (' . $item->quantity . ' pc)';
-                    }
-                }
-                $orderStr .= implode(', ', $products);
-
-                // Use the string as key to avoid duplicates if multiple payments exist for same order
-                if (!in_array($orderStr, $summary[$purpose]['orders'])) {
-                    $summary[$purpose]['orders'][] = $orderStr;
-                }
-            }
-
-            // If Cash/Bank is DEBITED, it's an Inflow (Receipt)
-            if ($tx->transaction_type == TransactionType::$DEBIT) {
-                $summary[$purpose]['receipt'] += $tx->amount;
-                // No need to add to sales again because sales value is already calculated from SaleOrder
-            }
-            // If Cash/Bank is CREDITED, it's an Outflow (Payment)
-            else if ($tx->transaction_type == TransactionType::$CREDIT) {
-                $summary[$purpose]['payment'] += $tx->amount;
-                // No need to add to purchase again because purchase value is already calculated from PurchaseOrder
-            }
-        }
-
-        // Remove empty rows
-        $summary = array_filter($summary, function ($row) {
-            return ($row['sales'] ?? 0) > 0 || ($row['purchase'] ?? 0) > 0 || ($row['transfer'] ?? 0) > 0 || ($row['payment'] ?? 0) > 0 || ($row['receipt'] ?? 0) > 0;
-        });
-
-        $sister_concerns = SisterConcern::where('status', 1)->get();
-
-        if ($request->has('search')) {
-            return view('accounts.reports.daily_transactions_report', compact(
-                'summary',
-                'sister_concerns',
-                'startDate',
-                'endDate'
-            ));
-        }
-
-        return view('accounts.reports.daily_transactions', compact(
-            'summary',
-            'sister_concerns',
-            'startDate',
-            'endDate'
-        ));
+        $filters = $this->dailyReportFilters($request);
+        $sister_concerns = SisterConcern::orderBy('name')->get();
+        $sectionNames = DailyTransactionReport::SECTIONS;
+        $report = $request->has('search')
+            ? app(DailyTransactionReport::class)->summary($filters['startDate'], $filters['endDate'], $filters['branchId'])
+            : null;
+        return view($request->has('search') ? 'accounts.reports.daily_transactions_report' : 'accounts.reports.daily_transactions',
+            array_merge($filters, compact('sister_concerns', 'sectionNames', 'report')));
     }
 
     public function dailyTransactionsDetails(Request $request)
     {
-        $startDate = $request->start_date ? Carbon::parse($request->start_date)->format('Y-m-d') : date('Y-m-d', strtotime(auth()->user()->business_date));
-        $endDate = $request->end_date ? Carbon::parse($request->end_date)->format('Y-m-d') : date('Y-m-d', strtotime(auth()->user()->business_date));
-        $branchId = $request->branch_id ?? auth()->user()->activeConcernId();
-        $paymentPurpose = $request->payment_purpose;
-
-        $query = Transaction::whereBetween('date', [$startDate, $endDate])
-            ->where('is_opening_balance', 0);
-
-        if ($paymentPurpose == 'sales_invoice') {
-            $query->where('payment_purpose', PaymentPurpose::$INSTANT_COLLECTION);
-        } else if ($paymentPurpose == 'purchase_bill') {
-            $query->where('payment_purpose', PaymentPurpose::$INSTANT_PAYMENT);
-        } else if ($paymentPurpose == 'other_receipts' || $paymentPurpose == 'other_payments') {
-            $query->whereNull('payment_purpose');
-            $type = ($paymentPurpose == 'other_receipts') ? TransactionType::$DEBIT : TransactionType::$CREDIT;
-            $query->where('transaction_type', $type);
-        } else {
-            $query->where('payment_purpose', $paymentPurpose);
-        }
-
-        if ($branchId) {
-            $query->where('sister_concern_id', $branchId);
-        }
-
-        $cashBankTransactions = clone $query;
-        $cashBankTransactions = $cashBankTransactions->with(['accountHead', 'voucher.saleOrder.saleOrderItems.product'])->whereHas('accountHead', function ($q) {
-            $q->where('payment_mode', '>', 0); // Only Cash or Bank accounts
-        })->orderBy('id', 'asc')->get();
-
+        $filters = $this->dailyReportFilters($request);
+        $request->validate(['account_head_id' => ['required', 'integer', 'min:1']]);
+        $service = app(DailyTransactionReport::class);
+        $query = $service->query($filters['startDate'], $filters['endDate'], $filters['branchId'])
+            ->where('account_head_id', $request->integer('account_head_id'));
+        // The same scope and ledger lines power summary and details.
+        abort_unless((clone $query)->exists(), 404);
+        $head = AccountHead::withTrashed()->with('supplier')->find($request->integer('account_head_id'));
+        $totals = (clone $query)
+            ->selectRaw('SUM(CASE WHEN transaction_type = 1 THEN CAST(amount AS DECIMAL(24,2)) ELSE 0 END) AS debit')
+            ->selectRaw('SUM(CASE WHEN transaction_type = 2 THEN CAST(amount AS DECIMAL(24,2)) ELSE 0 END) AS credit')->first();
+        $transactions = $query->with([
+            'voucher' => fn ($q) => $q->withTrashed(),
+            'voucher.transactions' => fn ($q) => $q->when($filters['branchId'] !== null, fn ($q) => $q->where('sister_concern_id', $filters['branchId'])),
+            'voucher.transactions.accountHead' => fn ($q) => $q->withTrashed()->with('supplier'),
+            'payeeDepositorHead' => fn ($q) => $q->withTrashed()->with('supplier'),
+        ])->orderBy('date')->orderBy('id')->paginate(100)->withQueryString();
+        $sister_concerns = SisterConcern::get()->keyBy('id');
         $purposeNames = PaymentPurpose::names();
-        $purposeNames['sales_invoice'] = 'Sales (All Invoices)';
-        $purposeNames['purchase_bill'] = 'Purchase (All Bills)';
-        $purposeNames['stock_transfer_sent'] = 'Stock Transfer (Sent)';
-        $purposeNames['stock_transfer_received'] = 'Stock Transfer (Received)';
-
-        $purposeName = $purposeNames[$paymentPurpose] ?? 'Unknown Purpose';
-
-        return view('accounts.reports.daily_transactions_details', compact(
-            'cashBankTransactions',
-            'startDate',
-            'endDate',
-            'purposeName'
-        ));
+        return view('accounts.reports.daily_transactions_details', array_merge($filters, compact('head', 'transactions', 'totals', 'sister_concerns', 'purposeNames')));
     }
 }
