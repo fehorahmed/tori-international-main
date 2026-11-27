@@ -55,6 +55,7 @@ Route::prefix('shomriddhi-advance')->name('shomriddhi-advance.')->group(function
     // Reports
     Route::prefix('reports')->name('reports.')->middleware('permission:shomriddhi_advance_reports')->group(function () {
         Route::get('/members', [MembershipReportController::class, 'members'])->name('members');
+        Route::get('/deposit-withdraw', [MembershipReportController::class, 'deposit_withdraw'])->name('deposit_withdraw');
         Route::get('/agents', [MembershipReportController::class, 'agents'])->name('agents');
         Route::get('/referral-bonus', [MembershipReportController::class, 'referrals'])->name('referrals');
         Route::get('/ledger', [ReportController::class, 'ledger'])->name('ledger')->middleware('permission:shomriddhi_advance_ledger_report');

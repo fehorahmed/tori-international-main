@@ -84,6 +84,43 @@ class MembershipReportsTest extends TestCase
         $this->assertSame(0, $emptyPeriod['totals']['Transactions']);
     }
 
+    public function test_deposit_withdraw_normalizes_cashout_and_filters_without_double_counting(): void
+    {
+        $account = ShomriddhiAccount::create(['customer_id' => $this->member->id, 'origin_sister_concern_id' => $this->branch]);
+        $voucherIds = [];
+        foreach ([100, 5] as $amount) {
+            $voucher = \App\Models\Account\Voucher::create(['sister_concern_id' => $this->branch, 'voucher_type' => 3, 'amount' => $amount,
+                'date' => '2026-02-15', 'voucher_no' => 'RPT-'.Str::random(12), 'voucher_no_group_sl' => 1, 'user_id' => $this->admin->id]);
+            $voucherIds[] = $voucher->id;
+            \App\Models\ShomriddhiAdvance\ShomriddhiTransaction::create(['customer_id' => $this->member->id, 'type' => 'withdraw',
+                'created_by' => $this->admin->id, 'amount' => $amount, 'date' => '2026-02-15', 'status' => 'Approved', 'voucher_id' => $voucher->id]);
+        }
+        $cashout = ['reference' => 'RPT-'.Str::random(12), 'customer_id' => $this->member->id, 'account_id' => $account->id,
+            'branch_id' => $this->branch, 'cash_head_id' => 1, 'idempotency_key' => Str::random(32), 'quote_hash' => Str::random(32),
+            'status' => 'Completed', 'amount' => 100, 'fee' => 5, 'total' => 105, 'charge_type' => 'fixed', 'charge_rate' => 5,
+            'expires_at' => '2026-02-15 13:00:00', 'completed_at' => '2026-02-15 12:00:00', 'voucher_id' => $voucherIds[0], 'fee_voucher_id' => $voucherIds[1]];
+        $id = DB::table('membership_cashouts')->insertGetId($cashout);
+        foreach (['Approved' => 200, 'Pending' => 999] as $status => $amount) {
+            \App\Models\ShomriddhiAdvance\ShomriddhiTransaction::create(['customer_id' => $this->member->id, 'type' => 'deposit',
+                'created_by' => $this->admin->id, 'amount' => $amount, 'date' => '2026-02-15', 'status' => $status]);
+        }
+        $f = ['customer_id' => $this->member->id, 'start_date' => '2026-02-15', 'end_date' => '2026-02-15'];
+        $data = $this->report()->deposit_withdraw($this->branch, $f);
+        $this->assertCount(3, $data['rows']);
+        $this->assertSame('200.00', $data['totals']['Approved Deposit (Tk)']);
+        $this->assertSame('105.00', $data['totals']['Approved Withdraw (Tk)']);
+        $this->assertSame('5.00', $data['totals']['Cash-out Charges Included (Tk)']);
+        $this->assertCount(1, $this->report()->deposit_withdraw($this->branch, $f + ['source' => 'branch_cashout'])['rows']);
+        $this->assertCount(2, $this->report()->deposit_withdraw($this->branch, $f + ['type' => 'deposit'])['rows']);
+        $this->assertCount(1, $this->report()->deposit_withdraw($this->branch, $f + ['status' => 'Pending'])['rows']);
+        $this->assertCount(0, $this->report()->deposit_withdraw($this->other, $f)['rows']);
+        DB::table('membership_cashouts')->where('id', $id)->update(['branch_id' => $this->other]);
+        $this->assertCount(1, $this->report()->deposit_withdraw($this->other, $f)['rows']);
+        $this->assertCount(3, $this->report()->deposit_withdraw($this->branch, $f)['rows']);
+        DB::table('membership_cashouts')->where('id', $id)->update(['status' => 'Pending']);
+        $this->assertCount(0, $this->report()->deposit_withdraw($this->branch, $f + ['source' => 'branch_cashout'])['rows']);
+    }
+
     private function reward(string $type, int $points, string $amount, ?string $paidAt, int $branch, string $date): void
     {
         $customer = Supplier::create(['name' => 'Report referred customer', 'type' => 'Customer', 'status' => 1, 'origin_sister_concern_id' => $branch]);
@@ -128,7 +165,7 @@ class MembershipReportsTest extends TestCase
     {
         $this->withoutMiddleware();
         view()->share('errors', new ViewErrorBag);
-        foreach (['members', 'agents', 'referrals'] as $kind) {
+        foreach (['members', 'agents', 'referrals', 'deposit_withdraw'] as $kind) {
             $url = route('shomriddhi-advance.reports.'.$kind);
             $this->withSession(['active_sister_concern_id' => $this->branch])->get($url)->assertOk()->assertSee('Generate Report');
             $this->withSession(['active_sister_concern_id' => $this->branch])->get($url.'?'.http_build_query(['search' => 1, 'start_date' => '2026-02-15', 'end_date' => '2026-02-15', 'customer_id' => $this->member->id]))

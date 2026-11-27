@@ -18,16 +18,20 @@ class MembershipReportController extends Controller
     public function agents(Request $request) { return $this->report($request, 'agents'); }
     public function referrals(Request $request) { return $this->report($request, 'referrals'); }
 
+    public function deposit_withdraw(Request $request) { return $this->report($request, 'deposit_withdraw'); }
+
     private function report(Request $request, string $kind)
     {
         // Report permission is applied at the route. Agent and referral financial
         // reports additionally retain the corresponding admin-list restrictions.
-        if ($kind !== 'members') abort_unless(auth()->user()->role === 'Admin', 403);
+        if (in_array($kind, ['agents', 'referrals'], true)) abort_unless(auth()->user()->role === 'Admin', 403);
         $branch = SisterConcern::find(auth()->user()->activeConcernId());
         abort_unless($branch, 422, 'Select a branch before generating this report.');
+        if ($kind === 'deposit_withdraw' && ! $request->has('status')) $request->merge(['status' => 'Approved']);
         $rules = ['start_date' => 'nullable|date_format:Y-m-d', 'end_date' => 'nullable|date_format:Y-m-d'];
         if ($request->filled('start_date')) $rules['end_date'] .= '|after_or_equal:start_date';
         $rules += match ($kind) {
+            'deposit_withdraw' => ['customer_id' => 'nullable|integer|min:1', 'type' => 'nullable|in:deposit,withdraw', 'status' => 'nullable|in:Approved,Pending,Rejected', 'source' => 'nullable|in:savings,branch_cashout'],
             'members' => ['customer_id' => 'nullable|integer|min:1', 'group_id' => 'nullable|integer|min:1', 'status' => 'nullable|in:0,1', 'source' => 'nullable|in:app,ecommerce,unknown'],
             'agents' => ['agent_id' => 'nullable|integer|min:1', 'status' => 'nullable|in:Active,Suspended,Removed'],
             'referrals' => ['referrer_type' => 'nullable|in:member,agent', 'referrer_key' => ['nullable', 'regex:/^(member|agent):[1-9][0-9]*$/'],
@@ -36,8 +40,8 @@ class MembershipReportController extends Controller
         $filters = $request->validate($rules);
         // There is deliberately no request branch override: the active branch is
         // used for records and for every dropdown, including cross-branch attempts.
-        $title = ['members' => 'Member Report', 'agents' => 'Agent Report', 'referrals' => 'Referral Bonus Report'][$kind];
-        $dateLabel = ['members' => 'Joining Date', 'agents' => 'Transaction Date', 'referrals' => 'Bonus Earned Date'][$kind];
+        $title = ['members' => 'Member Report', 'agents' => 'Agent Report', 'referrals' => 'Referral Bonus Report', 'deposit_withdraw' => 'Deposit / Withdraw Report'][$kind];
+        $dateLabel = ['members' => 'Joining Date', 'agents' => 'Transaction Date', 'referrals' => 'Bonus Earned Date', 'deposit_withdraw' => 'Transaction Date'][$kind];
         $options = [];
         if ($kind === 'members') {
             $options = [
@@ -52,6 +56,14 @@ class MembershipReportController extends Controller
                     ->mapWithKeys(fn ($a) => [$a->id => implode(' / ', array_filter([$a->customer?->name, $a->agent_code, $a->customer?->mobile_no]))])->all()],
                 'status' => ['Current Agent Status', ['Active' => 'Active', 'Suspended' => 'Suspended', 'Removed' => 'Removed / Regular Member']],
             ];
+        } elseif ($kind === 'deposit_withdraw') {
+            $members = Supplier::withTrashed()->where(fn ($q) => $q
+                ->whereExists(fn ($q) => $q->selectRaw('1')->from('shomriddhi_accounts as a')->whereColumn('a.customer_id', 'suppliers.id')->where('a.origin_sister_concern_id', $branch->id))
+                ->orWhereIn('id', DB::table('membership_cashouts')->where('branch_id', $branch->id)->where('status', 'Completed')->select('customer_id')))
+                ->orderBy('name')->get()->mapWithKeys(fn ($m) => [$m->id => implode(' / ', array_filter([$m->name, $m->member_no, $m->mobile_no]))])->all();
+            $options = ['customer_id' => ['Member', $members], 'type' => ['Type', ['deposit' => 'Deposit', 'withdraw' => 'Withdraw']],
+                'status' => ['Status', ['Approved' => 'Approved', 'Pending' => 'Pending', 'Rejected' => 'Rejected']],
+                'source' => ['Source', ['savings' => 'Savings Deposit / Withdraw', 'branch_cashout' => 'App Branch Cash-out']]];
         } else {
             $memberIds = DB::table('membership_referral_rewards')->where('branch_id', $branch->id)->where('referrer_type', 'member')->pluck('referrer_id');
             // Include members eligible for milestone-only history, including retired records.

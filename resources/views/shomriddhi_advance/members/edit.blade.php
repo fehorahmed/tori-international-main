@@ -235,6 +235,7 @@
                         </div>
 
 
+                        @include('shomriddhi_advance.members.nominee_edit')
                     </div>
                     <div class="card-footer">
                         <button type="button" class="btn btn-primary bg-gradient-primary btn-sm" id="btnPreview">Save</button>
@@ -307,7 +308,12 @@
                             </tr>
                         </table>
 
-
+                        <h6 class="text-uppercase text-warning font-weight-bold mt-4">Nominee Information</h6>
+                        <table class="table table-sm table-borderless">
+                            @foreach(['nominee_name' => 'Name', 'nominee_relation' => 'Relation', 'nominee_nid' => 'NID', 'nominee_phone' => 'Phone', 'nominee_location' => 'Location', 'nominee_address' => 'Address Details'] as $field => $label)
+                            <tr><td class="text-muted">{{ $label }}</td><td id="preview_{{ $field }}"></td></tr>
+                            @endforeach
+                        </table>
                     </div>
                 </div>
                 <div class="modal-footer bg-light justify-content-between">
@@ -320,6 +326,7 @@
 @endsection
 
 @section('script')
+    @include('shomriddhi_advance.members.nominee_edit_script')
     <script>
         $(function () {
             // Initial values

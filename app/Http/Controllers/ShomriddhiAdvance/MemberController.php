@@ -404,7 +404,18 @@ class MemberController extends Controller
         try {
             $divisions = Division::orderBy('name')->get();
             $groups = ShomriddhiGroup::where('status', 1)->orderBy('code')->get();
-            return view('shomriddhi_advance.members.edit', compact('member', 'divisions', 'groups'));
+            $nominee = Nominee::where('customer_id', $member->id)->orderBy('id')->first();
+            $nomineeDivision = old('nominee_division', $nominee?->division_id);
+            $nomineeDistrict = old('nominee_district', $nominee?->district_id);
+            $nomineeUpazila = old('nominee_upazila', $nominee?->upazila_id);
+            $nomineeUnion = old('nominee_union', $nominee?->union_id ? 'union_'.$nominee->union_id : ($nominee?->pourashava_id ? 'pourashava_'.$nominee->pourashava_id : ''));
+            $nomineeDistricts = DB::table('districts')->where('division_id', $nomineeDivision)->orderBy('name')->get();
+            $nomineeUpazilas = DB::table('upazilas')->where('district_id', $nomineeDistrict)->orderBy('name')->get();
+            $nomineeUnions = DB::table('unions')->where('upazila_id', $nomineeUpazila)->orderBy('name')->get();
+            $nomineePourashavas = DB::table('pourashavas')->where('district_id', $nomineeDistrict)->orderBy('name')->get();
+            $nomineeVillages = str_starts_with((string) $nomineeUnion, 'union_')
+                ? DB::table('villages')->where('union_id', substr($nomineeUnion, 6))->orderBy('name')->get() : collect();
+            return view('shomriddhi_advance.members.edit', compact('member', 'divisions', 'groups', 'nominee', 'nomineeDistricts', 'nomineeUpazilas', 'nomineeUnions', 'nomineePourashavas', 'nomineeVillages'));
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             // Handle the case where the Supplier is not found
             return redirect()->route('shomriddhi-advance.members.index')->with('error', 'Client not found: '.$e->getMessage());
@@ -426,6 +437,7 @@ class MemberController extends Controller
             abort(403, 'You can only edit clients created by your branch.');
         }
 
+        $existingNominee = Nominee::where('customer_id', $member->id)->orderBy('id')->first();
         // Validate the request data
         $validatedData = $request->validate([
             'name' => 'required|max:255',
@@ -453,8 +465,35 @@ class MemberController extends Controller
             'village_id' => 'nullable|integer',
             'shomriddhi_group_id' => 'required|integer',
             'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
+            'nominee_name' => ['nullable', 'string', 'max:255', Rule::requiredIf($existingNominee && $request->has('nominee_name')), 'required_with:nominee_relation,nominee_nid,nominee_phone,nominee_image,nominee_division,nominee_district,nominee_upazila,nominee_union,nominee_village_id,nominee_address'],
+            'nominee_relation' => 'nullable|string|max:255',
+            'nominee_nid' => 'nullable|string|max:255',
+            'nominee_phone' => 'nullable|string|max:25',
+            'nominee_address' => 'nullable|string|max:2000',
+            'nominee_image' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
+            'nominee_division' => ['nullable', 'integer', 'required_with:nominee_district,nominee_upazila', 'exists:divisions,id'],
+            'nominee_district' => ['nullable', 'integer', 'required_with:nominee_upazila,nominee_union', Rule::exists('districts', 'id')->where('division_id', $request->nominee_division)],
+            'nominee_upazila' => ['nullable', 'integer', 'required_with:nominee_union,nominee_village_id', Rule::exists('upazilas', 'id')->where('district_id', $request->nominee_district)],
+            'nominee_union' => ['nullable', 'regex:/^(union|pourashava)_[1-9][0-9]*$/', function ($attribute, $value, $fail) use ($request) {
+                if (! preg_match('/^(union|pourashava)_([1-9][0-9]*)$/', (string) $value, $parts)) return;
+                $valid = $parts[1] === 'union'
+                    ? DB::table('unions')->where('id', $parts[2])->where('upazila_id', $request->nominee_upazila)->exists()
+                    : DB::table('pourashavas')->where('id', $parts[2])->where('district_id', $request->nominee_district)->exists();
+                if (! $valid) $fail('Select a valid nominee union or pourashava for the selected location.');
+            }],
+            'nominee_village_id' => ['nullable', 'integer', function ($attribute, $value, $fail) use ($request) {
+                $union = (string) $request->nominee_union;
+                if (! str_starts_with($union, 'union_') || ! DB::table('villages')->where('id', $value)->where('union_id', substr($union, 6))->exists()) {
+                    $fail('Select a valid nominee village for the selected union.');
+                }
+            }],
         ]);
 
+        foreach (array_keys($validatedData) as $field) {
+            if (str_starts_with($field, 'nominee_')) unset($validatedData[$field]);
+        }
+        $newNomineeImage = null;
+        $oldNomineeImage = null;
         // Start a database transaction
         DB::beginTransaction();
 
@@ -517,14 +556,39 @@ class MemberController extends Controller
             $accountHead->is_editable = 0;
             $accountHead->save();
 
-            // Commit the transaction
+            if ($request->filled('nominee_name')) {
+                $nominee = Nominee::where('customer_id', $member->id)->orderBy('id')->lockForUpdate()->first()
+                    ?? new Nominee(['customer_id' => $member->id]);
+                foreach (['nominee_name' => 'name', 'nominee_relation' => 'relation', 'nominee_nid' => 'nid_number', 'nominee_phone' => 'phone',
+                    'nominee_division' => 'division_id', 'nominee_district' => 'district_id', 'nominee_upazila' => 'upazila_id',
+                    'nominee_village_id' => 'village_id', 'nominee_address' => 'address'] as $input => $column) {
+                    if ($request->has($input)) $nominee->{$column} = $request->input($input);
+                }
+                if ($request->has('nominee_union')) {
+                    $union = (string) $request->nominee_union;
+                    $nominee->union_id = str_starts_with($union, 'union_') ? substr($union, 6) : null;
+                    $nominee->pourashava_id = str_starts_with($union, 'pourashava_') ? substr($union, 11) : null;
+                }
+                if ($request->hasFile('nominee_image')) {
+                    $oldNomineeImage = $nominee->image;
+                    $newNomineeImage = $this->uploadImage($request->file('nominee_image'), 'nominee');
+                    $nominee->image = $newNomineeImage;
+                }
+                $nominee->save();
+            }
+
+            // Commit before removing a replaced nominee image.
             DB::commit();
+            if ($newNomineeImage && $oldNomineeImage) {
+                try { $this->deleteFile($oldNomineeImage); } catch (\Throwable $cleanupError) { report($cleanupError); }
+            }
 
             // Redirect to the index page with a success message
             return redirect()->route('shomriddhi-advance.members.index')->with('success', 'Client updated successfully');
         } catch (\Exception $e) {
             // Roll back the transaction in case of an error
             DB::rollback();
+            if ($newNomineeImage) $this->deleteFile($newNomineeImage);
 
             // Handle the error and redirect with an error message
             return redirect()->route('shomriddhi-advance.members.edit', ['member' => $member->id])

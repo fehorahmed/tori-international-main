@@ -104,6 +104,9 @@
 <li class="nav-item"><a href="{{ route('shomriddhi-advance.reports.members') }}" class="nav-link {{ request()->routeIs('shomriddhi-advance.reports.members') ? 'active' : '' }}"><i class="fas fa-users nav-icon"></i><p>Member Report</p></a></li>
 @if(auth()->user()->role === 'Admin')
 <li class="nav-item"><a href="{{ route('shomriddhi-advance.reports.agents') }}" class="nav-link {{ request()->routeIs('shomriddhi-advance.reports.agents') ? 'active' : '' }}"><i class="fas fa-user-tie nav-icon"></i><p>Agent Report</p></a></li>
+@endif
+<li class="nav-item"><a href="{{ route('shomriddhi-advance.reports.deposit_withdraw') }}" class="nav-link {{ request()->routeIs('shomriddhi-advance.reports.deposit_withdraw') ? 'active' : '' }}"><i class="fas fa-exchange-alt nav-icon"></i><p>Deposit / Withdraw Report</p></a></li>
+@if(auth()->user()->role === 'Admin')
 <li class="nav-item"><a href="{{ route('shomriddhi-advance.reports.referrals') }}" class="nav-link {{ request()->routeIs('shomriddhi-advance.reports.referrals') ? 'active' : '' }}"><i class="fas fa-gift nav-icon"></i><p>Referral Bonus Report</p></a></li>
 @endif
 @if(auth()->user()->can('shomriddhi_advance_ledger_report'))
