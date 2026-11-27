@@ -53,11 +53,27 @@ class MemberController extends Controller
     }
     public function dataTable(Request $request)
     {
-        $request->validate(['branch_id' => ['nullable', 'integer', Rule::exists(SisterConcern::class, 'id')]]);
+        $dateRules = [
+            'branch_id' => ['nullable', 'integer', Rule::exists(SisterConcern::class, 'id')],
+            'joined_from' => ['nullable', 'date_format:Y-m-d'],
+            'joined_to' => ['nullable', 'date_format:Y-m-d'],
+        ];
+        if ($request->filled('joined_from')) {
+            $dateRules['joined_to'][] = 'after_or_equal:joined_from';
+        }
+        $request->validate($dateRules);
         $query = Supplier::where('type', SupplierType::$CUSTOMER)
             // where('origin_sister_concern_id', auth()->user()->activeConcernId())
             ->with('division', 'district', 'upazila', 'union', 'shomriddhiGroup', 'originSisterConcern')
             ->orderBy('id', 'desc');
+
+        // Joining date is the member registration timestamp, including the full end day.
+        if ($request->filled('joined_from')) {
+            $query->where('suppliers.created_at', '>=', $request->joined_from.' 00:00:00');
+        }
+        if ($request->filled('joined_to')) {
+            $query->where('suppliers.created_at', '<', \Carbon\Carbon::parse($request->joined_to)->addDay()->format('Y-m-d').' 00:00:00');
+        }
 
         if ($request->filled('branch_id')) {
             $query->where('origin_sister_concern_id', $request->integer('branch_id'));

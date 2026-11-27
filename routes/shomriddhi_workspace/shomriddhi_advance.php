@@ -5,6 +5,7 @@ use App\Http\Controllers\ShomriddhiAdvance\AdvanceController;
 
 use App\Http\Controllers\ShomriddhiAdvance\DashboardController;
 use App\Http\Controllers\ShomriddhiAdvance\ReportController;
+use App\Http\Controllers\ShomriddhiAdvance\MembershipReportController;
 use App\Http\Controllers\ShomriddhiAdvance\SlabController;
 use App\Http\Controllers\ShomriddhiAdvance\AccountController;
 use App\Http\Controllers\ShomriddhiAdvance\PassbookController;
@@ -53,6 +54,9 @@ Route::prefix('shomriddhi-advance')->name('shomriddhi-advance.')->group(function
 
     // Reports
     Route::prefix('reports')->name('reports.')->middleware('permission:shomriddhi_advance_reports')->group(function () {
+        Route::get('/members', [MembershipReportController::class, 'members'])->name('members');
+        Route::get('/agents', [MembershipReportController::class, 'agents'])->name('agents');
+        Route::get('/referral-bonus', [MembershipReportController::class, 'referrals'])->name('referrals');
         Route::get('/ledger', [ReportController::class, 'ledger'])->name('ledger')->middleware('permission:shomriddhi_advance_ledger_report');
         Route::get('/get-filtered-accounts', [ReportController::class, 'getFilteredAccounts'])->name('get_filtered_accounts')->middleware('permission:shomriddhi_advance_ledger_report');
         Route::get('/collection-sheet', [ReportController::class, 'collectionSheet'])->name('collection_sheet');

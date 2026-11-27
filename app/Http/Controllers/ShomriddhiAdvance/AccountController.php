@@ -39,8 +39,20 @@ class AccountController extends Controller
 
     public function dataTable(Request $request)
     {
+        $rules = ['start_date' => ['nullable', 'date_format:Y-m-d'], 'end_date' => ['nullable', 'date_format:Y-m-d']];
+        if ($request->filled('start_date')) {
+            $rules['end_date'][] = 'after_or_equal:start_date';
+        }
+        $request->validate($rules);
         $accounts = ShomriddhiAccount::with('customer')
             ->where('origin_sister_concern_id', auth()->user()->activeConcernId());
+
+        if ($request->filled('start_date')) {
+            $accounts->where('shomriddhi_accounts.opening_date', '>=', $request->start_date);
+        }
+        if ($request->filled('end_date')) {
+            $accounts->where('shomriddhi_accounts.opening_date', '<=', $request->end_date);
+        }
 
         if ($request->division_id || $request->district_id || $request->upazila_id || $request->union_id || $request->village_id) {
             $accounts->whereHas('customer', function($q) use ($request) {

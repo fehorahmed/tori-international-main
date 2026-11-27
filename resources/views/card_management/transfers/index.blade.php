@@ -13,8 +13,17 @@
                 <div class="row">
                     <div class="col-md-3 mb-3"><label for="from_date">From Date</label><input type="date" id="from_date" class="form-control"></div>
                     <div class="col-md-3 mb-3"><label for="to_date">To Date</label><input type="date" id="to_date" class="form-control"></div>
-                    <div class="col-md-3 mb-3"><label for="sender">Sender</label><input type="text" id="sender" class="form-control" maxlength="100" placeholder="Name, Member ID or mobile"></div>
-                    <div class="col-md-3 mb-3"><label for="recipient">Recipient</label><input type="text" id="recipient" class="form-control" maxlength="100" placeholder="Name, Member ID or mobile"></div>
+                    @foreach(['sender' => ['Sender', $senders], 'recipient' => ['Recipient', $recipients]] as $field => $config)
+                    <div class="col-md-3 mb-3">
+                        <label for="{{ $field }}">{{ $config[0] }}</label>
+                        <select id="{{ $field }}" name="{{ $field }}_id" class="form-control">
+                            <option value="">All {{ strtolower($config[0]) }}s</option>
+                            @foreach($config[1] as $member)
+                            <option value="{{ $member->id }}">{{ implode(' / ', array_filter([$member->name, $member->member_no, $member->mobile_no])) }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    @endforeach
                 </div>
                 <button type="submit" class="btn btn-primary">Search</button>
                 <button type="reset" class="btn btn-secondary">Reset</button>
@@ -33,6 +42,8 @@
 $(function () {
     let filters = {};
     const error = $('#filter-error');
+    $('#sender').select2({width: '100%', placeholder: 'All senders', allowClear: true});
+    $('#recipient').select2({width: '100%', placeholder: 'All recipients', allowClear: true});
     const table = $('#table').DataTable({
         processing: true,
         serverSide: true,
@@ -56,10 +67,11 @@ $(function () {
             error.text('To date must be on or after from date.').removeClass('d-none');
             return;
         }
-        filters = {from_date: from, to_date: to, sender: $('#sender').val().trim(), recipient: $('#recipient').val().trim()};
+        filters = {from_date: from, to_date: to, sender_id: $('#sender').val(), recipient_id: $('#recipient').val()};
         table.ajax.reload();
     });
     $('#transfer-filters').on('reset', function () {
+        $('#sender, #recipient').val('').trigger('change.select2');
         filters = {};
         error.addClass('d-none').empty();
         table.search('').columns().search('');

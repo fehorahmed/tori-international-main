@@ -228,8 +228,12 @@ class MembershipReferralRewardTest extends TestCase
         $this->assertSame($this->admin->id, membership_transaction_setting('referral.posting_user_id'));
         $this->assertStringContainsString('Member points per successful referral', $settings->index()->with('errors', new ViewErrorBag)->render());
         $view = app(ReferralController::class)->index(Request::create('/', 'GET', ['type' => 'member', 'referrer_id' => $this->member->id]));
-        $this->assertSame(1, $view->getData()['summary']->first()->fee_paid + 0);
-        $this->assertStringContainsString('Referred test customer', $view->with('errors', new ViewErrorBag)->render());
+        $this->assertStringContainsString('referral-summary', $view->with('errors', new ViewErrorBag)->render());
+        $this->withoutMiddleware();
+        $this->getJson(route('card-management.referrals.index', ['table' => 'summary', 'type' => 'member', 'referrer_id' => $this->member->id]), ['X-Requested-With' => 'XMLHttpRequest'])
+            ->assertOk()->assertJsonPath('data.0.fee_paid', '1');
+        $details = $this->getJson(route('card-management.referrals.index', ['table' => 'details', 'type' => 'member', 'referrer_id' => $this->member->id]), ['X-Requested-With' => 'XMLHttpRequest'])->assertOk();
+        $this->assertStringContainsString('Referred test customer', $details->getContent());
         $this->admin->update(['role' => 'Agent']);
         try { app(ReferralController::class)->index(Request::create('/')); $this->fail('Must reject non admin'); }
         catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) { $this->assertSame(403, $e->getStatusCode()); }

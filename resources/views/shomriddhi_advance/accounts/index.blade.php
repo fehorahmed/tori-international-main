@@ -12,6 +12,20 @@
                     <h3 class="card-title">Data Filter</h3>
                 </div>
                 <div class="card-body">
+                    <div id="account-filter-error" class="alert alert-danger d-none" role="alert"></div>
+                    <div class="row">
+                        <div class="col-md-3 form-group">
+                            <label for="account-from">Opening Date — From</label>
+                            <input type="date" id="account-from" name="start_date" class="form-control">
+                        </div>
+                        <div class="col-md-3 form-group">
+                            <label for="account-to">Opening Date — To</label>
+                            <input type="date" id="account-to" name="end_date" class="form-control">
+                        </div>
+                        <div class="col-md-3 d-flex align-items-end">
+                            <button type="button" id="clear-account-dates" class="btn btn-secondary mb-3">Clear Dates</button>
+                        </div>
+                    </div>
                     <div class="row">
                         <div class="col-md-2">
                             <div class="form-group">
@@ -108,11 +122,16 @@
             ajax: {
                 url: '{{ route('shomriddhi-advance.accounts.datatable') }}',
                 data: function(d) {
+                    d.start_date = $('#account-from').val();
+                    d.end_date = $('#account-to').val();
                     d.division_id = $('#division_id').val();
                     d.district_id = $('#district_id').val();
                     d.upazila_id = $('#upazila_id').val();
                     d.union_id = $('#union_id').val();
                     d.village_id = $('#village_id').val();
+                },
+                error: function (xhr) {
+                    $('#account-filter-error').text(xhr.responseJSON?.message || 'Unable to load accounts. Please try again.').removeClass('d-none');
                 }
             },
             "dom": 'lBfrtip',
@@ -130,6 +149,22 @@
                 {data: 'action', name: 'action', orderable: false, searchable: false, className: 'text-center'}
             ],
             order: [[0, 'desc']]
+        });
+
+        $('#account-from, #account-to').on('change', function () {
+            const from = $('#account-from').val(), to = $('#account-to').val();
+            const error = $('#account-filter-error');
+            error.addClass('d-none').empty();
+            if (from && to && to < from) {
+                error.text('Opening end date must be on or after start date.').removeClass('d-none');
+                return;
+            }
+            table.ajax.reload();
+        });
+        $('#clear-account-dates').on('click', function () {
+            $('#account-from, #account-to').val('');
+            $('#account-filter-error').addClass('d-none').empty();
+            table.ajax.reload();
         });
 
         $(document).on('location_filter_changed', function() {

@@ -101,6 +101,11 @@
 
 @if(auth()->user()->can('shomriddhi_advance_reports'))
 <li class="nav-header text-uppercase font-weight-bold text-muted mt-2" style="font-size: 0.75rem;">Reports</li>
+<li class="nav-item"><a href="{{ route('shomriddhi-advance.reports.members') }}" class="nav-link {{ request()->routeIs('shomriddhi-advance.reports.members') ? 'active' : '' }}"><i class="fas fa-users nav-icon"></i><p>Member Report</p></a></li>
+@if(auth()->user()->role === 'Admin')
+<li class="nav-item"><a href="{{ route('shomriddhi-advance.reports.agents') }}" class="nav-link {{ request()->routeIs('shomriddhi-advance.reports.agents') ? 'active' : '' }}"><i class="fas fa-user-tie nav-icon"></i><p>Agent Report</p></a></li>
+<li class="nav-item"><a href="{{ route('shomriddhi-advance.reports.referrals') }}" class="nav-link {{ request()->routeIs('shomriddhi-advance.reports.referrals') ? 'active' : '' }}"><i class="fas fa-gift nav-icon"></i><p>Referral Bonus Report</p></a></li>
+@endif
 @if(auth()->user()->can('shomriddhi_advance_ledger_report'))
 <li class="nav-item">
     <a href="{{ route('shomriddhi-advance.reports.ledger') }}" class="nav-link {{ request()->routeIs('shomriddhi-advance.reports.ledger') ? 'active' : '' }}">

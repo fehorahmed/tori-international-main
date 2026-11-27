@@ -495,6 +495,16 @@ class MembershipTransferTest extends TestCase
         $result = $this->adminTransferData($filters);
         $this->assertSame(1, $result['recordsFiltered']);
         $this->assertSame($transfer->reference, $result['data'][0]['reference']);
+        $idFilters = ['sender_id' => $this->customer->id, 'recipient_id' => $this->recipient->id,
+            'from_date' => $filters['from_date'], 'to_date' => $filters['to_date']];
+        $this->assertSame(1, $this->adminTransferData($idFilters)['recordsFiltered']);
+        $this->assertSame(0, $this->adminTransferData(['sender_id' => $this->recipient->id, 'recipient_id' => $this->customer->id])['recordsFiltered']);
+        $view = app(TransferController::class)->index(Request::create('/'));
+        $this->assertTrue($view->getData()['senders']->contains('id', $this->customer->id));
+        $this->assertTrue($view->getData()['recipients']->contains('id', $this->recipient->id));
+        $this->assertStringContainsString('name="sender_id"', $view->with('errors', new \Illuminate\Support\ViewErrorBag)->render());
+        $this->assertStringContainsString('name="recipient_id"', $view->render());
+
         $this->assertStringContainsString($this->recipient->name, $result['data'][0]['recipient_label']);
         $this->assertArrayNotHasKey('quote_hash', $result['data'][0]);
         foreach (['sender' => 'No such sender', 'recipient' => 'No such recipient', 'from_date' => now()->toDateString()] as $key => $value) {
@@ -516,6 +526,11 @@ class MembershipTransferTest extends TestCase
         Voucher::whereKey($transfer->voucher_id)->update(['sister_concern_id' => $other->id]);
         Voucher::whereKey($transfer->recipient_voucher_id)->update(['sister_concern_id' => $other->id]);
         $this->assertSame(0, $this->adminTransferData(['recipient' => $this->recipient->member_no])['recordsFiltered']);
+        $this->assertSame(0, $this->adminTransferData(['sender_id' => $this->customer->id, 'recipient_id' => $this->recipient->id])['recordsFiltered']);
+        $view = app(TransferController::class)->index(Request::create('/'));
+        $this->assertFalse($view->getData()['senders']->contains('id', $this->customer->id));
+        $this->assertFalse($view->getData()['recipients']->contains('id', $this->recipient->id));
+
         $this->expectException(ValidationException::class);
         $this->adminTransferData(['from_date' => '2026-11-20', 'to_date' => '2026-11-19']);
     }

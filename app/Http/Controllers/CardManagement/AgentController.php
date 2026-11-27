@@ -121,7 +121,8 @@ class AgentController extends Controller
     public function transactions(Request $r)
     {
         $this->admin();
-        $rules = ['type' => 'nullable|in:agent_cashin,agent_cashout', 'start_date' => 'nullable|date_format:Y-m-d', 'end_date' => 'nullable|date_format:Y-m-d'];
+        $rules = ['type' => 'nullable|in:agent_cashin,agent_cashout', 'start_date' => 'nullable|date_format:Y-m-d', 'end_date' => 'nullable|date_format:Y-m-d',
+            'agent_id' => 'nullable|integer|min:1', 'customer_id' => 'nullable|integer|min:1'];
         if ($r->filled('start_date')) {
             $rules['end_date'] .= '|after_or_equal:start_date';
         }
@@ -129,11 +130,22 @@ class AgentController extends Controller
             $rules['search.value'] = 'nullable|string|max:100';
         }
         $d = $r->validate($rules);
-        if (! $r->ajax()) {
-            return view('card_management.agents.transactions');
-        }
         $q = MembershipAgentTransaction::select('membership_agent_transactions.*')->with(['agent.customer', 'customer'])
             ->whereHas('agent.customer', fn ($c) => $c->where('origin_sister_concern_id', auth()->user()->activeConcernId()));
+        if (! $r->ajax()) {
+            // Include suspended/removed agents so their historical transactions remain filterable.
+            $agents = MembershipAgent::with('customer')->whereHas('customer', fn ($c) => $c->where('origin_sister_concern_id', auth()->user()->activeConcernId()))
+                ->orderBy('agent_code')->get();
+            $customers = Supplier::withTrashed()->whereIn('id', (clone $q)->select('membership_agent_transactions.customer_id'))
+                ->orderBy('name')->get(['id', 'name', 'member_no', 'mobile_no']);
+            return view('card_management.agents.transactions', compact('agents', 'customers'));
+        }
+        if ($r->filled('agent_id')) {
+            $q->where('membership_agent_transactions.agent_id', $r->integer('agent_id'));
+        }
+        if ($r->filled('customer_id')) {
+            $q->where('membership_agent_transactions.customer_id', $r->integer('customer_id'));
+        }
         if ($r->filled('type')) {
             $q->where('membership_agent_transactions.type', $d['type']);
         }

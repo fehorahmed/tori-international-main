@@ -32,6 +32,15 @@
                 <option value="{{ $status }}">{{ $status }}</option>
                 @endforeach
             </select></div>
+            <div class="col-md-3 mb-3">
+                <label for="cashout-member">Member</label>
+                <select id="cashout-member" name="customer_id" class="form-control">
+                    <option value="">All members</option>
+                    @foreach($members as $member)
+                    <option value="{{ $member->id }}">{{ implode(' / ', array_filter([$member->name, $member->member_no, $member->mobile_no])) }}</option>
+                    @endforeach
+                </select>
+            </div>
             <div class="col-md-3 mb-3 align-self-end"><button type="submit" class="btn btn-primary">Search</button> <button type="reset" class="btn btn-secondary">Reset</button></div>
         </form>
         <div class="table-responsive"><table id="table" class="table table-bordered table-striped w-100"><thead><tr>
@@ -46,6 +55,7 @@
 $(function () {
     let filters = {};
     const error = $('#cashout-filter-error');
+    $('#cashout-member').select2({width: '100%', placeholder: 'All members', allowClear: true});
     const table = $('#table').DataTable({processing: true, serverSide: true, order: [[1, 'desc'], [0, 'desc']],
         ajax: {url: @json(route('card-management.cashout.index')),
             data: function (data) { Object.assign(data, filters); },
@@ -61,10 +71,11 @@ $(function () {
         if (from && to && to < from) {
             error.text('To date must be on or after from date.').removeClass('d-none'); return;
         }
-        filters = {from_date:from, to_date:to, status:$('#status').val()};
+        filters = {from_date:from, to_date:to, status:$('#status').val(), customer_id:$('#cashout-member').val()};
         table.ajax.reload();
     });
     $('#cashout-filters').on('reset', function () {
+        $('#cashout-member').val('').trigger('change.select2');
         filters = {};
         error.addClass('d-none').empty();
         table.search('').columns().search('');

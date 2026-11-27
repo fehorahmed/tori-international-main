@@ -171,6 +171,26 @@ class MembershipCashoutTest extends TestCase
         $this->adminCashoutData(['from_date' => '2026-11-20', 'to_date' => '2026-11-19']);
     }
 
+    public function test_admin_cashout_member_dropdown_filters_requests_and_stays_branch_scoped(): void
+    {
+        $cashout = $this->requestCash('100.00');
+        $otherMember = Supplier::create(['name' => 'Other dropdown member', 'type' => 'Customer', 'status' => 1]);
+        $filter = ['search' => ['value' => $cashout->reference, 'regex' => 'false']];
+        $this->assertSame(1, $this->adminCashoutData($filter + ['customer_id' => $this->customer->id])['recordsFiltered']);
+        $this->assertSame(0, $this->adminCashoutData($filter + ['customer_id' => $otherMember->id])['recordsFiltered']);
+        $view = app(CashoutController::class)->index(Request::create('/'));
+        $this->assertTrue($view->getData()['members']->contains('id', $this->customer->id));
+        $this->assertFalse($view->getData()['members']->contains('id', $otherMember->id));
+        $this->assertStringContainsString('cashout-member', $view->with('errors', new \Illuminate\Support\ViewErrorBag)->render());
+        $otherBranch = SisterConcern::whereKeyNot($this->branch->id)->firstOrFail();
+        $cashout->update(['branch_id' => $otherBranch->id]);
+        $this->assertSame(0, $this->adminCashoutData($filter + ['customer_id' => $this->customer->id])['recordsFiltered']);
+        $view = app(CashoutController::class)->index(Request::create('/'));
+        $this->assertFalse($view->getData()['members']->contains('id', $this->customer->id));
+        $this->expectException(ValidationException::class);
+        $this->adminCashoutData(['customer_id' => 'invalid']);
+    }
+
     private function fixtureHead(string $name, string $nature, int $group, array $extra = []): AccountHead
     {
         return AccountHead::create($extra + ['name' => 'Test '.$name, 'nature' => $nature,

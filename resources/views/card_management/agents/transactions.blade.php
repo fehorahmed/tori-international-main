@@ -8,6 +8,24 @@
         <div class="col-md-3 mb-3"><label for="start_date">From</label><input id="start_date" type="date" name="start_date" value="{{ request('start_date') }}" class="form-control">@error('start_date')<div class="text-danger">{{ $message }}</div>@enderror</div>
         <div class="col-md-3 mb-3"><label for="end_date">To</label><input id="end_date" type="date" name="end_date" value="{{ request('end_date') }}" class="form-control">@error('end_date')<div class="text-danger">{{ $message }}</div>@enderror</div>
         <div class="col-md-3 mb-3"><label for="type">Type</label><select id="type" name="type" class="form-control"><option value="">All</option><option value="agent_cashin" @selected(request('type') === 'agent_cashin')>Member Cash-in</option><option value="agent_cashout" @selected(request('type') === 'agent_cashout')>Agent Cash-out</option></select></div>
+        <div class="col-md-3 mb-3">
+            <label for="agent_id">Agent</label>
+            <select id="agent_id" name="agent_id" class="form-control">
+                <option value="">All agents</option>
+                @foreach($agents as $agent)
+                <option value="{{ $agent->id }}" @selected(request('agent_id') == $agent->id)>{{ implode(' / ', array_filter([$agent->customer?->name, $agent->agent_code, $agent->customer?->member_no, $agent->customer?->mobile_no])) }}</option>
+                @endforeach
+            </select>
+        </div>
+        <div class="col-md-3 mb-3">
+            <label for="customer_id">Customer</label>
+            <select id="customer_id" name="customer_id" class="form-control">
+                <option value="">All customers</option>
+                @foreach($customers as $customer)
+                <option value="{{ $customer->id }}" @selected(request('customer_id') == $customer->id)>{{ implode(' / ', array_filter([$customer->name, $customer->member_no, $customer->mobile_no])) }}</option>
+                @endforeach
+            </select>
+        </div>
     </div>
     <button type="submit" class="btn btn-primary">Search</button>
     <button type="reset" class="btn btn-secondary">Reset</button>
@@ -24,7 +42,9 @@
 $(function () {
     const form = $('#agent-transaction-filters');
     const error = $('#transaction-table-error');
-    let filters = {start_date: $('#start_date').val(), end_date: $('#end_date').val(), type: $('#type').val()};
+    $('#agent_id').select2({width: '100%', placeholder: 'All agents', allowClear: true});
+    $('#customer_id').select2({width: '100%', placeholder: 'All customers', allowClear: true});
+    let filters = {start_date: $('#start_date').val(), end_date: $('#end_date').val(), type: $('#type').val(), agent_id: $('#agent_id').val(), customer_id: $('#customer_id').val()};
     const table = $('#agent-transactions-table').DataTable({
         processing: true,
         serverSide: true,
@@ -60,12 +80,13 @@ $(function () {
             error.text('To date must be on or after from date.').removeClass('d-none');
             return;
         }
-        filters = {start_date: from, end_date: to, type: $('#type').val()};
+        filters = {start_date: from, end_date: to, type: $('#type').val(), agent_id: $('#agent_id').val(), customer_id: $('#customer_id').val()};
         table.ajax.reload();
     });
     form.on('reset', function (event) {
         event.preventDefault();
         form.find('input, select').val('');
+        $('#agent_id, #customer_id').trigger('change.select2');
         filters = {};
         error.addClass('d-none').empty();
         table.search('').columns().search('');

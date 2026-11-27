@@ -387,7 +387,10 @@ class AgentTransactionTest extends TestCase
         $this->withoutMiddleware();
         $this->operator->update(['role' => 'Admin']);
         view()->share('errors', new \Illuminate\Support\ViewErrorBag);
-        $this->get(route('card-management.agents.transactions'))->assertOk()->assertSee('agent-transactions-table');
+        $page = $this->get(route('card-management.agents.transactions'))->assertOk()->assertSee('agent-transactions-table');
+        $page->assertViewHas('agents', fn ($agents) => $agents->contains('id', $this->agent->id));
+        $page->assertViewHas('customers', fn ($customers) => $customers->contains('id', $this->customer->id));
+        $page->assertSee('id="agent_id"', false)->assertSee('id="customer_id"', false);
         $params = ['draw' => 1, 'start' => 0, 'length' => 1, 'columns' => [
             ['data' => 'completed_at', 'name' => 'completed_at', 'orderable' => 'true', 'searchable' => 'true'],
         ], 'order' => [['column' => 0, 'dir' => 'desc']], 'search' => ['value' => '']];
@@ -402,6 +405,14 @@ class AgentTransactionTest extends TestCase
             ->assertOk()->assertJsonPath('recordsFiltered', 1)->assertJsonPath('data.0.id', $cashin->id)
             ->assertJsonPath('data.0.agent_label', 'UniqueAgent &lt;Test&gt; / '.$this->agent->agent_code);
         $request(['search' => ['value' => $cashout->reference]])->assertOk()->assertJsonPath('recordsFiltered', 1);
+        $request(['agent_id' => $this->agent->id, 'customer_id' => $this->customer->id])->assertOk()->assertJsonPath('recordsFiltered', 2);
+        $request(['agent_id' => $this->agent->id, 'customer_id' => $this->agentMember->id])->assertOk()->assertJsonPath('recordsFiltered', 0);
+        $request(['agent_id' => $this->agent->id + 999999])->assertOk()->assertJsonPath('recordsFiltered', 0);
+        $request(['agent_id' => $this->agent->id, 'customer_id' => $this->customer->id, 'type' => 'agent_cashout', 'end_date' => '2026-11-23'])
+            ->assertOk()->assertJsonPath('recordsFiltered', 1)->assertJsonPath('data.0.id', $cashout->id);
+        $request(['agent_id' => 'invalid'])->assertUnprocessable()->assertJsonValidationErrors('agent_id');
+        $request(['customer_id' => 'invalid'])->assertUnprocessable()->assertJsonValidationErrors('customer_id');
+
         $request(['search' => ['value' => $this->customer->member_no]])->assertOk()->assertJsonPath('recordsFiltered', 2);
         $request(['start_date' => '2026-11-25', 'end_date' => '2026-11-24'])->assertUnprocessable();
         $request(['type' => 'bad'])->assertUnprocessable();

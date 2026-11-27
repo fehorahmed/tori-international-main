@@ -11,7 +11,23 @@
                     <h3 class="card-title">Filter Members</h3>
                 </div>
                 <div class="card-body">
+                    <div id="member-filter-error" class="alert alert-danger d-none" role="alert"></div>
                     <div class="row">
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label for="joined_from">Joining Date — From</label>
+                                <input type="date" id="joined_from" name="joined_from" class="form-control">
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label for="joined_to">Joining Date — To</label>
+                                <input type="date" id="joined_to" name="joined_to" class="form-control">
+                            </div>
+                        </div>
+                        <div class="col-md-3 d-flex align-items-end">
+                            <button type="button" id="clear-joining-dates" class="btn btn-secondary mb-3">Clear Dates</button>
+                        </div>
                         <div class="col-md-3">
                             <div class="form-group">
                                 <label for="branch_id">Branch</label>
@@ -145,6 +161,8 @@
                 ajax: {
                     url: '{{ route('shomriddhi-advance.members.datatable') }}',
                     data: function(d) {
+                        d.joined_from = $('#joined_from').val();
+                        d.joined_to = $('#joined_to').val();
                         d.branch_id = $('#branch_id').val();
                         d.shomriddhi_group_id = $('#shomriddhi_group_id').val();
                         d.division_id = $('#division_id').val();
@@ -152,6 +170,9 @@
                         d.upazila_id = $('#upazila_id').val();
                         d.union_id = $('#union_id').val();
                         d.village_id = $('#village_id').val();
+                    },
+                    error: function (xhr) {
+                        $('#member-filter-error').text(xhr.responseJSON?.message || 'Unable to load members. Please try again.').removeClass('d-none');
                     }
                 },
                 "pagingType": "full_numbers",
@@ -188,6 +209,22 @@
                 "dom": 'lBfrtip',
                 "buttons": datatableButtons(),
                 "responsive": true, "autoWidth": false,"colReorder": true,
+            });
+
+            $('#joined_from, #joined_to').on('change', function () {
+                const from = $('#joined_from').val(), to = $('#joined_to').val();
+                const error = $('#member-filter-error');
+                error.addClass('d-none').empty();
+                if (from && to && to < from) {
+                    error.text('Joining end date must be on or after start date.').removeClass('d-none');
+                    return;
+                }
+                table.ajax.reload();
+            });
+            $('#clear-joining-dates').on('click', function () {
+                $('#joined_from, #joined_to').val('');
+                $('#member-filter-error').addClass('d-none').empty();
+                table.ajax.reload();
             });
 
             $('#branch_id, #shomriddhi_group_id, #division_id, #district_id, #upazila_id, #union_id, #village_id').change(function () {

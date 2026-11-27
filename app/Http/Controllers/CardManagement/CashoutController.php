@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Account\AccountHead;
 use App\Models\MembershipCashout;
 use App\Models\MembershipCashoutBooth;
+use App\Models\Supplier;
 use App\Services\Membership\CashoutService;
 use BaconQrCode\Renderer\Image\SvgImageBackEnd;
 use BaconQrCode\Renderer\ImageRenderer;
@@ -33,7 +34,10 @@ class CashoutController extends Controller
         $cashHeads = AccountHead::where('payment_mode', 2)->where('nature', 'Debit')->where('status', 1)
             ->where(fn ($q) => $q->whereNull('sister_concern_id')->orWhere('sister_concern_id', $branch))->get();
 
-        return view('card_management.cashout.index', compact('setting', 'booth', 'cashHeads'));
+        $members = Supplier::withTrashed()->whereIn('id', MembershipCashout::where('branch_id', $branch)->select('customer_id'))
+            ->orderBy('name')->get(['id', 'name', 'member_no', 'mobile_no']);
+
+        return view('card_management.cashout.index', compact('setting', 'booth', 'cashHeads', 'members'));
     }
 
     private function dataTable(Request $request, int $branch)
@@ -42,12 +46,14 @@ class CashoutController extends Controller
             'from_date' => 'nullable|date_format:Y-m-d',
             'to_date' => 'nullable|date_format:Y-m-d',
             'status' => 'nullable|in:Pending,Accepted,Completed,Rejected,Cancelled,Expired',
+            'customer_id' => 'nullable|integer|min:1',
         ]);
         if ($request->filled('from_date') && $request->filled('to_date') && $request->to_date < $request->from_date) {
             throw \Illuminate\Validation\ValidationException::withMessages(['to_date' => 'To date must be on or after from date.']);
         }
         $query = MembershipCashout::select(['id', 'reference', 'customer_id', 'created_at', 'expires_at', 'status', 'amount', 'fee', 'total', 'reason'])
             ->with('customer:id,name,member_no,mobile_no')->where('branch_id', $branch)
+            ->when($request->filled('customer_id'), fn ($q) => $q->where('customer_id', $request->integer('customer_id')))
             ->when($request->filled('from_date'), fn ($q) => $q->where('created_at', '>=', \Carbon\Carbon::parse($request->from_date)->startOfDay()))
             ->when($request->filled('to_date'), fn ($q) => $q->where('created_at', '<', \Carbon\Carbon::parse($request->to_date)->addDay()->startOfDay()));
         if ($request->status === 'Expired') {

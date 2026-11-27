@@ -5,20 +5,33 @@
     <p>Configure membership transaction limits and charges. Changes apply to new transaction quotes; existing cash-out requests retain their quoted amounts.</p>
     @if(session('success'))<div class="alert alert-success">{{ session('success') }}</div>@endif
     @if($errors->any())<div class="alert alert-danger">{{ $errors->first() }}</div>@endif
+    @php
+        $sectionDetails = [
+            'transaction_window' => 'Applies every day in Bangladesh time. Overnight periods are supported (for example 23:00–05:00). Send Money and Member Cash-in are blocked during these hours. Cash-out is unaffected. Disable to allow transactions all day, subject to other limits.',
+            'membership' => 'The account hold amount is the protected minimum savings balance for every member. Withdrawals, transfers and charges cannot spend it. New members are charged the registration fee once, after a deposit or incoming transfer can cover the full fee while retaining the protected balance. An income ledger is required for a positive fee.',
+            'referral' => 'Bonuses are earned once, after the full registration fee is deducted. New rewards use the settings at fee collection. Members redeem whole points manually at the current point value; expense is posted at redemption. Employee referrers (the legacy Agent referral type) accrue a payable at fee collection and admin pays later. Zero points / bonus means no reward. Changes do not backfill fees already collected.',
+            'referral_milestones' => 'Remaining referral points determine progress. Redeeming points lowers progress. Each milestone pays once per member for life. Bonus = milestone points × percentage × current Tk per point. Cash is credited to savings without spending or adding points. All newly qualified milestones pay; bonuses do not stack into point progress. Referral rewards must also be enabled and their expense ledger configured. Disable an existing tier to stop new awards. Editing it keeps its lifetime identity; members already paid for it cannot earn it again. Previously earned pending payments retain their original amount.',
+            'membership_discount' => 'Applies only to the separate member discount. General product/package discounts are available to everyone. Total active savings balance is checked before order payment. This is separate from the protected account hold amount.',
+            'cashout' => 'Controls Branch Cash Out limits, customer charge and pending request expiry. Charges are deducted in addition to the cash-out amount. Set charge rate to zero for free transactions. Pending expiry is the time allowed before a request is accepted; accepted requests do not expire automatically.',
+            'transfer' => 'Controls Send Money limits and charges. Charges are deducted in addition to the transfer amount. Set charge rate to zero for free transactions. Automatic journal postings are recorded under the admin saving these settings. Sending and receiving members are recorded separately for each transfer.',
+            'agent_cashin' => 'Member Cash-in is free. Charge fields are ignored; only an active Agent can initiate it. Money is transferred from the Agent’s existing savings balance to the member. Daily closing hours also apply when enabled.',
+            'agent_cashout' => 'Customer charge and Agent commission are independent. Charges are deducted in addition to the cash-out amount; set charge rate to zero for a free transaction. Commission is credited to the Agent’s existing savings after a successful cash-out.',
+        ];
+    @endphp
     @php($window = membership_transaction_settings('transaction_window'))
     <div class="card" id="transaction-window">
-        <div class="card-header"><h4 class="card-title">Daily Closing Hours — Send Money &amp; Member Cash-in</h4></div>
+        <div class="card-header"><h4 class="card-title">Daily Closing Hours — Send Money &amp; Member Cash-in @include('card_management.transaction_settings.section_help', ['helpTitle' => 'Daily Closing Hours — Send Money & Member Cash-in', 'helpText' => $sectionDetails['transaction_window']])</h4></div>
         <div class="card-body"><form method="post" action="{{ route('card-management.transaction-settings.update', 'transaction_window') }}">@csrf
             <input type="hidden" name="_group" value="transaction_window">
             <label><input type="checkbox" name="enabled" value="1" @checked(old('_group') === 'transaction_window' ? old('enabled', false) : $window->enabled)> Enable daily closing hours</label>
             <div class="row"><div class="col-md-4 form-group"><label>Close from (Bangladesh time)</label><input class="form-control" type="time" name="start_time" required value="{{ old('_group') === 'transaction_window' ? old('start_time', $window->start_time) : $window->start_time }}"></div>
             <div class="col-md-4 form-group"><label>Reopen at (Bangladesh time)</label><input class="form-control" type="time" name="end_time" required value="{{ old('_group') === 'transaction_window' ? old('end_time', $window->end_time) : $window->end_time }}"></div></div>
-            <p>Applies every day. Overnight periods are supported (for example 23:00–05:00). Cash-out is unaffected. Disable to allow transactions all day, subject to other limits.</p>
+
             <button class="btn btn-primary">Save Closing Hours</button>
         </form></div>
     </div>
     <div class="card" id="membership">
-        <div class="card-header"><h4 class="card-title">Membership</h4></div>
+        <div class="card-header"><h4 class="card-title">Membership @include('card_management.transaction_settings.section_help', ['helpTitle' => 'Membership', 'helpText' => $sectionDetails['membership']])</h4></div>
         <div class="card-body">
             <form method="POST" action="{{ route('card-management.transaction-settings.update', 'membership') }}">
                 @csrf
@@ -30,7 +43,7 @@
                     </div>
                     <div class="col-md-6 form-group">
                         <label for="membership-account-hold">Membership Account Hold Amount (Tk)</label>
-                        <small class="d-block text-muted">Protected minimum savings balance for every member. Withdrawals, transfers and charges cannot spend this amount.</small>
+
                         <input id="membership-account-hold" class="form-control" name="account_hold_amount" type="number" min="0" max="10000000" step="0.01" required value="{{ old('_group') === 'membership' ? old('account_hold_amount', $membership->account_hold_amount) : $membership->account_hold_amount }}">
                     </div>
                 </div>
@@ -42,14 +55,14 @@
                         <option value="{{ $head->id }}" @selected($head->id == (old('_group') === 'membership' ? old('income_head_id', $membership->income_head_id) : $membership->income_head_id))>{{ $head->name }}</option>
                         @endforeach
                     </select>
-                    <small>New members are charged once after a deposit or incoming transfer can cover the full fee while retaining the protected minimum balance.</small>
+
                 </div>
                 <button class="btn btn-primary" type="submit">Save Membership settings</button>
             </form>
         </div>
     </div>
     <div class="card" id="referral">
-        <div class="card-header"><h4 class="card-title">Referral Bonus &amp; Commission</h4></div>
+        <div class="card-header"><h4 class="card-title">Referral Bonus &amp; Commission @include('card_management.transaction_settings.section_help', ['helpTitle' => 'Referral Bonus & Commission', 'helpText' => $sectionDetails['referral']])</h4></div>
         <div class="card-body"><form method="POST" action="{{ route('card-management.transaction-settings.update', 'referral') }}">
             @csrf<input type="hidden" name="_group" value="referral">
             @php($rv = fn($key) => old('_group') === 'referral' ? old($key, $referral->{$key} ?? null) : ($referral->{$key} ?? null))
@@ -64,17 +77,17 @@
                 <option value="{{ $head->id }}" @selected($head->id == $rv($field))>{{ $head->name }}</option>@endforeach</select></div>
                 @endforeach
             </div>
-            <p>Bonuses are earned once, after the full registration fee is deducted. New rewards use the settings at fee collection. Members redeem whole points manually at the current point value; expense is posted at redemption. Agents accrue a payable at fee collection and admin pays later. Zero points / bonus means no reward. Changes do not backfill fees already collected.</p>
+
             <button class="btn btn-primary">Save Referral settings</button>
         </form></div>
     </div>
     <div class="card" id="referral-milestones">
-        <div class="card-header"><h4 class="card-title">Referral Milestone Bonus</h4></div>
+        <div class="card-header"><h4 class="card-title">Referral Milestone Bonus @include('card_management.transaction_settings.section_help', ['helpTitle' => 'Referral Milestone Bonus', 'helpText' => $sectionDetails['referral_milestones']])</h4></div>
         <div class="card-body"><form method="POST" action="{{ route('card-management.transaction-settings.update', 'referral_milestones') }}">
             @csrf<input type="hidden" name="_group" value="referral_milestones">
             <label><input type="checkbox" name="enabled" value="1" @checked(old('_group') === 'referral_milestones' ? old('enabled', false) : $milestones->enabled)> Enable milestone cash bonuses</label>
-            <p>Remaining referral points determine progress. Redeeming points lowers progress. Each milestone pays once per member for life. Bonus = milestone points × percentage × current Tk per point. Cash is credited to savings without spending or adding points. All newly qualified milestones pay; bonuses do not stack into point progress. Referral rewards must also be enabled and their expense ledger configured.</p>
-            <p>Disable an existing tier to stop new awards. Editing it keeps its lifetime identity; members already paid for it cannot earn it again. Previously earned pending payments retain their original amount.</p>
+
+
             <table class="table table-bordered"><thead><tr><th>Required remaining points</th><th>Bonus (%)</th><th>Status</th></tr></thead><tbody id="milestone-rows">
             @foreach(old('_group') === 'referral_milestones' ? old('tiers', $milestones->tiers) : $milestones->tiers as $i => $tier)
             <tr><td><input type="hidden" name="tiers[{{ $i }}][id]" value="{{ $tier['id'] ?? '' }}"><input class="form-control" type="number" name="tiers[{{ $i }}][threshold]" min="1" max="1000000" required value="{{ $tier['threshold'] }}"></td>
@@ -87,20 +100,20 @@
         </form></div>
     </div>
     <div class="card" id="membership-discount">
-        <div class="card-header"><h4 class="card-title">Membership Discount</h4></div>
+        <div class="card-header"><h4 class="card-title">Membership Discount @include('card_management.transaction_settings.section_help', ['helpTitle' => 'Membership Discount', 'helpText' => $sectionDetails['membership_discount']])</h4></div>
         <div class="card-body"><form method="POST" action="{{ route('card-management.transaction-settings.update', 'membership_discount') }}">
             @csrf<input type="hidden" name="_group" value="membership_discount">
             <label><input type="checkbox" name="enabled" value="1" @checked(old('_group') === 'membership_discount' ? old('enabled', false) : $membershipDiscount->enabled)> Enable membership discount</label>
             <div class="form-group"><label>Minimum account balance for discount (Tk)</label>
             <input class="form-control" name="minimum_balance" type="number" min="0" max="10000000" step="0.01" required value="{{ old('_group') === 'membership_discount' ? old('minimum_balance', $membershipDiscount->minimum_balance) : $membershipDiscount->minimum_balance }}"></div>
-            <p>Applies only to the separate member discount. General product/package discounts are available to everyone. Total active savings balance is checked before order payment. This is separate from the protected account hold amount.</p>
+
             <button class="btn btn-primary" type="submit">Save Membership Discount settings</button>
         </form></div>
     </div>
-    @foreach(['cashout' => ['Cash Out', $cashout], 'transfer' => ['Send Money / Transfer', $transfer], 'agent_cashin' => ['Member Cash-in', membership_transaction_settings('agent_cashin')], 'agent_cashout' => ['Agent Cash-out', membership_transaction_settings('agent_cashout')]] as $group => [$title, $setting])
+    @foreach(['cashout' => ['Branch Cash Out', $cashout], 'transfer' => ['Send Money / Transfer', $transfer], 'agent_cashin' => ['Member Cash-in', membership_transaction_settings('agent_cashin')], 'agent_cashout' => ['Agent Cash-out', membership_transaction_settings('agent_cashout')]] as $group => [$title, $setting])
     @php($value = fn($key) => old('_group') === $group ? old($key, $setting->{$key} ?? null) : ($setting->{$key} ?? null))
     <div class="card" id="{{ $group }}">
-        <div class="card-header"><h4 class="card-title">{{ $title }}</h4></div>
+        <div class="card-header"><h4 class="card-title">{{ $title }} @include('card_management.transaction_settings.section_help', ['helpTitle' => $title, 'helpText' => $sectionDetails[$group]])</h4></div>
         <div class="card-body">
             <form method="POST" action="{{ route('card-management.transaction-settings.update', $group) }}">
                 @csrf
@@ -114,15 +127,13 @@
                     @if($group === 'cashout')<div class="col-md-2 form-group"><label>Pending expiry (minutes)</label><input class="form-control" type="number" name="hold_minutes" min="1" max="60" value="{{ $value('hold_minutes') }}" required></div>@endif
                     <div class="col-md-3 form-group"><label>Charge income ledger</label><select class="form-control" name="income_head_id"><option value="">No charge</option>@foreach($incomeHeads as $head)<option value="{{ $head->id }}" @selected($head->id == $value('income_head_id'))>{{ $head->name }}</option>@endforeach</select></div>
                 </div>
-                @if($group === 'agent_cashin')<p>Member Cash-in is free. Charge fields are ignored; only an active Agent can initiate it.</p>@endif
                 @if($group === 'agent_cashout')
                 <div class="row"><div class="col-md-3 form-group"><label>Agent commission type</label><select class="form-control" name="commission_type"><option value="fixed" @selected($value('commission_type') === 'fixed')>Fixed Tk</option><option value="percentage" @selected($value('commission_type') === 'percentage')>Percentage (%)</option></select></div>
                 <div class="col-md-3 form-group"><label>Agent commission rate</label><input name="commission_rate" class="form-control" type="number" min="0" max="10000000" step="0.01" required value="{{ $value('commission_rate') }}"></div>
                 <div class="col-md-6 form-group"><label>Commission expense ledger</label><select name="expense_head_id" class="form-control"><option value="">Select expense ledger</option>@foreach($referralHeads->filter(fn($h) => $h->nature === 'Debit' && $h->accountGroup?->top_reserved_id == 5) as $head)<option value="{{ $head->id }}" @selected($value('expense_head_id') == $head->id)>{{ $head->name }}</option>@endforeach</select></div></div>
-                <p>Customer charge and Agent commission are independent. Commission is credited to the Agent's existing savings after a successful cash-out.</p>
+
                 @endif
-                <p>Charges are deducted in addition to the amount. Set charge rate to zero for free transactions.</p>
-                @if($group === 'transfer')<p>Automatic journal postings are recorded under the admin saving these transfer settings. Sending and receiving members are recorded separately for each transfer.</p>@endif
+
                 <button class="btn btn-primary" type="submit">Save {{ $title }} settings</button>
             </form>
         </div>
@@ -132,9 +143,27 @@
 </div>
 @endsection
 
+@section('style')
+<style>
+.transaction-settings-tooltip .tooltip-inner { max-width: min(420px, 90vw); text-align: left; padding: .75rem; line-height: 1.5; }
+.settings-section-help { color: inherit; vertical-align: baseline; }
+</style>
+@endsection
+
 @push('script')
 <script>
 (() => {
+    $('.settings-section-help').tooltip({
+        container: 'body',
+        trigger: 'hover focus click',
+        html: false,
+        template: '<div class="tooltip transaction-settings-tooltip" role="tooltip"><div class="arrow"></div><div class="tooltip-inner"></div></div>'
+    });
+    $(document).on('click', function (event) {
+        if (!$(event.target).closest('.settings-section-help').length) {
+            $('.settings-section-help').tooltip('hide');
+        }
+    });
     const rows = document.getElementById('milestone-rows');
     let index = rows.children.length;
     document.getElementById('add-milestone').addEventListener('click', () => {
