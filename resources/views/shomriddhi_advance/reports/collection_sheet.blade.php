@@ -10,6 +10,7 @@
         </div>
         <div class="card-body">
             <form action="{{ route('shomriddhi-advance.reports.collection_sheet') }}" method="GET" target="_blank" class="mb-4">
+                    @include('layouts.partial.__report_branch_filter')
                 <div class="row align-items-end">
                     <div class="col-md-5">
                         <div class="form-group mb-0">

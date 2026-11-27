@@ -63,27 +63,28 @@
                 <!-- /.card-header -->
                 <!-- form start -->
                 <form action="{{ route('report.balance_sheet') }}">
+                    @include('layouts.partial.__report_branch_filter')
                     <div class="card-body">
                         <div class="row">
                             
                             <div class="col-md-3">
                                 <div class="form-group">
                                     <label for="start_date">Start Date <span
-                                            class="text-danger">*</span></label>
+                                            class="text-danger">*</span> <small class="text-muted font-weight-normal">(Default Today)</small></label>
                                     <input required type="text" id="start_date" autocomplete="off"
                                            name="start_date" class="form-control date-picker"
                                            placeholder="Enter Start Date"
-                                           value="{{ request()->get('start_date') ?? date('d-m-Y', strtotime(auth()->user()->business_date)) }}">
+                                           value="{{ old('start_date', request('start_date', now()->format('d-m-Y'))) }}">
                                 </div>
                             </div>
                             <div class="col-md-3">
                                 <div class="form-group">
                                     <label for="end_date">End Date <span
-                                            class="text-danger">*</span></label>
+                                            class="text-danger">*</span> <small class="text-muted font-weight-normal">(Default Today)</small></label>
                                     <input required type="text" id="end_date" autocomplete="off"
                                            name="end_date" class="form-control date-picker"
                                            placeholder="Enter Start Date"
-                                           value="{{ request()->get('end_date') ?? date('d-m-Y', strtotime(auth()->user()->business_date)) }}">
+                                           value="{{ old('end_date', request('end_date', now()->format('d-m-Y'))) }}">
                                 </div>
                             </div>
 
@@ -147,8 +148,8 @@
 
                                 @foreach($assets as $asset)
                                     @php
-                                        $assetBalance = accountGroupBalance($asset->id, request('start_date'), request('end_date'), 1,auth()->user()->activeConcernId());
-                                        $previousAssetBalance = accountGroupBalance($asset->id, request('start_date'), request('end_date'), 2,auth()->user()->activeConcernId());
+                                        $assetBalance = accountGroupBalance($asset->id, request('start_date'), request('end_date'), 1,\App\Support\ReportBranch::id());
+                                        $previousAssetBalance = accountGroupBalance($asset->id, request('start_date'), request('end_date'), 2,\App\Support\ReportBranch::id());
                                         
                                         $totalAssetBalance += $assetBalance;
                                         $totalPreviousAssetBalance += $previousAssetBalance;
@@ -165,11 +166,11 @@
 
                                     @foreach($asset->accountGroups as $subGroup)
                                         @php
-                                            $subBalance = accountGroupBalance($subGroup->id, request('start_date'), request('end_date'), 1,auth()->user()->activeConcernId());
-                                            $prevSubBalance = accountGroupBalance($subGroup->id, request('start_date'), request('end_date'), 2,auth()->user()->activeConcernId());
+                                            $subBalance = accountGroupBalance($subGroup->id, request('start_date'), request('end_date'), 1,\App\Support\ReportBranch::id());
+                                            $prevSubBalance = accountGroupBalance($subGroup->id, request('start_date'), request('end_date'), 2,\App\Support\ReportBranch::id());
                                         @endphp
                                         <tr>
-                                            <td class="text-left"><a href="{{ route('report.trial_balance',['start_date'=>request('start_date'),'end_date'=>request('end_date'),'account_group_id'=>$subGroup->id,'sister_concern'=>auth()->user()->activeConcernId()]) }}"><span class="custom-ml-18 {{ $subGroup->accountGroups->count() > 0 ? 'font-weight-bold text-uppercase' : '' }}">{{ $subGroup->name }}</span></a></td>
+                                            <td class="text-left"><a href="{{ route('report.trial_balance',['start_date'=>request('start_date'),'end_date'=>request('end_date'),'account_group_id'=>$subGroup->id,'report_branch_id' => \App\Support\ReportBranch::id() ?? 'all']) }}"><span class="custom-ml-18 {{ $subGroup->accountGroups->count() > 0 ? 'font-weight-bold text-uppercase' : '' }}">{{ $subGroup->name }}</span></a></td>
                                             <td><b>{{ $subGroup->note_no }}</b></td>
                                             <td class="text-right border-left-right {{ $loop->first ? 'border-top' : ''}} {{ ($loop->last && $subGroup->accountGroups->count() == 0) ? 'border-bottom' : ''}}">{{ wrapNegative($subBalance) }}</td>
                                             <td></td>
@@ -178,11 +179,11 @@
                                         {{-- If nested sub-groups exist (e.g. under Current Assets) --}}
                                         @foreach($subGroup->accountGroups as $childGroup)
                                             @php
-                                                $childBalance = accountGroupBalance($childGroup->id, request('start_date'), request('end_date'), 1,auth()->user()->activeConcernId());
-                                                $prevChildBalance = accountGroupBalance($childGroup->id, request('start_date'), request('end_date'), 2,auth()->user()->activeConcernId());
+                                                $childBalance = accountGroupBalance($childGroup->id, request('start_date'), request('end_date'), 1,\App\Support\ReportBranch::id());
+                                                $prevChildBalance = accountGroupBalance($childGroup->id, request('start_date'), request('end_date'), 2,\App\Support\ReportBranch::id());
                                             @endphp
                                             <tr>
-                                                <td class="text-left"><a href="{{ route('report.trial_balance',['start_date'=>request('start_date'),'end_date'=>request('end_date'),'account_group_id'=>$childGroup->id,'sister_concern'=>auth()->user()->activeConcernId()]) }}"><span class="custom-ml-18" style="margin-left: 45px !important;">{{ $childGroup->name }}</span></a></td>
+                                                <td class="text-left"><a href="{{ route('report.trial_balance',['start_date'=>request('start_date'),'end_date'=>request('end_date'),'account_group_id'=>$childGroup->id,'report_branch_id' => \App\Support\ReportBranch::id() ?? 'all']) }}"><span class="custom-ml-18" style="margin-left: 45px !important;">{{ $childGroup->name }}</span></a></td>
                                                 <td>{{ $childGroup->note_no }}</td>
                                                 <td class="text-right border-left-right {{ $loop->last ? 'border-bottom' : ''}}" style="font-size: 16px !important;">{{ wrapNegative($childBalance) }}</td>
                                                 <td></td>
@@ -214,8 +215,8 @@
 
                                 @foreach($equities as $equity)
                                     @php
-                                        $equityBal = accountGroupBalance($equity->id, request('start_date'), request('end_date'), 1,auth()->user()->activeConcernId());
-                                        $prevEquityBal = accountGroupBalance($equity->id, request('start_date'), request('end_date'), 2,auth()->user()->activeConcernId());
+                                        $equityBal = accountGroupBalance($equity->id, request('start_date'), request('end_date'), 1,\App\Support\ReportBranch::id());
+                                        $prevEquityBal = accountGroupBalance($equity->id, request('start_date'), request('end_date'), 2,\App\Support\ReportBranch::id());
                                         $totalEquityBalance += $equityBal;
                                         $totalPreviousEquityBalance += $prevEquityBal;
                                     @endphp
@@ -231,11 +232,11 @@
 
                                     @foreach($equity->accountGroups as $subGroup)
                                         @php
-                                            $subBalance = accountGroupBalance($subGroup->id, request('start_date'), request('end_date'), 1,auth()->user()->activeConcernId());
-                                            $prevSubBalance = accountGroupBalance($subGroup->id, request('start_date'), request('end_date'), 2,auth()->user()->activeConcernId());
+                                            $subBalance = accountGroupBalance($subGroup->id, request('start_date'), request('end_date'), 1,\App\Support\ReportBranch::id());
+                                            $prevSubBalance = accountGroupBalance($subGroup->id, request('start_date'), request('end_date'), 2,\App\Support\ReportBranch::id());
                                         @endphp
                                         <tr>
-                                            <td class="text-left"><a href="{{ route('report.trial_balance',['start_date'=>request('start_date'),'end_date'=>request('end_date'),'account_group_id'=>$subGroup->id,'sister_concern'=>auth()->user()->activeConcernId()]) }}"><span class="custom-ml-18">{{ $subGroup->name }}</span></a></td>
+                                            <td class="text-left"><a href="{{ route('report.trial_balance',['start_date'=>request('start_date'),'end_date'=>request('end_date'),'account_group_id'=>$subGroup->id,'report_branch_id' => \App\Support\ReportBranch::id() ?? 'all']) }}"><span class="custom-ml-18">{{ $subGroup->name }}</span></a></td>
                                             <td><b>{{ $subGroup->note_no }}</b></td>
                                             <td class="text-right border-left-right {{ $loop->first ? 'border-top' : ''}} {{ $loop->last ? 'border-bottom' : ''}}">{{ wrapPositive($subBalance) }}</td>
                                             <td></td>
@@ -254,28 +255,28 @@
                                     $previousNetProfitBalance = 0;
 
                                     if(isset($operatingRevenue) && $operatingRevenue){
-                                        $netProfitBalance += accountGroupBalanceIncomeStatement($operatingRevenue->id,request('start_date'),request('end_date'),1,auth()->user()->activeConcernId());
-                                        $previousNetProfitBalance += accountGroupBalanceIncomeStatement($operatingRevenue->id,request('start_date'),request('end_date'),2,auth()->user()->activeConcernId());
+                                        $netProfitBalance += accountGroupBalanceIncomeStatement($operatingRevenue->id,request('start_date'),request('end_date'),1,\App\Support\ReportBranch::id());
+                                        $previousNetProfitBalance += accountGroupBalanceIncomeStatement($operatingRevenue->id,request('start_date'),request('end_date'),2,\App\Support\ReportBranch::id());
                                     }
                                     if(isset($costOfGoodsSold) && $costOfGoodsSold){
-                                        $netProfitBalance += accountGroupBalanceIncomeStatement($costOfGoodsSold->id,request('start_date'),request('end_date'),1,auth()->user()->activeConcernId());
-                                        $previousNetProfitBalance += accountGroupBalanceIncomeStatement($costOfGoodsSold->id,request('start_date'),request('end_date'),2,auth()->user()->activeConcernId());
+                                        $netProfitBalance += accountGroupBalanceIncomeStatement($costOfGoodsSold->id,request('start_date'),request('end_date'),1,\App\Support\ReportBranch::id());
+                                        $previousNetProfitBalance += accountGroupBalanceIncomeStatement($costOfGoodsSold->id,request('start_date'),request('end_date'),2,\App\Support\ReportBranch::id());
                                     }
                                     if(isset($operatingExpenses) && $operatingExpenses){
-                                        $netProfitBalance += accountGroupBalanceIncomeStatement($operatingExpenses->id,request('start_date'),request('end_date'),1,auth()->user()->activeConcernId());
-                                        $previousNetProfitBalance += accountGroupBalanceIncomeStatement($operatingExpenses->id,request('start_date'),request('end_date'),2,auth()->user()->activeConcernId());
+                                        $netProfitBalance += accountGroupBalanceIncomeStatement($operatingExpenses->id,request('start_date'),request('end_date'),1,\App\Support\ReportBranch::id());
+                                        $previousNetProfitBalance += accountGroupBalanceIncomeStatement($operatingExpenses->id,request('start_date'),request('end_date'),2,\App\Support\ReportBranch::id());
                                     }
                                     if(isset($otherIncome) && $otherIncome){
-                                        $netProfitBalance += accountGroupBalanceIncomeStatement($otherIncome->id,request('start_date'),request('end_date'),1,auth()->user()->activeConcernId());
-                                        $previousNetProfitBalance += accountGroupBalanceIncomeStatement($otherIncome->id,request('start_date'),request('end_date'),2,auth()->user()->activeConcernId());
+                                        $netProfitBalance += accountGroupBalanceIncomeStatement($otherIncome->id,request('start_date'),request('end_date'),1,\App\Support\ReportBranch::id());
+                                        $previousNetProfitBalance += accountGroupBalanceIncomeStatement($otherIncome->id,request('start_date'),request('end_date'),2,\App\Support\ReportBranch::id());
                                     }
                                     if(isset($financialExpenses) && $financialExpenses){
-                                        $netProfitBalance += accountGroupBalanceIncomeStatement($financialExpenses->id,request('start_date'),request('end_date'),1,auth()->user()->activeConcernId());
-                                        $previousNetProfitBalance += accountGroupBalanceIncomeStatement($financialExpenses->id,request('start_date'),request('end_date'),2,auth()->user()->activeConcernId());
+                                        $netProfitBalance += accountGroupBalanceIncomeStatement($financialExpenses->id,request('start_date'),request('end_date'),1,\App\Support\ReportBranch::id());
+                                        $previousNetProfitBalance += accountGroupBalanceIncomeStatement($financialExpenses->id,request('start_date'),request('end_date'),2,\App\Support\ReportBranch::id());
                                     }
                                     if(isset($taxExpenses) && $taxExpenses){
-                                        $netProfitBalance += accountGroupBalanceIncomeStatement($taxExpenses->id,request('start_date'),request('end_date'),1,auth()->user()->activeConcernId());
-                                        $previousNetProfitBalance += accountGroupBalanceIncomeStatement($taxExpenses->id,request('start_date'),request('end_date'),2,auth()->user()->activeConcernId());
+                                        $netProfitBalance += accountGroupBalanceIncomeStatement($taxExpenses->id,request('start_date'),request('end_date'),1,\App\Support\ReportBranch::id());
+                                        $previousNetProfitBalance += accountGroupBalanceIncomeStatement($taxExpenses->id,request('start_date'),request('end_date'),2,\App\Support\ReportBranch::id());
                                     }
 
                                     $totalEquityBalance += $netProfitBalance;
@@ -302,8 +303,8 @@
 
                                 @foreach($liabilities as $liability)
                                     @php
-                                        $liabBal = accountGroupBalance($liability->id, request('start_date'), request('end_date'), 1,auth()->user()->activeConcernId());
-                                        $prevLiabBal = accountGroupBalance($liability->id, request('start_date'), request('end_date'), 2,auth()->user()->activeConcernId());
+                                        $liabBal = accountGroupBalance($liability->id, request('start_date'), request('end_date'), 1,\App\Support\ReportBranch::id());
+                                        $prevLiabBal = accountGroupBalance($liability->id, request('start_date'), request('end_date'), 2,\App\Support\ReportBranch::id());
                                         $totalLiabilityBalance += $liabBal;
                                         $totalPreviousLiabilityBalance += $prevLiabBal;
                                     @endphp
@@ -319,11 +320,11 @@
 
                                     @foreach($liability->accountGroups as $subGroup)
                                         @php
-                                            $subBalance = accountGroupBalance($subGroup->id, request('start_date'), request('end_date'), 1,auth()->user()->activeConcernId());
-                                            $prevSubBalance = accountGroupBalance($subGroup->id, request('start_date'), request('end_date'), 2,auth()->user()->activeConcernId());
+                                            $subBalance = accountGroupBalance($subGroup->id, request('start_date'), request('end_date'), 1,\App\Support\ReportBranch::id());
+                                            $prevSubBalance = accountGroupBalance($subGroup->id, request('start_date'), request('end_date'), 2,\App\Support\ReportBranch::id());
                                         @endphp
                                         <tr>
-                                            <td class="text-left"><a href="{{ route('report.trial_balance',['start_date'=>request('start_date'),'end_date'=>request('end_date'),'account_group_id'=>$subGroup->id,'sister_concern'=>auth()->user()->activeConcernId()]) }}"><span class="custom-ml-18 {{ $subGroup->accountGroups->count() > 0 ? 'font-weight-bold text-uppercase' : '' }}">{{ $subGroup->name }}</span></a></td>
+                                            <td class="text-left"><a href="{{ route('report.trial_balance',['start_date'=>request('start_date'),'end_date'=>request('end_date'),'account_group_id'=>$subGroup->id,'report_branch_id' => \App\Support\ReportBranch::id() ?? 'all']) }}"><span class="custom-ml-18 {{ $subGroup->accountGroups->count() > 0 ? 'font-weight-bold text-uppercase' : '' }}">{{ $subGroup->name }}</span></a></td>
                                             <td><b>{{ $subGroup->note_no }}</b></td>
                                             <td class="text-right border-left-right {{ $loop->first ? 'border-top' : ''}} {{ ($loop->last && $subGroup->accountGroups->count() == 0) ? 'border-bottom' : ''}}">{{ wrapPositive($subBalance) }}</td>
                                             <td></td>
@@ -331,11 +332,11 @@
                                         </tr>
                                         @foreach($subGroup->accountGroups as $childGroup)
                                             @php
-                                                $childBalance = accountGroupBalance($childGroup->id, request('start_date'), request('end_date'), 1,auth()->user()->activeConcernId());
-                                                $prevChildBalance = accountGroupBalance($childGroup->id, request('start_date'), request('end_date'), 2,auth()->user()->activeConcernId());
+                                                $childBalance = accountGroupBalance($childGroup->id, request('start_date'), request('end_date'), 1,\App\Support\ReportBranch::id());
+                                                $prevChildBalance = accountGroupBalance($childGroup->id, request('start_date'), request('end_date'), 2,\App\Support\ReportBranch::id());
                                             @endphp
                                             <tr>
-                                                <td class="text-left"><a href="{{ route('report.trial_balance',['start_date'=>request('start_date'),'end_date'=>request('end_date'),'account_group_id'=>$childGroup->id,'sister_concern'=>auth()->user()->activeConcernId()]) }}"><span class="custom-ml-18" style="margin-left: 45px !important;">{{ $childGroup->name }}</span></a></td>
+                                                <td class="text-left"><a href="{{ route('report.trial_balance',['start_date'=>request('start_date'),'end_date'=>request('end_date'),'account_group_id'=>$childGroup->id,'report_branch_id' => \App\Support\ReportBranch::id() ?? 'all']) }}"><span class="custom-ml-18" style="margin-left: 45px !important;">{{ $childGroup->name }}</span></a></td>
                                                 <td>{{ $childGroup->note_no }}</td>
                                                 <td class="text-right border-left-right {{ $loop->last ? 'border-bottom' : ''}}" style="font-size: 16px !important;">{{ wrapPositive($childBalance) }}</td>
                                                 <td></td>

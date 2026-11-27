@@ -9,17 +9,18 @@
                 </div>
                 <div class="card-body">
                     <form action="{{ route('company_loan.reports.receivable_summary') }}" method="GET">
+                    @include('layouts.partial.__report_branch_filter')
                         <div class="row">
                             <div class="col-md-4">
                                 <div class="form-group">
-                                    <label>Start Date</label>
-                                    <input type="text" name="start_date" class="form-control date-picker" value="{{ request('start_date', date('01-m-Y')) }}" autocomplete="off">
+                                    <label>Start Date <small class="text-muted font-weight-normal">(Default Today)</small></label>
+                                    <input type="text" name="start_date" class="form-control date-picker" value="{{ old('start_date', request('start_date', now()->format('d-m-Y'))) }}" autocomplete="off">
                                 </div>
                             </div>
                             <div class="col-md-4">
                                 <div class="form-group">
-                                    <label>End Date</label>
-                                    <input type="text" name="end_date" class="form-control date-picker" value="{{ request('end_date', date('t-m-Y')) }}" autocomplete="off">
+                                    <label>End Date <small class="text-muted font-weight-normal">(Default Today)</small></label>
+                                    <input type="text" name="end_date" class="form-control date-picker" value="{{ old('end_date', request('end_date', now()->format('d-m-Y'))) }}" autocomplete="off">
                                 </div>
                             </div>
                             <div class="col-md-4">

@@ -19,7 +19,7 @@ class ReportController extends Controller
             ->get();
 
         if ($request->manager_id != '') {
-            $assignments = ManagerAssignment::with(['sisterConcern', 'manager'])
+            $assignments = ManagerAssignment::whereReportBranch('sister_concern_id')->with(['sisterConcern', 'manager'])
                 ->where('manager_id', $request->manager_id)
                 ->orderBy('assigned_date', 'desc')
                 ->get();
@@ -38,7 +38,7 @@ class ReportController extends Controller
             ->get();
 
         if ($request->manager_id != '') {
-            $assignments = ManagerAssignment::with(['sisterConcern', 'manager'])
+            $assignments = ManagerAssignment::whereReportBranch('sister_concern_id')->with(['sisterConcern', 'manager'])
                 ->where('manager_id', $request->manager_id)
                 ->orderBy('assigned_date', 'desc')
                 ->get();
@@ -51,7 +51,7 @@ class ReportController extends Controller
     public function areaManagerReport(Request $request)
     {
         $query = Employee::areaManagers()
-            ->where('sister_concern_id', auth()->user()->activeConcernId());
+            ->whereReportBranch('sister_concern_id');
             
         $managers = $query->orderBy('name')->get();
         return view('manager_management.reports.area_manager_report', compact('managers'));
@@ -60,7 +60,7 @@ class ReportController extends Controller
     public function branchManagerReport(Request $request)
     {
         $query = Employee::branchManagers()
-            ->where('sister_concern_id', auth()->user()->activeConcernId());
+            ->whereReportBranch('sister_concern_id');
             
         $managers = $query->orderBy('name')->get();
         return view('manager_management.reports.branch_manager_report', compact('managers'));

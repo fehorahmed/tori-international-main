@@ -71,35 +71,30 @@
                 <!-- /.card-header -->
                 <!-- form start -->
                 <form target="_blank" action="{{ route('branch_report.income_statement') }}">
+                    @include('layouts.partial.__report_branch_filter')
                     <div class="card-body">
                         <div class="row">
                             <div class="col-12 col-md-3">
                                     <div class="form-group">
-                                        <label>Branch<span class="text-danger">*</span></label>
-                                        <select class="form-control select2" id="sister_concern" name="sister_concern">
-                                            <option value="">All Branches</option>
-                                            @foreach ($sister_concerns as $sister_concern)
-                                                <option value="{{ $sister_concern->id }}" {{ request('sister_concern') == $sister_concern->id ? 'selected' : ''  }}>{{ $sister_concern->display_name }}</option>
-                                            @endforeach
-                                        </select>
+                                        {{-- Branch selector is provided by __report_branch_filter. --}}
                                     </div>
                                 </div>
                             <div class="col-md-3">
                                 <div class="form-group">
                                     <label for="start_date">Start Date <span
-                                            class="text-danger">*</span></label>
+                                            class="text-danger">*</span> <small class="text-muted font-weight-normal">(Default Today)</small></label>
                                     <input required type="text" id="start_date" autocomplete="off"
                                            name="start_date" class="form-control date-picker"
-                                           value="{{ request()->get('start_date') ?? date('d-m-Y',strtotime(auth()->user()->sisterConcern->business_date)) }}">
+                                           value="{{ old('start_date', request('start_date', now()->format('d-m-Y'))) }}">
                                 </div>
                             </div>
                             <div class="col-md-3">
                                 <div class="form-group">
                                     <label for="end_date">End Date <span
-                                            class="text-danger">*</span></label>
+                                            class="text-danger">*</span> <small class="text-muted font-weight-normal">(Default Today)</small></label>
                                     <input required type="text" id="end_date" autocomplete="off"
                                            name="end_date" class="form-control date-picker"
-                                           value="{{ request()->get('end_date') ?? date('d-m-Y',strtotime(auth()->user()->sisterConcern->business_date)) }}">
+                                           value="{{ old('end_date', request('end_date', now()->format('d-m-Y'))) }}">
                                 </div>
                             </div>
 

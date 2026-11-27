@@ -18,13 +18,13 @@ class ReportController extends Controller
 {
     public function salesReturnReport(Request $request)
     {
-        $customers = Supplier::where('origin_sister_concern_id', auth()->user()->activeConcernId())
+        $customers = Supplier::whereReportBranch('origin_sister_concern_id')
             ->whereIn('type', [SupplierType::$CUSTOMER, SupplierType::$DEALER, SupplierType::$CORPORATE_CUSTOMER])
             ->get();
             
         if ($request->has('search')) {
             $query = SalesReturn::with('customer')
-                ->where('sister_concern_id', auth()->user()->activeConcernId());
+                ->whereReportBranch('sister_concern_id');
 
             if ($request->customer_id != '') {
                 $query->where('customer_id', $request->customer_id);
@@ -45,13 +45,13 @@ class ReportController extends Controller
 
     public function purchaseReturnReport(Request $request)
     {
-        $suppliers = Supplier::where('origin_sister_concern_id', auth()->user()->activeConcernId())
+        $suppliers = Supplier::whereReportBranch('origin_sister_concern_id')
             ->where('type', 2) // 2 = Supplier
             ->get();
             
         if ($request->has('search')) {
             $query = PurchaseReturn::with('supplier')
-                ->where('sister_concern_id', auth()->user()->activeConcernId());
+                ->whereReportBranch('sister_concern_id');
 
             if ($request->supplier_id != '') {
                 $query->where('supplier_id', $request->supplier_id);
@@ -72,7 +72,7 @@ class ReportController extends Controller
 
     public function defectStockReport(Request $request)
     {
-        $warehouses = Warehouse::where('sister_concern_id', auth()->user()->activeConcernId())
+        $warehouses = Warehouse::whereReportBranch('sister_concern_id')
             ->where('type', 'damage')
             ->get();
         $categories = Category::where('status', 1)->get();
@@ -81,7 +81,7 @@ class ReportController extends Controller
             $query = Inventory::whereHas('warehouse', function($q) {
                 $q->where('type', 'damage');
             })->with('product', 'product.unit', 'product.category', 'warehouse')
-              ->where('sister_concern_id', auth()->user()->activeConcernId())
+              ->whereReportBranch('sister_concern_id')
               ->where('quantity', '>', 0); // Only show items with stock
 
             if ($request->warehouse_id != '') {
@@ -107,12 +107,12 @@ class ReportController extends Controller
             $startDate = Carbon::parse($request->start_date)->format('Y-m-d');
             $endDate = Carbon::parse($request->end_date)->format('Y-m-d');
 
-            $salesReturns = SalesReturn::where('sister_concern_id', auth()->user()->activeConcernId())
+            $salesReturns = SalesReturn::whereReportBranch('sister_concern_id')
                 ->where('status', 2)
                 ->whereBetween('date', [$startDate, $endDate])
                 ->get();
                 
-            $purchaseReturns = PurchaseReturn::where('sister_concern_id', auth()->user()->activeConcernId())
+            $purchaseReturns = PurchaseReturn::whereReportBranch('sister_concern_id')
                 ->where('status', 2)
                 ->whereBetween('date', [$startDate, $endDate])
                 ->get();

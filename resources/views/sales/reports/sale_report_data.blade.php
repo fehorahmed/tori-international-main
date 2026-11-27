@@ -74,7 +74,7 @@
                         <div class="row mx-0 header-common-info">
                             <div class="col-12 text-center mb-3">
                                 <h3 style="font-size: 25px"><u><b>Sale Report</b></u></h3>
-                                <h5><b>Branch:</b> {{ auth()->user()->activeSisterConcern->name ?? auth()->user()->sisterConcern->name ?? 'N/A' }}</h5>
+                                <h5><b>Branch:</b> {{ \App\Support\ReportBranch::label() }}</h5>
                                 <h5 style="font-size: 18px">Date: {{ \Carbon\Carbon::parse(request('start_date'))->format('d-m-Y') }} to {{ \Carbon\Carbon::parse(request('end_date'))->format('d-m-Y') }}</h5>
                             </div>
                         </div>

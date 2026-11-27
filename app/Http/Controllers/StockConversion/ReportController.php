@@ -18,7 +18,7 @@ class ReportController extends Controller
         $conversions = [];
 
         if ($request->filled('start_date') && $request->filled('end_date')) {
-            $query = StockConversion::with('warehouse', 'items.fromProduct', 'items.toProduct');
+            $query = StockConversion::whereReportBranch('sister_concern_id')->with('warehouse', 'items.fromProduct', 'items.toProduct');
 
             // Apply Date Filter
             $start = Carbon::parse($request->start_date)->format('Y-m-d');
@@ -37,7 +37,7 @@ class ReportController extends Controller
 
             // Restrict Branch Managers
             $user = auth()->user();
-            if ($user->role === 'Branch_Manager' && $user->sister_concern_id) {
+            if (! \App\Support\ReportBranch::allowed() && $user->role === 'Branch_Manager' && $user->sister_concern_id) {
                 $query->where('sister_concern_id', $user->sister_concern_id);
             }
 

@@ -28,16 +28,11 @@
                 </div>
                 <div class="card-body">
                     <form action="{{ route('branch.employee_report') }}" target="_blank">
+                    @include('layouts.partial.__report_branch_filter')
                         <div class="row">
                             <div class="col-md-3">
                                 <div class="form-group">
-                                    <label for="sister_concern_id">Branch</label>
-                                    <select name="sister_concern_id" id="sister_concern_id" class="form-control select2">
-                                        <option value="">All Branches</option>
-                                        @foreach($sisterConcerns as $branch)
-                                            <option {{ request('sister_concern_id') == $branch->id ? 'selected' : '' }} value="{{ $branch->id }}">{{ $branch->display_name }}</option>
-                                        @endforeach
-                                    </select>
+                                    {{-- Branch selector is provided by __report_branch_filter. --}}
                                 </div>
                             </div>
                             <div class="col-md-3">

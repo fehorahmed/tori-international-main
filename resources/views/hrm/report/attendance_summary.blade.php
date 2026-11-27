@@ -52,6 +52,7 @@
                 <div class="card-body">
                     <form enctype="multipart/form-data" action="{{ route('report.attendance-summary') }}"
                           class="form-horizontal">
+                    @include('layouts.partial.__report_branch_filter')
                         <div class="row">
                             <div class="col-md-3">
                                 <div class="form-group">
@@ -67,17 +68,17 @@
                             </div>
                             <div class="col-md-3">
                                 <div class="form-group">
-                                    <label for="start_date">Start Date <span class="text-danger">*</span></label>
+                                    <label for="start_date">Start Date <span class="text-danger">*</span> <small class="text-muted font-weight-normal">(Default Today)</small></label>
                                     <input type="text" placeholder="Enter Start Date" autocomplete="off"
-                                           value="{{ request('start_date',date('d-m-Y')) }}" id="start_date"
+                                           value="{{ old('start_date', request('start_date', now()->format('d-m-Y'))) }}" id="start_date"
                                            name="start_date" class="form-control date-picker">
                                 </div>
                             </div>
                             <div class="col-md-3">
                                 <div class="form-group">
-                                    <label for="end_date">End Date <span class="text-danger">*</span></label>
+                                    <label for="end_date">End Date <span class="text-danger">*</span> <small class="text-muted font-weight-normal">(Default Today)</small></label>
                                     <input type="text" placeholder="Enter End Date" autocomplete="off"
-                                           value="{{ request('end_date',date('d-m-Y')) }}" id="end_date" name="end_date"
+                                           value="{{ old('end_date', request('end_date', now()->format('d-m-Y'))) }}" id="end_date" name="end_date"
                                            class="form-control date-picker">
                                 </div>
                             </div>

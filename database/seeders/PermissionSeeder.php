@@ -15,6 +15,7 @@ class PermissionSeeder extends Seeder
     public function run(): void
     {
         $permissionsGroup = [
+            ['name' => 'all_branch_permission', 'sort' => 99],
             // 1. Dashboard
             [
                 'name' => 'dashboard',

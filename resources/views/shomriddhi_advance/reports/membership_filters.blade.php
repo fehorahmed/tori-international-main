@@ -7,11 +7,12 @@
         <p>Branch: <strong>{{ $branch->code }} — {{ $branch->name }}</strong></p>
         <p class="text-muted">Date filter: {{ $dateLabel }}. Leave dates blank for all dates.</p>
         <form id="membership-report-filters" method="GET" target="_blank" action="{{ route('shomriddhi-advance.reports.'.$kind) }}">
+                    @include('layouts.partial.__report_branch_filter')
             <div class="row">
                 @foreach(['start_date' => 'From', 'end_date' => 'To'] as $field => $label)
                 <div class="col-md-3 form-group">
-                    <label for="{{ $field }}">{{ $dateLabel }} — {{ $label }}</label>
-                    <input type="date" id="{{ $field }}" name="{{ $field }}" class="form-control" value="{{ old($field, request($field, $field === 'start_date' ? now()->startOfMonth()->toDateString() : now()->toDateString())) }}">
+                    <label for="{{ $field }}">{{ $dateLabel }} — {{ $label }} <small class="text-muted font-weight-normal">(Default Today)</small></label>
+                    <input type="date" id="{{ $field }}" name="{{ $field }}" class="form-control" value="{{ old($field, request($field, now()->toDateString())) }}">
                     @error($field)<div class="text-danger">{{ $message }}</div>@enderror
                 </div>
                 @endforeach

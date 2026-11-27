@@ -25,7 +25,7 @@
                                 <div class="form-group">
                                     <label>Start Date</label>
                                     <div class="input-group date">
-                                        <input type="text" class="form-control date-picker" name="start_date" value="{{ request('start_date') }}" autocomplete="off">
+                                        <input type="text" class="form-control date-picker" name="start_date" value="{{ old('start_date', request('start_date', now()->format('d-m-Y'))) }}" autocomplete="off">
                                         <div class="input-group-append">
                                             <span class="input-group-text"><i class="fa fa-calendar"></i></span>
                                         </div>
@@ -36,7 +36,7 @@
                                 <div class="form-group">
                                     <label>End Date</label>
                                     <div class="input-group date">
-                                        <input type="text" class="form-control date-picker" name="end_date" value="{{ request('end_date') }}" autocomplete="off">
+                                        <input type="text" class="form-control date-picker" name="end_date" value="{{ old('end_date', request('end_date', now()->format('d-m-Y'))) }}" autocomplete="off">
                                         <div class="input-group-append">
                                             <span class="input-group-text"><i class="fa fa-calendar"></i></span>
                                         </div>

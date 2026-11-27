@@ -72,7 +72,7 @@
                         <div class="row header-common-info">
                             <div class="col-12 text-center">
                                 <h3 class="text-center" style="font-size: 20px; margin-top: 10px; margin-bottom: 5px;"><u><b>{{ $pageTitle }}</b></u></h3>
-                                <h5 class="text-center m-0" style="font-size: 16px"><b>Branch:</b> {{ auth()->user()->sisterConcern->name ?? auth()->user()->activeSisterConcern->name ?? '' }}</h5>
+                                <h5 class="text-center m-0" style="font-size: 16px"><b>Branch:</b> {{ \App\Support\ReportBranch::label() }}</h5>
                                 <h5 class="text-center m-0" style="font-size: 15px"><b>Date Range:</b> {{ date('d-m-Y', strtotime($startDate)) }} to {{ date('d-m-Y', strtotime($endDate)) }}</h5>
                             </div>
                         </div>

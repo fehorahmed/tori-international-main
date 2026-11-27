@@ -14,6 +14,7 @@
                 </div>
                 <div class="card-body">
                     <form target="_blank" action="{{ route('shomriddhi-advance.reports.daily_interest') }}" method="GET" class="mb-4">
+                    @include('layouts.partial.__report_branch_filter')
                         <div class="row">
                             <div class="col-md-3">
                                 <label>Filter Status</label>
@@ -29,7 +30,7 @@
                                     <option value="">All Customers</option>
                                     @php
                                         $customers = \App\Models\ShomriddhiAdvance\ShomriddhiAccount::with('customer')
-                                            ->where('origin_sister_concern_id', auth()->user()->activeConcernId())
+                                            ->whereReportBranch('origin_sister_concern_id')
                                             ->get()
                                             ->pluck('customer.name', 'customer_id');
                                     @endphp
@@ -41,12 +42,12 @@
                                 </select>
                             </div>
                             <div class="col-md-2">
-                                <label>Start Date</label>
-                                <input type="text" name="start_date" class="form-control date-picker" placeholder="DD-MM-YYYY">
+                                <label>Start Date <small class="text-muted font-weight-normal">(Default Today)</small></label>
+                                <input type="text" name="start_date" class="form-control date-picker" placeholder="DD-MM-YYYY" value="{{ old('start_date', request('start_date', now()->format('d-m-Y'))) }}">
                             </div>
                             <div class="col-md-2">
-                                <label>End Date</label>
-                                <input type="text" name="end_date" class="form-control date-picker" placeholder="DD-MM-YYYY">
+                                <label>End Date <small class="text-muted font-weight-normal">(Default Today)</small></label>
+                                <input type="text" name="end_date" class="form-control date-picker" placeholder="DD-MM-YYYY" value="{{ old('end_date', request('end_date', now()->format('d-m-Y'))) }}">
                             </div>
                             <div class="col-md-2 d-flex align-items-end">
                                 <button type="submit" name="search" value="1" class="btn btn-primary btn-block"><i class="fa fa-filter"></i> Generate</button>

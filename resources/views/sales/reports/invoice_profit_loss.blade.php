@@ -10,17 +10,18 @@
             </div>
             <div class="card-body">
                 <form id="search-form">
+                    @include('layouts.partial.__report_branch_filter')
                     <div class="row">
                         <div class="col-12 col-md-3">
                             <div class="form-group">
-                                <label for="start_date" class="col-form-label">Start Date <span class="text-danger">*</span></label>
-                                <input required type="text" autocomplete="off" value="{{ date('d-m-Y', strtotime(auth()->user()->sisterConcern->business_date)) }}" name="start_date" class="form-control date-picker" id="start_date">
+                                <label for="start_date" class="col-form-label">Start Date <span class="text-danger">*</span> <small class="text-muted font-weight-normal">(Default Today)</small></label>
+                                <input required type="text" autocomplete="off" value="{{ old('start_date', request('start_date', now()->format('d-m-Y'))) }}" name="start_date" class="form-control date-picker" id="start_date">
                             </div>
                         </div>
                         <div class="col-12 col-md-3">
                             <div class="form-group">
-                                <label for="end_date" class="col-form-label">End Date <span class="text-danger">*</span></label>
-                                <input required type="text" autocomplete="off" value="{{ date('d-m-Y', strtotime(auth()->user()->sisterConcern->business_date)) }}" name="end_date" class="form-control date-picker" id="end_date">
+                                <label for="end_date" class="col-form-label">End Date <span class="text-danger">*</span> <small class="text-muted font-weight-normal">(Default Today)</small></label>
+                                <input required type="text" autocomplete="off" value="{{ old('end_date', request('end_date', now()->format('d-m-Y'))) }}" name="end_date" class="form-control date-picker" id="end_date">
                             </div>
                         </div>
                         <div class="col-md-2">

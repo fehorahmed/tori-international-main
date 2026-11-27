@@ -66,27 +66,28 @@
                 <!-- /.card-header -->
                 <!-- form start -->
                 <form action="{{ route('report.income_statement') }}">
+                    @include('layouts.partial.__report_branch_filter')
                     <div class="card-body">
                         <div class="row">
 
                             <div class="col-md-3">
                                 <div class="form-group">
                                     <label for="start_date">Start Date <span
-                                            class="text-danger">*</span></label>
+                                            class="text-danger">*</span> <small class="text-muted font-weight-normal">(Default Today)</small></label>
                                     <input required type="text" id="start_date" autocomplete="off"
                                            name="start_date" class="form-control date-picker"
                                            placeholder="Enter Start Date"
-                                           value="{{ request()->get('start_date') ?? date('d-m-Y', strtotime(auth()->user()->business_date)) }}">
+                                           value="{{ old('start_date', request('start_date', now()->format('d-m-Y'))) }}">
                                 </div>
                             </div>
                             <div class="col-md-3">
                                 <div class="form-group">
                                     <label for="end_date">End Date <span
-                                            class="text-danger">*</span></label>
+                                            class="text-danger">*</span> <small class="text-muted font-weight-normal">(Default Today)</small></label>
                                     <input required type="text" id="end_date" autocomplete="off"
                                            name="end_date" class="form-control date-picker"
                                            placeholder="Enter Start Date"
-                                           value="{{ request()->get('end_date') ?? date('d-m-Y', strtotime(auth()->user()->business_date)) }}">
+                                           value="{{ old('end_date', request('end_date', now()->format('d-m-Y'))) }}">
                                 </div>
                             </div>
 
@@ -142,15 +143,15 @@
 
                             // Incomes (Right Side)
                             if ($operatingRevenue) {
-                                $revBal = accountGroupBalanceIncomeStatement($operatingRevenue->id, request('start_date'), request('end_date'), 1, auth()->user()->activeConcernId());
-                                $prevRevBal = accountGroupBalanceIncomeStatement($operatingRevenue->id, request('start_date'), request('end_date'), 2, auth()->user()->activeConcernId());
+                                $revBal = accountGroupBalanceIncomeStatement($operatingRevenue->id, request('start_date'), request('end_date'), 1, \App\Support\ReportBranch::id());
+                                $prevRevBal = accountGroupBalanceIncomeStatement($operatingRevenue->id, request('start_date'), request('end_date'), 2, \App\Support\ReportBranch::id());
                                 $incomes[] = ['name' => $operatingRevenue->name, 'id' => $operatingRevenue->id, 'note' => $operatingRevenue->note_no, 'current' => abs($revBal), 'previous' => abs($prevRevBal)];
                                 $totalIncome += abs($revBal);
                                 $previousTotalIncome += abs($prevRevBal);
                             }
                             if ($otherIncome) {
-                                $othBal = accountGroupBalanceIncomeStatement($otherIncome->id, request('start_date'), request('end_date'), 1, auth()->user()->activeConcernId());
-                                $prevOthBal = accountGroupBalanceIncomeStatement($otherIncome->id, request('start_date'), request('end_date'), 2, auth()->user()->activeConcernId());
+                                $othBal = accountGroupBalanceIncomeStatement($otherIncome->id, request('start_date'), request('end_date'), 1, \App\Support\ReportBranch::id());
+                                $prevOthBal = accountGroupBalanceIncomeStatement($otherIncome->id, request('start_date'), request('end_date'), 2, \App\Support\ReportBranch::id());
                                 $incomes[] = ['name' => $otherIncome->name, 'id' => $otherIncome->id, 'note' => $otherIncome->note_no, 'current' => abs($othBal), 'previous' => abs($prevOthBal)];
                                 $totalIncome += abs($othBal);
                                 $previousTotalIncome += abs($prevOthBal);
@@ -158,29 +159,29 @@
 
                             // Expenses (Left Side)
                             if ($costOfGoodsSold) {
-                                $cogsBal = accountGroupBalanceIncomeStatement($costOfGoodsSold->id, request('start_date'), request('end_date'), 1, auth()->user()->activeConcernId());
-                                $prevCogsBal = accountGroupBalanceIncomeStatement($costOfGoodsSold->id, request('start_date'), request('end_date'), 2, auth()->user()->activeConcernId());
+                                $cogsBal = accountGroupBalanceIncomeStatement($costOfGoodsSold->id, request('start_date'), request('end_date'), 1, \App\Support\ReportBranch::id());
+                                $prevCogsBal = accountGroupBalanceIncomeStatement($costOfGoodsSold->id, request('start_date'), request('end_date'), 2, \App\Support\ReportBranch::id());
                                 $expenses[] = ['name' => $costOfGoodsSold->name, 'id' => $costOfGoodsSold->id, 'note' => $costOfGoodsSold->note_no, 'current' => abs($cogsBal), 'previous' => abs($prevCogsBal)];
                                 $totalExpense += abs($cogsBal);
                                 $previousTotalExpense += abs($prevCogsBal);
                             }
                             if ($operatingExpenses) {
-                                $opExpBal = accountGroupBalanceIncomeStatement($operatingExpenses->id, request('start_date'), request('end_date'), 1, auth()->user()->activeConcernId());
-                                $prevOpExpBal = accountGroupBalanceIncomeStatement($operatingExpenses->id, request('start_date'), request('end_date'), 2, auth()->user()->activeConcernId());
+                                $opExpBal = accountGroupBalanceIncomeStatement($operatingExpenses->id, request('start_date'), request('end_date'), 1, \App\Support\ReportBranch::id());
+                                $prevOpExpBal = accountGroupBalanceIncomeStatement($operatingExpenses->id, request('start_date'), request('end_date'), 2, \App\Support\ReportBranch::id());
                                 $expenses[] = ['name' => $operatingExpenses->name, 'id' => $operatingExpenses->id, 'note' => $operatingExpenses->note_no, 'current' => abs($opExpBal), 'previous' => abs($prevOpExpBal)];
                                 $totalExpense += abs($opExpBal);
                                 $previousTotalExpense += abs($prevOpExpBal);
                             }
                             if ($financialExpenses) {
-                                $finExpBal = accountGroupBalanceIncomeStatement($financialExpenses->id, request('start_date'), request('end_date'), 1, auth()->user()->activeConcernId());
-                                $prevFinExpBal = accountGroupBalanceIncomeStatement($financialExpenses->id, request('start_date'), request('end_date'), 2, auth()->user()->activeConcernId());
+                                $finExpBal = accountGroupBalanceIncomeStatement($financialExpenses->id, request('start_date'), request('end_date'), 1, \App\Support\ReportBranch::id());
+                                $prevFinExpBal = accountGroupBalanceIncomeStatement($financialExpenses->id, request('start_date'), request('end_date'), 2, \App\Support\ReportBranch::id());
                                 $expenses[] = ['name' => $financialExpenses->name, 'id' => $financialExpenses->id, 'note' => $financialExpenses->note_no, 'current' => abs($finExpBal), 'previous' => abs($prevFinExpBal)];
                                 $totalExpense += abs($finExpBal);
                                 $previousTotalExpense += abs($prevFinExpBal);
                             }
                             if ($taxExpenses) {
-                                $taxExpBal = accountGroupBalanceIncomeStatement($taxExpenses->id, request('start_date'), request('end_date'), 1, auth()->user()->activeConcernId());
-                                $prevTaxExpBal = accountGroupBalanceIncomeStatement($taxExpenses->id, request('start_date'), request('end_date'), 2, auth()->user()->activeConcernId());
+                                $taxExpBal = accountGroupBalanceIncomeStatement($taxExpenses->id, request('start_date'), request('end_date'), 1, \App\Support\ReportBranch::id());
+                                $prevTaxExpBal = accountGroupBalanceIncomeStatement($taxExpenses->id, request('start_date'), request('end_date'), 2, \App\Support\ReportBranch::id());
                                 $expenses[] = ['name' => $taxExpenses->name, 'id' => $taxExpenses->id, 'note' => $taxExpenses->note_no, 'current' => abs($taxExpBal), 'previous' => abs($prevTaxExpBal)];
                                 $totalExpense += abs($taxExpBal);
                                 $previousTotalExpense += abs($prevTaxExpBal);
@@ -238,7 +239,7 @@
                                                 @if(isset($exp['is_bold']) && $exp['is_bold'])
                                                     <b>{{ $exp['name'] }}</b>
                                                 @elseif(isset($exp['id']))
-                                                    <a href="{{ route('report.trial_balance',['start_date'=>request('start_date'),'end_date'=>request('end_date'),'account_group_id'=>$exp['id']]) }}">{{ $exp['name'] }}</a>
+                                                    <a href="{{ route('report.trial_balance', ['report_branch_id' => \App\Support\ReportBranch::id() ?? 'all', 'start_date'=>request('start_date'),'end_date'=>request('end_date'),'account_group_id'=>$exp['id']]) }}">{{ $exp['name'] }}</a>
                                                 @else
                                                     {{ $exp['name'] }}
                                                 @endif
@@ -268,7 +269,7 @@
                                                 @if(isset($inc['is_bold']) && $inc['is_bold'])
                                                     <b>{{ $inc['name'] }}</b>
                                                 @elseif(isset($inc['id']))
-                                                    <a href="{{ route('report.trial_balance',['start_date'=>request('start_date'),'end_date'=>request('end_date'),'account_group_id'=>$inc['id']]) }}">{{ $inc['name'] }}</a>
+                                                    <a href="{{ route('report.trial_balance', ['report_branch_id' => \App\Support\ReportBranch::id() ?? 'all', 'start_date'=>request('start_date'),'end_date'=>request('end_date'),'account_group_id'=>$inc['id']]) }}">{{ $inc['name'] }}</a>
                                                 @else
                                                     {{ $inc['name'] }}
                                                 @endif

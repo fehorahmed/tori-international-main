@@ -1,6 +1,7 @@
 @extends('layouts.app')
 @section('title', 'Due Installments Report')
 @section('content')
+    @include('layouts.partial.__report_branch_toolbar')
     <div class="row">
         <div class="col-md-12">
             <!-- Payable Dues (What you owe) -->
@@ -25,7 +26,7 @@
                         <tbody>
                             @php $hasPayable = false; @endphp
                             @foreach($installments as $installment)
-                                @if(auth()->user()->sister_concern_id == $installment->loan->borrower_concern_id)
+                                @if(\App\Support\ReportBranch::id() === null || \App\Support\ReportBranch::id() == $installment->loan->borrower_concern_id)
                                     @php $hasPayable = true; @endphp
                                     <tr>
                                         <td>{{ $installment->loan_id }}</td>
@@ -77,7 +78,7 @@
                         <tbody>
                             @php $hasReceivable = false; @endphp
                             @foreach($installments as $installment)
-                                @if(auth()->user()->sister_concern_id == $installment->loan->lender_concern_id)
+                                @if(\App\Support\ReportBranch::id() === null || \App\Support\ReportBranch::id() == $installment->loan->lender_concern_id)
                                     @php $hasReceivable = true; @endphp
                                     <tr>
                                         <td>{{ $installment->loan_id }}</td>

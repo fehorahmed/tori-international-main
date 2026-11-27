@@ -24,7 +24,7 @@ class ReportController extends Controller
     public function ledger(Request $request)
     {
         $accounts = ShomriddhiAccount::with('customer')
-            ->where('origin_sister_concern_id', auth()->user()->activeConcernId())
+            ->whereReportBranch('origin_sister_concern_id')
             ->get();
 
         $transactions = []; 
@@ -35,7 +35,7 @@ class ReportController extends Controller
 
         if ($request->customer_id) {
             $customer = Supplier::where('id', $request->customer_id)
-                ->where('origin_sister_concern_id', auth()->user()->activeConcernId())
+                ->whereReportBranch('origin_sister_concern_id')
                 ->first();
             if ($customer) {
                 $shomriddhiAccount = ShomriddhiAccount::where('customer_id', $customer->id)->first();
@@ -95,7 +95,7 @@ class ReportController extends Controller
     public function getFilteredAccounts(Request $request)
     {
         $query = ShomriddhiAccount::with('customer')
-            ->where('origin_sister_concern_id', auth()->user()->activeConcernId());
+            ->whereReportBranch('origin_sister_concern_id');
 
         if ($request->division_id || $request->district_id || $request->upazila_id || $request->union_id || $request->village_id) {
             $query->whereHas('customer', function($q) use ($request) {
@@ -148,7 +148,7 @@ class ReportController extends Controller
 
         $query = ShomriddhiTransaction::with('customer:id,name,member_no')
             ->join('shomriddhi_accounts', 'shomriddhi_transactions.customer_id', '=', 'shomriddhi_accounts.customer_id')
-            ->where('shomriddhi_accounts.origin_sister_concern_id', auth()->user()->activeConcernId())
+            ->whereReportBranch('shomriddhi_accounts.origin_sister_concern_id')
             ->where('shomriddhi_transactions.status', 'Approved')
             ->select('shomriddhi_transactions.id', 'shomriddhi_transactions.customer_id', 'shomriddhi_transactions.type', 'shomriddhi_transactions.amount', 'shomriddhi_transactions.date', 'shomriddhi_transactions.note')
             ->orderBy('shomriddhi_transactions.date', 'desc');
@@ -158,7 +158,7 @@ class ReportController extends Controller
 
         // Aggregate totals via DB — does NOT load all rows into memory
         $totalsQuery = ShomriddhiTransaction::join('shomriddhi_accounts', 'shomriddhi_transactions.customer_id', '=', 'shomriddhi_accounts.customer_id')
-            ->where('shomriddhi_accounts.origin_sister_concern_id', auth()->user()->activeConcernId())
+            ->whereReportBranch('shomriddhi_accounts.origin_sister_concern_id')
             ->where('shomriddhi_transactions.status', 'Approved');
         if ($startDate) $totalsQuery->whereDate('date', '>=', $startDate);
         if ($endDate)   $totalsQuery->whereDate('date', '<=', $endDate);
@@ -186,7 +186,7 @@ class ReportController extends Controller
         // Totals-only mode: return aggregate sums without loading all rows
         if ($request->totals_only) {
             $base = ShomriddhiTransaction::join('shomriddhi_accounts', 'shomriddhi_transactions.customer_id', '=', 'shomriddhi_accounts.customer_id')
-                ->where('shomriddhi_accounts.origin_sister_concern_id', auth()->user()->activeConcernId())
+                ->whereReportBranch('shomriddhi_accounts.origin_sister_concern_id')
                 ->where('shomriddhi_transactions.status', 'Approved');
             if ($startDate) $base->whereDate('date', '>=', $startDate);
             if ($endDate)   $base->whereDate('date', '<=', $endDate);
@@ -200,7 +200,7 @@ class ReportController extends Controller
 
         $query = ShomriddhiTransaction::with('customer')
             ->join('shomriddhi_accounts', 'shomriddhi_transactions.customer_id', '=', 'shomriddhi_accounts.customer_id')
-            ->where('shomriddhi_accounts.origin_sister_concern_id', auth()->user()->activeConcernId())
+            ->whereReportBranch('shomriddhi_accounts.origin_sister_concern_id')
             ->where('shomriddhi_transactions.status', 'Approved')
             ->select('shomriddhi_transactions.id', 'shomriddhi_transactions.customer_id', 'shomriddhi_transactions.type', 'shomriddhi_transactions.amount', 'shomriddhi_transactions.date', 'shomriddhi_transactions.note');
 
@@ -232,7 +232,7 @@ class ReportController extends Controller
         $endDate   = $request->end_date   ? Carbon::parse($request->end_date)->format('Y-m-d')   : null;
 
         $query = ShomriddhiDailyInterest::with('customer')
-            ->where('origin_sister_concern_id', auth()->user()->activeConcernId());
+            ->whereReportBranch('origin_sister_concern_id');
 
         if ($startDate) $query->whereDate('date', '>=', $startDate);
         if ($endDate)   $query->whereDate('date', '<=', $endDate);
@@ -259,7 +259,7 @@ class ReportController extends Controller
         $endDate   = $request->end_date   ? Carbon::parse($request->end_date)->format('Y-m-d')   : null;
 
         $query = ShomriddhiDailyInterest::with('customer')
-            ->where('origin_sister_concern_id', auth()->user()->activeConcernId());
+            ->whereReportBranch('origin_sister_concern_id');
 
         if ($startDate) $query->whereDate('date', '>=', $startDate);
         if ($endDate)   $query->whereDate('date', '<=', $endDate);
@@ -316,7 +316,7 @@ class ReportController extends Controller
             }
             
             $membersData = [];
-            $members = Supplier::where('origin_sister_concern_id', auth()->user()->activeConcernId())
+            $members = Supplier::whereReportBranch('origin_sister_concern_id')
                         ->whereIn('type',[SupplierType::$CUSTOMER,SupplierType::$DEALER,SupplierType::$CORPORATE_CUSTOMER])
                         ->where('shomriddhi_group_id', $group->id)
                         ->orderBy('member_no')->get();

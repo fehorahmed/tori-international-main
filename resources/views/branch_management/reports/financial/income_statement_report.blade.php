@@ -119,7 +119,7 @@
                                     <td></td>
                                 </tr>
                                 <tr>
-                                    <td class="text-left"><a target="_blank" href="{{ route('branch_report.trial_balance',['start_date'=>request('start_date'),'end_date'=>request('end_date'),'account_group_id'=>$operatingRevenue->id,'sister_concern'=>request('sister_concern')]) }}">{{ $operatingRevenue->name}}</a></td>
+                                    <td class="text-left"><a target="_blank" href="{{ route('branch_report.trial_balance',['start_date'=>request('start_date'),'end_date'=>request('end_date'),'account_group_id'=>$operatingRevenue->id,'report_branch_id' => request('report_branch_id', \App\Support\ReportBranch::id() ?? 'all')]) }}">{{ $operatingRevenue->name}}</a></td>
                                     <td>{{ $operatingRevenue->note_no }}</td>
                                     <td class="text-right border-bottom">{{ wrapPositive($revenueBalance) }}</td>
                                     <td></td>
@@ -143,7 +143,7 @@
                                     $previousGrossProfitBalance += $previousCostOfGoodsBalance;
                                 @endphp
                                 <tr>
-                                    <td class="text-left"><a target="_blank" href="{{ route('branch_report.trial_balance',['start_date'=>request('start_date'),'end_date'=>request('end_date'),'account_group_id'=>$costOfGoodsSold->id,'sister_concern'=>request('sister_concern')]) }}">Less: {{ $costOfGoodsSold->name }}</a></td>
+                                    <td class="text-left"><a target="_blank" href="{{ route('branch_report.trial_balance',['start_date'=>request('start_date'),'end_date'=>request('end_date'),'account_group_id'=>$costOfGoodsSold->id,'report_branch_id' => request('report_branch_id', \App\Support\ReportBranch::id() ?? 'all')]) }}">Less: {{ $costOfGoodsSold->name }}</a></td>
                                     <td>{{ $costOfGoodsSold->note_no }}</td>
                                     <td class="text-right border-bottom">{{ wrapNegative($costOfGoodsBalance) }}</td>
                                     <td></td>
@@ -176,7 +176,7 @@
                                     $previousOperatingProfitBalance += $previousOpExpBalance;
                                 @endphp
                                 <tr>
-                                    <td class="text-left"><a target="_blank" href="{{ route('branch_report.trial_balance',['start_date'=>request('start_date'),'end_date'=>request('end_date'),'account_group_id'=>$operatingExpenses->id,'sister_concern'=>request('sister_concern')]) }}">Less: {{ $operatingExpenses->name }}</a></td>
+                                    <td class="text-left"><a target="_blank" href="{{ route('branch_report.trial_balance',['start_date'=>request('start_date'),'end_date'=>request('end_date'),'account_group_id'=>$operatingExpenses->id,'report_branch_id' => request('report_branch_id', \App\Support\ReportBranch::id() ?? 'all')]) }}">Less: {{ $operatingExpenses->name }}</a></td>
                                     <td>{{ $operatingExpenses->note_no }}</td>
                                     <td class="text-right border-bottom">{{ wrapNegative($opExpBalance) }}</td>
                                     <td></td>
@@ -209,7 +209,7 @@
                                     $previousNetProfitBeforeTax += $previousOtherIncBalance;
                                 @endphp
                                 <tr>
-                                    <td class="text-left"><a target="_blank" href="{{ route('branch_report.trial_balance',['start_date'=>request('start_date'),'end_date'=>request('end_date'),'account_group_id'=>$otherIncome->id,'sister_concern'=>request('sister_concern')]) }}">Add: {{ $otherIncome->name }}</a></td>
+                                    <td class="text-left"><a target="_blank" href="{{ route('branch_report.trial_balance',['start_date'=>request('start_date'),'end_date'=>request('end_date'),'account_group_id'=>$otherIncome->id,'report_branch_id' => request('report_branch_id', \App\Support\ReportBranch::id() ?? 'all')]) }}">Add: {{ $otherIncome->name }}</a></td>
                                     <td>{{ $otherIncome->note_no }}</td>
                                     <td class="text-right">{{ wrapPositive($otherIncBalance) }}</td>
                                     <td></td>
@@ -225,7 +225,7 @@
                                     $previousNetProfitBeforeTax += $previousFinExpBalance;
                                 @endphp
                                 <tr>
-                                    <td class="text-left"><a target="_blank" href="{{ route('branch_report.trial_balance',['start_date'=>request('start_date'),'end_date'=>request('end_date'),'account_group_id'=>$financialExpenses->id,'sister_concern'=>request('sister_concern')]) }}">Less: {{ $financialExpenses->name }}</a></td>
+                                    <td class="text-left"><a target="_blank" href="{{ route('branch_report.trial_balance',['start_date'=>request('start_date'),'end_date'=>request('end_date'),'account_group_id'=>$financialExpenses->id,'report_branch_id' => request('report_branch_id', \App\Support\ReportBranch::id() ?? 'all')]) }}">Less: {{ $financialExpenses->name }}</a></td>
                                     <td>{{ $financialExpenses->note_no }}</td>
                                     <td class="text-right border-bottom">{{ wrapNegative($finExpBalance) }}</td>
                                     <td></td>
@@ -254,7 +254,7 @@
                                     $previousNetProfitAfterTax += $previousTaxExpBalance;
                                 @endphp
                                 <tr>
-                                    <td class="text-left"><a target="_blank" href="{{ route('branch_report.trial_balance',['start_date'=>request('start_date'),'end_date'=>request('end_date'),'account_group_id'=>$taxExpenses->id,'sister_concern'=>request('sister_concern')]) }}">Less: {{ $taxExpenses->name }}</a></td>
+                                    <td class="text-left"><a target="_blank" href="{{ route('branch_report.trial_balance',['start_date'=>request('start_date'),'end_date'=>request('end_date'),'account_group_id'=>$taxExpenses->id,'report_branch_id' => request('report_branch_id', \App\Support\ReportBranch::id() ?? 'all')]) }}">Less: {{ $taxExpenses->name }}</a></td>
                                     <td>{{ $taxExpenses->note_no }}</td>
                                     <td class="text-right border-bottom">{{ wrapNegative($taxExpBalance) }}</td>
                                     <td></td>

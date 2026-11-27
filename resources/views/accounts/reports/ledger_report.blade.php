@@ -68,7 +68,7 @@
                             <div class="col-12">
                                 <h3 class="text-center m-0 mb-2 mt-2 header-common-info" style="font-size: 23px !important;"><b>General Ledger</b></h3>
                                 @php
-                                    $branchName = auth()->user()->sisterConcern->display_name ?? auth()->user()->sisterConcern->name ?? 'Head Office';
+                                    $branchName = \App\Support\ReportBranch::label();
                                 @endphp
                                 <h3 class="text-center m-0 mb-2" style="font-size: 19px !important;">Branch: {{ $branchName }}</h3>
                                 <h3 class="text-center m-0 mb-2 mt-2 header-common-info" style="font-size: 19px !important;"><b>Date : {{ request('start_date') }} to {{ request('end_date') }}</b></h3>

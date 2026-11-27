@@ -117,6 +117,8 @@ class MembershipReportsTest extends TestCase
         DB::table('membership_cashouts')->where('id', $id)->update(['branch_id' => $this->other]);
         $this->assertCount(1, $this->report()->deposit_withdraw($this->other, $f)['rows']);
         $this->assertCount(3, $this->report()->deposit_withdraw($this->branch, $f)['rows']);
+        $this->assertCount(3, $this->report()->deposit_withdraw(null, $f)['rows']);
+        $this->assertSame('105.00', $this->report()->deposit_withdraw(null, $f)['totals']['Approved Withdraw (Tk)']);
         DB::table('membership_cashouts')->where('id', $id)->update(['status' => 'Pending']);
         $this->assertCount(0, $this->report()->deposit_withdraw($this->branch, $f + ['source' => 'branch_cashout'])['rows']);
     }

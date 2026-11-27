@@ -62,7 +62,7 @@
                         <div class="row header-common-info">
                             <div class="col-12">
                                 <h3 class="text-center" style="font-size: 25px"><u><b>Fixed Asset Depreciation Schedule</b></u></h3>
-                                <h4 class="text-center" style="font-size: 20px">Branch: {{ auth()->user()->activeSisterConcern->name ?? config('app.name') }}</h4>
+                                <h4 class="text-center" style="font-size: 20px">Branch: {{ \App\Support\ReportBranch::label() }}</h4>
                                 <h5 class="text-center" style="font-size: 18px">Generated on: {{ now()->format('d-M-Y H:i A') }}</h5>
                             </div>
                         </div>

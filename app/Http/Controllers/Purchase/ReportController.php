@@ -20,7 +20,7 @@ class ReportController extends Controller
         $sister_concerns = SisterConcern::where('status', 1)->get();
         
         $query = Supplier::where('type', SupplierType::$SUPPLIER)
-            ->where('origin_sister_concern_id', auth()->user()->activeConcernId());
+            ->whereReportBranch('origin_sister_concern_id');
 
         if ($request->status != '') {
             $query->where('status', $request->status);
@@ -57,13 +57,13 @@ class ReportController extends Controller
 
     public function purchaseReport(Request $request) {
         $orders = [];
-        $suppliers = Supplier::where('origin_sister_concern_id', auth()->user()->activeConcernId())
+        $suppliers = Supplier::whereReportBranch('origin_sister_concern_id')
             ->where('type', SupplierType::$SUPPLIER)
             ->get();
         
         $query = PurchaseOrder::with('supplier');
         if ($request->has('search')) {
-            $query->where('sister_concern_id', auth()->user()->activeConcernId());
+            $query->whereReportBranch('sister_concern_id');
 
             if ($request->supplier != ''){
                 $query = $query->where('supplier_id', $request->supplier);
@@ -100,13 +100,13 @@ class ReportController extends Controller
 
     public function purchaseDetailsReport(Request $request) {
         $orders = [];
-        $suppliers = Supplier::where('origin_sister_concern_id', auth()->user()->activeConcernId())
+        $suppliers = Supplier::whereReportBranch('origin_sister_concern_id')
             ->where('type', SupplierType::$SUPPLIER)
             ->get();
 
         $query = PurchaseOrder::with('supplier', 'purchaseItems.product');
         if ($request->has('search')) {
-            $query->where('sister_concern_id', auth()->user()->activeConcernId());
+            $query->whereReportBranch('sister_concern_id');
 
             if ($request->supplier != ''){
                 $query = $query->where('supplier_id', $request->supplier);
@@ -154,7 +154,7 @@ class ReportController extends Controller
 
         $query = Supplier::where('type', SupplierType::$SUPPLIER)
             ->where('status', 1)
-            ->where('origin_sister_concern_id', auth()->user()->activeConcernId());
+            ->whereReportBranch('origin_sister_concern_id');
 
         if ($request->division_id) {
             $query->where('division_id', $request->division_id);
@@ -212,14 +212,14 @@ class ReportController extends Controller
 
             $query->with([
                 'openingTransactions' => function ($query) use ($previousDay) {
-                    $query->where('sister_concern_id', auth()->user()->activeConcernId());
+                    $query->whereReportBranch('sister_concern_id');
                     $query->whereDate('date', '<=', $previousDay)
                         ->select(DB::raw('account_head_id,
                             SUM(CASE WHEN transaction_type IN (1) THEN amount ELSE 0 END) AS previous_debit,
                             SUM(CASE WHEN transaction_type IN (2) THEN amount ELSE 0 END) AS previous_credit'))
                         ->groupBy('account_head_id');
                 }, 'transactions' => function ($query) use ($startDate, $endDate) {
-                    $query->where('sister_concern_id', auth()->user()->activeConcernId());
+                    $query->whereReportBranch('sister_concern_id');
                     $query->whereBetween('date', [$startDate, $endDate])
                         ->orderBy('date')
                         ->orderBy('voucher_no_group_sl');

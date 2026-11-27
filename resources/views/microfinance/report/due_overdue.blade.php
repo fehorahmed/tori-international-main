@@ -9,6 +9,7 @@
                 </div>
                 <!-- form start -->
                 <form target="_blank" action="{{ route('microfinance.report.due-overdue') }}" method="GET">
+                    @include('layouts.partial.__report_branch_filter')
                     <div class="card-body">
                         <div class="row">
                             <div class="col-md-4">

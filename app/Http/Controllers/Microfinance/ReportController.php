@@ -15,7 +15,7 @@ class ReportController extends Controller
     {
         abort_if(!auth()->user()->hasPermissionTo('mf_report_member_ledger'), 403, 'Unauthorized');
         $pageTitle = 'Member Ledger';
-        $members   = MfMember::where('sister_concern_id', auth()->user()->activeConcernId())
+        $members   = MfMember::whereReportBranch('sister_concern_id')
                               ->where('status', 1)->orderBy('name')->get();
 
         $member  = null;
@@ -23,7 +23,7 @@ class ReportController extends Controller
         $loans   = [];
 
         if ($request->member_id) {
-            $member  = MfMember::where('sister_concern_id', auth()->user()->activeConcernId())
+            $member  = MfMember::whereReportBranch('sister_concern_id')
                                 ->findOrFail($request->member_id);
             $savings = MfSavingsAccount::with('product', 'transactions')
                                        ->where('member_id', $member->id)->get();
@@ -41,14 +41,14 @@ class ReportController extends Controller
         abort_if(!auth()->user()->hasPermissionTo('mf_report_collection_sheet'), 403, 'Unauthorized');
         $pageTitle = 'Collection Sheet Report';
         $scId      = auth()->user()->activeConcernId();
-        $somitis   = MfSomiti::where('sister_concern_id', $scId)->where('status', 1)->get();
+        $somitis   = MfSomiti::whereReportBranch('sister_concern_id')->where('status', 1)->get();
         $date      = $request->date ?? date('Y-m-d');
         $somitiId  = $request->somiti_id;
 
         $members = collect();
         if ($somitiId) {
             // Verify Somiti belongs to the active branch
-            $somiti = MfSomiti::where('sister_concern_id', $scId)->findOrFail($somitiId);
+            $somiti = MfSomiti::whereReportBranch('sister_concern_id')->findOrFail($somitiId);
 
             $members = MfMember::with([
                 'loans' => fn($q) => $q->where('status', 3),
@@ -72,7 +72,7 @@ class ReportController extends Controller
         $scId      = auth()->user()->activeConcernId();
 
         $loans = MfLoan::with('member', 'product')
-            ->where('sister_concern_id', $scId)
+            ->whereReportBranch('sister_concern_id')
             ->when($request->status, fn($q) => $q->where('status', $request->status))
             ->get();
 
@@ -98,7 +98,7 @@ class ReportController extends Controller
         $scId      = auth()->user()->activeConcernId();
 
         $accounts = MfSavingsAccount::with('member', 'product')
-            ->where('sister_concern_id', $scId)
+            ->whereReportBranch('sister_concern_id')
             ->when($request->status, fn($q) => $q->where('status', $request->status))
             ->when($request->product_type, fn($q) => $q->whereHas('product', fn($p) => $p->where('product_type', $request->product_type)))
             ->get();
@@ -127,7 +127,7 @@ class ReportController extends Controller
         $date = $request->date ?? date('Y-m-d');
         
         $installments = \App\Models\Microfinance\MfInstallment::with(['loan.member.somiti', 'loan.product'])
-            ->whereHas('loan', fn($q) => $q->where('sister_concern_id', $scId)->where('status', 3))
+            ->whereHas('loan', fn($q) => $q->whereReportBranch('sister_concern_id')->where('status', 3))
             ->where('due_date', '<=', $date)
             ->whereIn('status', [1, 3]) // 1=Pending, 3=Partial
             ->orderBy('due_date', 'asc')
@@ -151,7 +151,7 @@ class ReportController extends Controller
         $endDate   = $request->end_date ?? date('Y-m-d');
         
         $loans = \App\Models\Microfinance\MfLoan::with('member.somiti', 'product')
-            ->where('sister_concern_id', $scId)
+            ->whereReportBranch('sister_concern_id')
             ->where('status', 3) // Disbursed
             ->whereBetween('disbursement_date', [$startDate, $endDate])
             ->get();

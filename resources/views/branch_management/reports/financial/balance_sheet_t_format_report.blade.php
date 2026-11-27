@@ -147,7 +147,7 @@
                                                 $prevSubBalance = accountGroupBalance($subGroup->id, request('start_date'), request('end_date'), 2,request('sister_concern'));
                                             @endphp
                                             <tr>
-                                                <td class="text-left"><a href="{{ route('branch_report.trial_balance',['start_date'=>request('start_date'),'end_date'=>request('end_date'),'account_group_id'=>$subGroup->id,'sister_concern'=>request('sister_concern'),'search'=>'Search']) }}"><span class="custom-ml-18 {{ $subGroup->accountGroups->count() > 0 ? 'font-weight-bold text-uppercase' : '' }}">{{ $subGroup->name }}</span></a></td>
+                                                <td class="text-left"><a href="{{ route('branch_report.trial_balance',['start_date'=>request('start_date'),'end_date'=>request('end_date'),'account_group_id'=>$subGroup->id,'report_branch_id' => request('report_branch_id', \App\Support\ReportBranch::id() ?? 'all'),'search'=>'Search']) }}"><span class="custom-ml-18 {{ $subGroup->accountGroups->count() > 0 ? 'font-weight-bold text-uppercase' : '' }}">{{ $subGroup->name }}</span></a></td>
                                                 <td class="text-right">{{ wrapNegative($subBalance) }}</td>
                                                 <td class="text-right">{{ wrapNegative($prevSubBalance) }}</td>
                                             </tr>
@@ -157,7 +157,7 @@
                                                     $prevChildBalance = accountGroupBalance($childGroup->id, request('start_date'), request('end_date'), 2,request('sister_concern'));
                                                 @endphp
                                                 <tr>
-                                                    <td class="text-left"><a href="{{ route('branch_report.trial_balance',['start_date'=>request('start_date'),'end_date'=>request('end_date'),'account_group_id'=>$childGroup->id,'sister_concern'=>request('sister_concern'),'search'=>'Search']) }}"><span class="custom-ml-18" style="margin-left: 45px !important;">{{ $childGroup->name }}</span></a></td>
+                                                    <td class="text-left"><a href="{{ route('branch_report.trial_balance',['start_date'=>request('start_date'),'end_date'=>request('end_date'),'account_group_id'=>$childGroup->id,'report_branch_id' => request('report_branch_id', \App\Support\ReportBranch::id() ?? 'all'),'search'=>'Search']) }}"><span class="custom-ml-18" style="margin-left: 45px !important;">{{ $childGroup->name }}</span></a></td>
                                                     <td class="text-right">{{ wrapNegative($childBalance) }}</td>
                                                     <td class="text-right">{{ wrapNegative($prevChildBalance) }}</td>
                                                 </tr>
@@ -222,7 +222,7 @@
                                                 $prevSubBalance = accountGroupBalance($subGroup->id, request('start_date'), request('end_date'), 2,request('sister_concern'));
                                             @endphp
                                             <tr>
-                                                <td class="text-left"><a href="{{ route('branch_report.trial_balance',['start_date'=>request('start_date'),'end_date'=>request('end_date'),'account_group_id'=>$subGroup->id,'sister_concern'=>request('sister_concern'),'search'=>'Search']) }}"><span class="custom-ml-18">{{ $subGroup->name }}</span></a></td>
+                                                <td class="text-left"><a href="{{ route('branch_report.trial_balance',['start_date'=>request('start_date'),'end_date'=>request('end_date'),'account_group_id'=>$subGroup->id,'report_branch_id' => request('report_branch_id', \App\Support\ReportBranch::id() ?? 'all'),'search'=>'Search']) }}"><span class="custom-ml-18">{{ $subGroup->name }}</span></a></td>
                                                 <td class="text-right">{{ wrapPositive($subBalance) }}</td>
                                                 <td class="text-right">{{ wrapPositive($prevSubBalance) }}</td>
                                             </tr>
@@ -334,7 +334,7 @@
                                                 $prevSubBalance = accountGroupBalance($subGroup->id, request('start_date'), request('end_date'), 2,request('sister_concern'));
                                             @endphp
                                             <tr>
-                                                <td class="text-left"><a href="{{ route('branch_report.trial_balance',['start_date'=>request('start_date'),'end_date'=>request('end_date'),'account_group_id'=>$subGroup->id,'sister_concern'=>request('sister_concern'),'search'=>'Search']) }}"><span class="custom-ml-18 {{ $subGroup->accountGroups->count() > 0 ? 'font-weight-bold text-uppercase' : '' }}">{{ $subGroup->name }}</span></a></td>
+                                                <td class="text-left"><a href="{{ route('branch_report.trial_balance',['start_date'=>request('start_date'),'end_date'=>request('end_date'),'account_group_id'=>$subGroup->id,'report_branch_id' => request('report_branch_id', \App\Support\ReportBranch::id() ?? 'all'),'search'=>'Search']) }}"><span class="custom-ml-18 {{ $subGroup->accountGroups->count() > 0 ? 'font-weight-bold text-uppercase' : '' }}">{{ $subGroup->name }}</span></a></td>
                                                 <td class="text-right">{{ wrapPositive($subBalance) }}</td>
                                                 <td class="text-right">{{ wrapPositive($prevSubBalance) }}</td>
                                             </tr>
@@ -344,7 +344,7 @@
                                                     $prevChildBalance = accountGroupBalance($childGroup->id, request('start_date'), request('end_date'), 2,request('sister_concern'));
                                                 @endphp
                                                 <tr>
-                                                    <td class="text-left"><a href="{{ route('branch_report.trial_balance',['start_date'=>request('start_date'),'end_date'=>request('end_date'),'account_group_id'=>$childGroup->id,'sister_concern'=>request('sister_concern'),'search'=>'Search']) }}"><span class="custom-ml-18" style="margin-left: 45px !important;">{{ $childGroup->name }}</span></a></td>
+                                                    <td class="text-left"><a href="{{ route('branch_report.trial_balance',['start_date'=>request('start_date'),'end_date'=>request('end_date'),'account_group_id'=>$childGroup->id,'report_branch_id' => request('report_branch_id', \App\Support\ReportBranch::id() ?? 'all'),'search'=>'Search']) }}"><span class="custom-ml-18" style="margin-left: 45px !important;">{{ $childGroup->name }}</span></a></td>
                                                     <td class="text-right">{{ wrapPositive($childBalance) }}</td>
                                                     <td class="text-right">{{ wrapPositive($prevChildBalance) }}</td>
                                                 </tr>

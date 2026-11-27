@@ -8,7 +8,7 @@
 </head>
 <body>
 <div class="container-fluid report-container">
-    <div class="extra-remove mb-3"><a class="btn btn-secondary btn-sm" href="{{ route('report.daily_transactions', ['search' => 1, 'start_date' => $startDate, 'end_date' => $endDate, 'branch_id' => $branchId, 'category' => $category]) }}">Back to Summary</a></div>
+    <div class="extra-remove mb-3"><a class="btn btn-secondary btn-sm" href="{{ route('report.daily_transactions', ['search' => 1, 'start_date' => $startDate, 'end_date' => $endDate, 'report_branch_id' => $branchId ?? 'all', 'category' => $category]) }}">Back to Summary</a></div>
     @include('layouts.partial.__export_buttons', ['printAreaId' => 'printArea', 'fileName' => 'Daily_Transaction_Details_'.$startDate.'_'.$endDate])
     <div id="printArea">
         @include('layouts.partial.__report_header')

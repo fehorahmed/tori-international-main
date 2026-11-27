@@ -19,7 +19,7 @@ class ReportController extends Controller
             $endDate = $request->end_date ? Carbon::parse($request->end_date)->format('Y-m-d') : null;
 
             $query = FdrAccount::with(['customer', 'scheme'])
-                ->where('origin_sister_concern_id', auth()->user()->activeConcernId())
+                ->whereReportBranch('origin_sister_concern_id')
                 ->whereIn('status', ['Active', 'Matured']);
 
             if ($startDate) {
@@ -46,7 +46,7 @@ class ReportController extends Controller
 
             $query = FdrTransaction::with(['account.customer'])
                 ->join('fdr_accounts', 'fdr_transactions.fdr_account_id', '=', 'fdr_accounts.id')
-                ->where('fdr_accounts.origin_sister_concern_id', auth()->user()->activeConcernId())
+                ->whereReportBranch('fdr_accounts.origin_sister_concern_id')
                 ->select('fdr_transactions.*');
 
             if ($request->type) {
@@ -70,7 +70,7 @@ class ReportController extends Controller
     public function ledger(Request $request)
     {
         $accounts = FdrAccount::with('customer')
-            ->where('origin_sister_concern_id', auth()->user()->activeConcernId())
+            ->whereReportBranch('origin_sister_concern_id')
             ->get();
 
         $transactions = [];
@@ -79,7 +79,7 @@ class ReportController extends Controller
         if ($request->account_id) {
             $fdrAccount = FdrAccount::with(['customer', 'scheme'])
                 ->where('id', $request->account_id)
-                ->where('origin_sister_concern_id', auth()->user()->activeConcernId())
+                ->whereReportBranch('origin_sister_concern_id')
                 ->first();
 
             if ($fdrAccount) {
@@ -100,7 +100,7 @@ class ReportController extends Controller
         $accounts = [];
         if ($request->has('search')) {
             $query = FdrAccount::with(['customer', 'scheme'])
-                ->where('origin_sister_concern_id', auth()->user()->activeConcernId())
+                ->whereReportBranch('origin_sister_concern_id')
                 ->where('status', 'Active');
 
             if ($request->scheme_id) {
@@ -122,7 +122,7 @@ class ReportController extends Controller
         $accounts = [];
         if ($request->has('search')) {
             $query = FdrAccount::with(['customer', 'scheme'])
-                ->where('origin_sister_concern_id', auth()->user()->activeConcernId())
+                ->whereReportBranch('origin_sister_concern_id')
                 ->where('status', 'Closed');
 
             $accounts = $query->orderBy('updated_at', 'desc')->get();
@@ -138,10 +138,10 @@ class ReportController extends Controller
         $schemes = [];
         if ($request->has('search')) {
             $schemes = FdrScheme::withCount(['accounts' => function ($query) {
-                $query->where('origin_sister_concern_id', auth()->user()->activeConcernId())
+                $query->whereReportBranch('origin_sister_concern_id')
                     ->where('status', 'Active');
             }])->withSum(['accounts' => function ($query) {
-                $query->where('origin_sister_concern_id', auth()->user()->activeConcernId())
+                $query->whereReportBranch('origin_sister_concern_id')
                     ->where('status', 'Active');
             }], 'principal_amount')->get();
 

@@ -35,6 +35,13 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Explicit report-only predicates: operational queries retain their scopes.
+        foreach (['whereReportBranch' => 'and', 'orWhereReportBranch' => 'or'] as $method => $boolean) {
+            \Illuminate\Database\Query\Builder::macro($method, function (string $column, ...$scope) use ($boolean) {
+                $branch = count($scope) ? $scope[0] : \App\Support\ReportBranch::id();
+                return $branch === null ? $this->whereRaw('1 = 1', [], $boolean) : $this->where($column, '=', $branch, $boolean);
+            });
+        }
         Gate::policy(Supplier::class, SrPolicy::class);
         // Transaction Observer logic removed as part of the new global transaction-based architecture
     }

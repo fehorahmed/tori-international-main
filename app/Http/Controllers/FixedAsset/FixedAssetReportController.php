@@ -21,7 +21,7 @@ class FixedAssetReportController extends Controller
     public function registerGenerate(Request $request)
     {
         abort_if(!auth()->user()->hasPermissionTo('fixed_asset_view'), 403);
-        $query = FixedAsset::with('category')->where('sister_concern_id', auth()->user()->activeConcernId());
+        $query = FixedAsset::with('category')->whereReportBranch('sister_concern_id');
         
         if ($request->filled('category_id')) $query->where('category_id', $request->category_id);
         if ($request->filled('status')) $query->where('status', $request->status);
@@ -47,7 +47,7 @@ class FixedAssetReportController extends Controller
     public function depreciationGenerate(Request $request)
     {
         abort_if(!auth()->user()->hasPermissionTo('fixed_asset_view'), 403);
-        $query = FixedAsset::with('category')->where('sister_concern_id', auth()->user()->activeConcernId());
+        $query = FixedAsset::with('category')->whereReportBranch('sister_concern_id');
         
         if ($request->filled('category_id')) $query->where('category_id', $request->category_id);
         if ($request->filled('status')) $query->where('status', $request->status);
@@ -73,7 +73,7 @@ class FixedAssetReportController extends Controller
     public function additionDisposalGenerate(Request $request)
     {
         abort_if(!auth()->user()->hasPermissionTo('fixed_asset_view'), 403);
-        $query = FixedAsset::with('category', 'disposal')->where('sister_concern_id', auth()->user()->activeConcernId());
+        $query = FixedAsset::with('category', 'disposal')->whereReportBranch('sister_concern_id');
         
         if ($request->filled('category_id')) $query->where('category_id', $request->category_id);
         // Specifically look for additions or disposals within this date range
@@ -106,7 +106,7 @@ class FixedAssetReportController extends Controller
     public function categorySummaryGenerate(Request $request)
     {
         abort_if(!auth()->user()->hasPermissionTo('fixed_asset_view'), 403);
-        $query = FixedAsset::with('category')->where('sister_concern_id', auth()->user()->activeConcernId());
+        $query = FixedAsset::with('category')->whereReportBranch('sister_concern_id');
         
         if ($request->filled('status')) $query->where('status', $request->status);
         if ($request->filled('start_date') && $request->filled('end_date')) {

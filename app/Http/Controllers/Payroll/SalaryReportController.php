@@ -15,12 +15,12 @@ class SalaryReportController extends Controller
 {
     public function salarySheet(Request $request)
     {
-        $employees = Employee::where('sister_concern_id',auth()->user()->activeConcernId())->get();
+        $employees = Employee::whereReportBranch('sister_concern_id')->get();
         $salaries = [];
         $salaryMonth = null;
         $selectDepartment = null;
         $totalDaysInMonth = 0;
-        $query = SalaryProcessItem::where('sister_concern_id',auth()->user()->activeConcernId());
+        $query = SalaryProcessItem::whereReportBranch('sister_concern_id');
         if ($request->employee != ''){
             $query->where('employee_id',$request->employee);
         }
@@ -53,11 +53,11 @@ class SalaryReportController extends Controller
     public function employeeAdvanceReport(Request $request)
     {
         $employees = Employee::where('status', 1)
-            ->where('sister_concern_id', auth()->user()->activeConcernId())
+            ->whereReportBranch('sister_concern_id')
             ->get();
 
         $query = Employee::where('status', 1)
-            ->where('sister_concern_id', auth()->user()->activeConcernId())
+            ->whereReportBranch('sister_concern_id')
             ->withAdvanceBalance();
 
         if ($request->employee_id) {

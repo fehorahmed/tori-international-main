@@ -62,7 +62,7 @@
                         <div class="row mx-0">
                             <div class="col-12 text-center mb-3">
                                 <h3 style="font-size: 25px"><u><b>Customer Report</b></u></h3>
-                                <h5><b>Branch:</b> {{ auth()->user()->activeSisterConcern->name ?? auth()->user()->sisterConcern->name ?? 'N/A' }}</h5>
+                                <h5><b>Branch:</b> {{ \App\Support\ReportBranch::label() }}</h5>
                             </div>
                         </div>
 

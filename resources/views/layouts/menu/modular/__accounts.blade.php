@@ -165,6 +165,8 @@
                 </a>
             </li>
             
+            <li class="nav-item"><a href="{{ route('report.accounts_customer_ledger') }}" class="nav-link {{ $currentRoute == 'report.accounts_customer_ledger' ? 'active' : '' }}"><i class="nav-icon fas fa-users"></i><p>Customer Ledger</p></a></li>
+            <li class="nav-item"><a href="{{ route('report.accounts_supplier_ledger') }}" class="nav-link {{ $currentRoute == 'report.accounts_supplier_ledger' ? 'active' : '' }}"><i class="nav-icon fas fa-truck"></i><p>Supplier Ledger</p></a></li>
             <li class="nav-item">
                 <a href="{{ route('report.inter_company_ledger') }}"
                    class="nav-link {{ Route::currentRouteName() == 'report.inter_company_ledger' ? 'active' : '' }}">

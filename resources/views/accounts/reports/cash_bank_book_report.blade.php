@@ -189,7 +189,7 @@
                                             <tr class="details-{{ $groupIndex }}" style="display: none; background-color: #ffffff;">
                                                 <td class="text-center">{{ \Carbon\Carbon::parse($transaction->date)->format('d-m-Y') }}</td>
                                                 <td class="text-left" style="padding-left: 30px;">
-                                                    <a target="_blank" href="{{ route('report.ledger', ['account_head' => $headId, 'start_date' => request('start_date'), 'end_date' => request('end_date'), 'search' => 1]) }}">
+                                                    <a target="_blank" href="{{ route('report.ledger', ['report_branch_id' => \App\Support\ReportBranch::id() ?? 'all', 'account_head' => $headId, 'start_date' => request('start_date'), 'end_date' => request('end_date'), 'search' => 1]) }}">
                                                         {{ $headName }}
                                                     </a>
                                                     @if($groupName)

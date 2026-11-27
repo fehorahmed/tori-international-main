@@ -21,10 +21,11 @@ class FinancialReportController extends Controller
 {
     public function cashBankBook(Request $request)
     {
+        $request->merge(['sister_concern' => \App\Support\ReportBranch::id()]);
         $currentDate = Carbon::now();
         $firstDateOfMonth = $currentDate->startOfMonth()->format('d-m-Y');
         $lastDateOfMonth = $currentDate->endOfMonth()->format('d-m-Y');
-        $accounts = AccountHead::where(function($q) { $q->whereNull('sister_concern_id')->orWhere('sister_concern_id', auth()->user()->activeConcernId()); })->where('payment_mode', '>', 0)->get();
+        $accounts = AccountHead::where(function($q) { $q->whereNull('sister_concern_id')->orWhereReportBranch('sister_concern_id'); })->where('payment_mode', '>', 0)->get();
         
         $selectAccount = null;
         $openingBalance = 0;
@@ -70,7 +71,7 @@ class FinancialReportController extends Controller
             $openingBalance = $totalReceived - $totalPayment;
 
         }
-        $sister_concerns = SisterConcern::where('status',1)->get();
+        $sister_concerns = SisterConcern::whereReportBranch('id')->get();
 
         if ($request->has('search')) {
             return view('branch_management.reports.financial.cash_bank_book_report',
@@ -85,6 +86,7 @@ class FinancialReportController extends Controller
 
     public function receiptAndPayment(Request $request)
     {
+        $request->merge(['sister_concern' => \App\Support\ReportBranch::id()]);
         $logs = [];
         if ($request->start_date != '' && $request->end_date != '') {
             $query = Transaction::whereIn('voucher_type',
@@ -108,7 +110,7 @@ class FinancialReportController extends Controller
                 ->get();
         }
 
-        $sister_concerns = SisterConcern::where('status',1)->get();
+        $sister_concerns = SisterConcern::whereReportBranch('id')->get();
         if ($request->has('search')) {
             return view('branch_management.reports.financial.receipt_and_payment_report', compact('logs', 'sister_concerns'));
         }
@@ -118,6 +120,7 @@ class FinancialReportController extends Controller
 
     public function ledger(Request $request)
     {
+        $request->merge(['sister_concern' => \App\Support\ReportBranch::id()]);
         $startDate = date('Y-m-d', strtotime($request->start_date));
         $endDate = date('Y-m-d', strtotime($request->end_date));
 
@@ -167,7 +170,7 @@ class FinancialReportController extends Controller
             $currentDate = date('01-07-Y');
         }
 
-        $sister_concerns = SisterConcern::where('status',1)->get();
+        $sister_concerns = SisterConcern::whereReportBranch('id')->get();
         if ($request->has('search') || $request->has('account_head_id')) {
             return view('branch_management.reports.financial.ledger_report', compact('accountHeads',
                 'currentDate', 'accountHeadsList', 'sister_concerns'));
@@ -179,6 +182,7 @@ class FinancialReportController extends Controller
 
     public function trialBalance(Request $request)
     {
+        $request->merge(['sister_concern' => \App\Support\ReportBranch::id()]);
         $accountHeadsList = AccountHead::where('status',1)->orderBy('code')->get();
         
         $accountHeads = [];
@@ -240,7 +244,7 @@ class FinancialReportController extends Controller
             $currentDate = date('01-07-Y');
         }
 
-        $sister_concerns = SisterConcern::where('status',1)->get();
+        $sister_concerns = SisterConcern::whereReportBranch('id')->get();
         if ($request->has('search') || $request->has('account_group_id')) {
             return view('branch_management.reports.financial.trial_balance_report', compact('currentDate', 'accountHeads', 'in_word',
                 'accountHeadsList', 'filterFinancialYear', 'sister_concerns'));
@@ -252,6 +256,7 @@ class FinancialReportController extends Controller
 
     public function incomeStatement(Request $request)
     {
+        $request->merge(['sister_concern' => \App\Support\ReportBranch::id()]);
         $currentMonth = date('m');
         if ($currentMonth < 7) {
             $currentYear = date('Y') - 1;
@@ -267,7 +272,7 @@ class FinancialReportController extends Controller
         $financialExpenses = AccountGroup::where('reserved_id', ReservedAccountGroup::FINANCIAL_EXPENSES)->first();
         $taxExpenses = AccountGroup::where('reserved_id', ReservedAccountGroup::TAX_EXPENSES)->first();
 
-        $sister_concerns = SisterConcern::where('status',1)->get();
+        $sister_concerns = SisterConcern::whereReportBranch('id')->get();
         if ($request->has('search')) {
             if (empty($request->sister_concern)) {
                 return view('branch_management.reports.financial.income_statement_summary', compact('currentDate',
@@ -285,6 +290,7 @@ class FinancialReportController extends Controller
     }
     public function dailyIncomeStatement(Request $request)
     {
+        $request->merge(['sister_concern' => \App\Support\ReportBranch::id()]);
         $currentMonth = date('m');
         if ($currentMonth < 7) {
             $currentYear = date('Y') - 1;
@@ -300,7 +306,7 @@ class FinancialReportController extends Controller
         $financialExpenses = AccountGroup::where('reserved_id', ReservedAccountGroup::FINANCIAL_EXPENSES)->first();
         $taxExpenses = AccountGroup::where('reserved_id', ReservedAccountGroup::TAX_EXPENSES)->first();
 
-        $sister_concerns = SisterConcern::where('status',1)->get();
+        $sister_concerns = SisterConcern::whereReportBranch('id')->get();
         
         if ($request->has('search')) {
             $branchId = $request->sister_concern;
@@ -328,6 +334,7 @@ class FinancialReportController extends Controller
 
     public function balanceSheet(Request $request)
     {
+        $request->merge(['sister_concern' => \App\Support\ReportBranch::id()]);
         $currentMonth = date('m');
         if ($currentMonth < 7) {
             $currentYear = date('Y') - 1;
@@ -353,7 +360,7 @@ class FinancialReportController extends Controller
         $financialExpenses = AccountGroup::where('reserved_id', ReservedAccountGroup::FINANCIAL_EXPENSES)->first();
         $taxExpenses = AccountGroup::where('reserved_id', ReservedAccountGroup::TAX_EXPENSES)->first();
 
-        $sister_concerns = SisterConcern::where('status',1)->get();
+        $sister_concerns = SisterConcern::whereReportBranch('id')->get();
         if ($request->has('search')) {
             return view('branch_management.reports.financial.balance_sheet_t_format_report', compact('assets', 'liabilities',
             'equities', 'currentDate', 'operatingRevenue', 'otherIncome', 'costOfGoodsSold', 'operatingExpenses', 'financialExpenses', 'taxExpenses', 'sister_concerns'));

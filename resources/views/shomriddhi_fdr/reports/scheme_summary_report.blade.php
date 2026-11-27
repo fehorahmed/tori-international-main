@@ -2,6 +2,7 @@
 @section('title', 'FDR Scheme Summary Report')
 
 @section('content')
+    @include('layouts.partial.__report_branch_toolbar')
 <div class="report-header">
     <h3 class="text-center">{{ auth()->user()->active_sister_concern->name ?? 'Company Name' }}</h3>
     <h5 class="text-center">FDR Scheme Summary Report</h5>

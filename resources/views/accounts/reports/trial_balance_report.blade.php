@@ -68,7 +68,7 @@
                                     <h3 class="text-center m-0 mt-2" style="font-size: 25px !important;">Trial
                                         Balance</h3>
                                     @php
-                                        $branchName = auth()->user()->sisterConcern->display_name ?? auth()->user()->sisterConcern->name ?? 'Head Office';
+                                        $branchName = \App\Support\ReportBranch::label();
                                     @endphp
                                     <h3 class="text-center m-0 mb-2" style="font-size: 19px !important;">Branch: {{ $branchName }}</h3>
                                     <h3 class="text-center m-0 mb-2" style="font-size: 19px !important;">
@@ -121,7 +121,7 @@
                                     <tr>
                                         <td>{{ $loop->iteration }}</td>
                                         <td>{{ $accountHead->code }}</td>
-                                        <td class="text-left"><a href="{{ route('report.ledger',['start_date'=>request('start_date'),'end_date'=>request('end_date'),'account_head_id'=>$accountHead->id, 'search'=>'Search']) }}">{{ $accountHead->name }}</a></td>
+                                        <td class="text-left"><a href="{{ route('report.ledger', ['report_branch_id' => \App\Support\ReportBranch::id() ?? 'all', 'start_date'=>request('start_date'),'end_date'=>request('end_date'),'account_head_id'=>$accountHead->id, 'search'=>'Search']) }}">{{ $accountHead->name }}</a></td>
                                         <td class="text-right">{{ number_format($debit,2) }}</td>
                                         <td class="text-right">{{ number_format(abs($credit),2) }}</td>
                                         <td class="text-right">{{ number_format(abs($balance),2)  }}</td>

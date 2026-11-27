@@ -10,17 +10,18 @@
                 </div>
                 <div class="card-body">
                     <form action="{{ route('card-management.reports.collection') }}" method="GET" class="mb-4">
+                    @include('layouts.partial.__report_branch_filter')
                         <div class="row align-items-end">
                             <div class="col-md-3">
                                 <div class="form-group mb-0">
-                                    <label>Start Date</label>
-                                    <input type="text" name="start_date" class="form-control date-picker" value="{{ request('start_date') ?? date('d-m-Y') }}">
+                                    <label>Start Date <small class="text-muted font-weight-normal">(Default Today)</small></label>
+                                    <input type="text" name="start_date" class="form-control date-picker" value="{{ old('start_date', request('start_date', now()->format('d-m-Y'))) }}">
                                 </div>
                             </div>
                             <div class="col-md-3">
                                 <div class="form-group mb-0">
-                                    <label>End Date</label>
-                                    <input type="text" name="end_date" class="form-control date-picker" value="{{ request('end_date') ?? date('d-m-Y') }}">
+                                    <label>End Date <small class="text-muted font-weight-normal">(Default Today)</small></label>
+                                    <input type="text" name="end_date" class="form-control date-picker" value="{{ old('end_date', request('end_date', now()->format('d-m-Y'))) }}">
                                 </div>
                             </div>
                             <div class="col-md-2">

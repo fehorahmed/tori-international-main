@@ -10,6 +10,7 @@
         </div>
         <div class="card-body">
             <form target="_blank" action="{{ route('shomriddhi-dps.reports.matured-accounts') }}" method="GET" class="mb-4">
+                    @include('layouts.partial.__report_branch_filter')
                 <input type="hidden" name="search" value="1">
                 <div class="row align-items-end">
                     <div class="col-md-12">

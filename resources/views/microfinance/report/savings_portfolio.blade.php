@@ -9,6 +9,7 @@
                 </div>
                 <div class="card-body">
                     <form target="_blank" action="{{ route('microfinance.report.savings-portfolio') }}" method="get" class="row align-items-end">
+                    @include('layouts.partial.__report_branch_filter')
                         <div class="col-md-4 mb-3">
                             <label class="form-label font-weight-bold">Product Type:</label>
                             <select name="product_type" class="form-control select2">

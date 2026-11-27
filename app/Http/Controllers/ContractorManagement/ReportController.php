@@ -35,7 +35,7 @@ class ReportController extends Controller
 
             $expenseHeads = ContractorBillDetail::join('contractor_bills', 'contractor_bills.id', '=', 'contractor_bill_details.contractor_bill_id')
                 ->join('account_heads', 'account_heads.id', '=', 'contractor_bill_details.expense_head_id')
-                ->where('contractor_bills.sister_concern_id', auth()->user()->activeConcernId())
+                ->whereReportBranch('contractor_bills.sister_concern_id')
                 ->whereBetween('contractor_bills.bill_date', [$start_date, $end_date])
                 ->select('account_heads.name', 'account_heads.code', DB::raw('SUM(contractor_bill_details.amount) as total_amount'))
                 ->groupBy('account_heads.id', 'account_heads.name', 'account_heads.code')
@@ -53,7 +53,7 @@ class ReportController extends Controller
         
         $expenseHeads = AccountHead::where('account_group_id', $group->id)
             ->where(function ($q) {
-                $q->whereNull('sister_concern_id')->orWhere('sister_concern_id', auth()->user()->activeConcernId());
+                $q->whereNull('sister_concern_id')->orWhereReportBranch('sister_concern_id');
             })
             ->get();
             
@@ -66,7 +66,7 @@ class ReportController extends Controller
         
         $incomeHeads = AccountHead::where('account_group_id', $group->id)
             ->where(function ($q) {
-                $q->whereNull('sister_concern_id')->orWhere('sister_concern_id', auth()->user()->activeConcernId());
+                $q->whereNull('sister_concern_id')->orWhereReportBranch('sister_concern_id');
             })
             ->get();
             
@@ -83,7 +83,7 @@ class ReportController extends Controller
                 ->withSum(['transactions as total_credit' => function ($q) {
                     $q->where('transaction_type', 2);
                 }], 'amount')
-                ->where('origin_sister_concern_id', auth()->user()->activeConcernId())
+                ->whereReportBranch('origin_sister_concern_id')
                 ->where('status', 1)
                 ->get();
                 
@@ -109,7 +109,7 @@ class ReportController extends Controller
             $end_date = date('Y-m-d', strtotime($request->end_date));
 
             $bills = ContractorBill::with('contractor')
-                ->where('sister_concern_id', auth()->user()->activeConcernId())
+                ->whereReportBranch('sister_concern_id')
                 ->whereBetween('bill_date', [$start_date, $end_date])
                 ->orderBy('bill_date', 'asc')
                 ->get();
@@ -123,7 +123,7 @@ class ReportController extends Controller
     public function ledger(Request $request)
     {
         $contractors = Contractor::where('status', 1)->where(function($q) {
-            $q->whereNull('origin_sister_concern_id')->orWhere('origin_sister_concern_id', auth()->user()->activeConcernId());
+            $q->whereNull('origin_sister_concern_id')->orWhereReportBranch('origin_sister_concern_id');
         })->get();
 
         $transactions = [];

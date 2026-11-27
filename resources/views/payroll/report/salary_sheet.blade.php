@@ -52,6 +52,7 @@
                 </div>
                 <div class="card-header">
                     <form action="{{ route('report.salary-sheet') }}" target="_blank">
+                    @include('layouts.partial.__report_branch_filter')
                         <div class="row">
                             <div class="col-md-4">
                                 <div class="form-group">

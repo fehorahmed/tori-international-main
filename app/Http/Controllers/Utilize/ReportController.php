@@ -14,7 +14,7 @@ class ReportController extends Controller
         abort_if(!auth()->user()->hasPermissionTo('product_utilize_report'), 403, 'Unauthorized');
 
         $query = ProductUtilize::with('warehouse', 'productUtilizeItems.product')
-            ->where('sister_concern_id', auth()->user()->activeConcernId());
+            ->whereReportBranch('sister_concern_id');
 
         if ($request->has('start_date') && $request->start_date != '') {
             $query->whereDate('date', '>=', Carbon::parse($request->start_date)->format('Y-m-d'));

@@ -59,7 +59,7 @@
                             <div class="col-12">
                                 <h3 class="text-center" style="font-size: 25px"><u><b>Receipt & Payment Report</b></u></h3>
                                 @php
-                                    $branchName = auth()->user()->sisterConcern->display_name ?? auth()->user()->sisterConcern->name ?? 'Head Office';
+                                    $branchName = \App\Support\ReportBranch::label();
                                 @endphp
                                 <h3 class="text-center m-0 mb-2" style="font-size: 19px !important;">Branch: {{ $branchName }}</h3>
                                 <h5 class="text-center" style="font-size: 18px">Date: {{ \Carbon\Carbon::parse(request('start_date'))->format('d-m-Y') }} to {{ \Carbon\Carbon::parse(request('end_date'))->format('d-m-Y') }}</h5>

@@ -18,17 +18,17 @@ class ReportController extends Controller
     {
         abort_if(!auth()->user()->hasPermissionTo('trainee_visits_report'), 403, 'Unauthorized');
         $visits = [];
-        $trainees = Employee::where('sister_concern_id', auth()->user()->activeConcernId())
+        $trainees = Employee::whereReportBranch('sister_concern_id')
             ->trainees()
             ->get();
         
-        $visitTypes = TraineeVisitType::where('sister_concern_id', auth()->user()->activeConcernId())
+        $visitTypes = TraineeVisitType::whereReportBranch('sister_concern_id')
             ->where('status', 1)
             ->get();
 
         if ($request->start_date != '' && $request->end_date != '') {
             $query = TraineeVisit::with(['trainee', 'visitType', 'visitClient'])
-                ->where('sister_concern_id', auth()->user()->activeConcernId())
+                ->whereReportBranch('sister_concern_id')
                 ->whereBetween('date', [
                     Carbon::parse($request->start_date)->format('Y-m-d'),
                     Carbon::parse($request->end_date)->format('Y-m-d')
@@ -52,7 +52,7 @@ class ReportController extends Controller
     {
         abort_if(!auth()->user()->hasPermissionTo('trainee_performance_report'), 403, 'Unauthorized');
         $assignments = [];
-        $trainees = Employee::where('sister_concern_id', auth()->user()->activeConcernId())
+        $trainees = Employee::whereReportBranch('sister_concern_id')
             ->trainees()
             ->get();
 
@@ -60,8 +60,8 @@ class ReportController extends Controller
             $dateStr = str_replace('/', '-', $request->date);
             $date = Carbon::parse('01-' . $dateStr)->startOfMonth()->format('Y-m-d');
 
-            $query = TaskAssignment::with('employee', 'items.type')
-                ->where('sister_concern_id', auth()->user()->activeConcernId())
+            $query = TaskAssignment::whereReportBranch('sister_concern_id')->with('employee', 'items.type')
+                ->whereReportBranch('sister_concern_id')
                 ->where('target_role', 'Trainee')
                 ->where('date', $date);
 
@@ -85,7 +85,7 @@ class ReportController extends Controller
     public function traineePerformanceSummary(Request $request)
     {
         abort_if(!auth()->user()->hasPermissionTo('trainee_performance_summary_report'), 403, 'Unauthorized');
-        $trainees = Employee::where('sister_concern_id', auth()->user()->activeConcernId())
+        $trainees = Employee::whereReportBranch('sister_concern_id')
             ->trainees()
             ->get();
 
@@ -100,14 +100,14 @@ class ReportController extends Controller
             $startDate = Carbon::parse($request->start_date)->format('Y-m-d');
             $endDate = Carbon::parse($request->end_date)->format('Y-m-d');
 
-            $assignment = TaskAssignment::with('items.type')
+            $assignment = TaskAssignment::whereReportBranch('sister_concern_id')->with('items.type')
                 ->where('employee_id', $traineeId)
                 ->where('target_role', 'Trainee')
                 ->where('date', $monthDate)
                 ->first();
 
             if ($assignment) {
-                $visits = DB::table('trainee_visits')
+                $visits = DB::table('trainee_visits')->whereReportBranch('sister_concern_id')
                     ->where('trainee_id', $traineeId)
                     ->whereBetween('date', [$startDate, $endDate])
                     ->select('date', DB::raw('COUNT(id) as visit_count'))

@@ -16,18 +16,11 @@
                 </div>
                 <div class="card-body">
                     <form action="{{ route('report.branch_manager_history') }}" method="GET">
+                    @include('layouts.partial.__report_branch_filter')
                         <div class="row">
                             <div class="col-md-4">
                                 <div class="form-group">
-                                    <label>Select Branch (Sister Concern)</label>
-                                    <select class="form-control select2" name="sister_concern_id" required>
-                                        <option value="">Select Branch</option>
-                                        @foreach($branches as $branch)
-                                            <option value="{{ $branch->id }}" {{ request()->get('sister_concern_id') == $branch->id ? 'selected' : '' }}>
-                                                {{ $branch->name }}
-                                            </option>
-                                        @endforeach
-                                    </select>
+                                    {{-- Branch selector is provided by __report_branch_filter. --}}
                                 </div>
                             </div>
                             <div class="col-md-2">

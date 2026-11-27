@@ -1,6 +1,7 @@
 @extends('layouts.print')
 @section('title', 'Collection Summary Report')
 @section('content')
+    @include('layouts.partial.__report_branch_toolbar')
 <div class="text-center mb-4">
     <h3 class="font-weight-bold">Collection Summary Report</h3>
     <p class="mb-0">From {{ $startDate->format('d-M-Y') }} To {{ $endDate->format('d-M-Y') }}</p>

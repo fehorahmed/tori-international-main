@@ -25,6 +25,7 @@
                 </div>
                 <div class="card-body">
                     <form action="{{ route('report.route_coverage') }}" method="GET">
+                    @include('layouts.partial.__report_branch_filter')
                         <div class="row align-items-end">
                             <div class="col-md-3 form-group">
                                 <label for="date">Date:</label>

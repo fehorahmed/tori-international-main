@@ -19,7 +19,7 @@ class ReportController extends Controller
     {
         abort_if(!auth()->user()->hasPermissionTo('sr_performance_report'), 403, 'Unauthorized');
         $assignments = [];
-        $srs = Employee::where('sister_concern_id', auth()->user()->activeConcernId())
+        $srs = Employee::whereReportBranch('sister_concern_id')
             ->srs()
             ->get();
 
@@ -28,8 +28,8 @@ class ReportController extends Controller
             // Parse as 1st of the selected month
             $date = Carbon::parse('01-' . $dateStr)->startOfMonth()->format('Y-m-d');
 
-            $query = TaskAssignment::with('employee', 'items.type')
-                ->where('sister_concern_id', auth()->user()->activeConcernId())
+            $query = TaskAssignment::whereReportBranch('sister_concern_id')->with('employee', 'items.type')
+                ->whereReportBranch('sister_concern_id')
                 ->where('target_role', RoleType::$SR)
                 ->where('date', $date);
 
@@ -53,7 +53,7 @@ class ReportController extends Controller
     public function srPerformanceSummary(Request $request)
     {
         abort_if(!auth()->user()->hasPermissionTo('sr_performance_summary_report'), 403, 'Unauthorized');
-        $srs = Employee::where('sister_concern_id', auth()->user()->activeConcernId())
+        $srs = Employee::whereReportBranch('sister_concern_id')
             ->srs()
             ->get();
 
@@ -68,7 +68,7 @@ class ReportController extends Controller
             $startDate = Carbon::parse($request->start_date)->format('Y-m-d');
             $endDate = Carbon::parse($request->end_date)->format('Y-m-d');
 
-            $assignment = TaskAssignment::with('items.type')
+            $assignment = TaskAssignment::whereReportBranch('sister_concern_id')->with('items.type')
                 ->where('employee_id', $srId)
                 ->where('target_role', RoleType::$SR)
                 ->where('date', $monthDate)
@@ -76,7 +76,7 @@ class ReportController extends Controller
 
             if ($assignment) {
                 // Get all daily data
-                $sales = DB::table('sale_orders')
+                $sales = DB::table('sale_orders')->whereReportBranch('sister_concern_id')
                     ->where('sr_id', $srId)
                     ->whereBetween('date', [$startDate, $endDate])
                     ->select('date', DB::raw('SUM(total) as total_sales'), DB::raw('COUNT(id) as order_count'))
@@ -93,7 +93,7 @@ class ReportController extends Controller
                     ->get()
                     ->keyBy('date');
 
-                $visits = DB::table('sr_visits')
+                $visits = DB::table('sr_visits')->whereReportBranch('sister_concern_id')
                     ->where('sr_id', $srId)
                     ->whereBetween('date', [$startDate, $endDate])
                     ->select('date', DB::raw('COUNT(id) as visit_count'))
@@ -122,7 +122,7 @@ class ReportController extends Controller
     {
         abort_if(!auth()->user()->hasPermissionTo('sr_tasks_report'), 403, 'Unauthorized');
         $assignments = [];
-        $srs = Employee::where('sister_concern_id', auth()->user()->activeConcernId())
+        $srs = Employee::whereReportBranch('sister_concern_id')
             ->srs()
             ->get();
 
@@ -130,8 +130,8 @@ class ReportController extends Controller
             $dateStr = str_replace('/', '-', $request->date);
             $date = Carbon::parse('01-' . $dateStr)->startOfMonth()->format('Y-m-d');
 
-            $query = TaskAssignment::with('employee', 'items.type')
-                ->where('sister_concern_id', auth()->user()->activeConcernId())
+            $query = TaskAssignment::whereReportBranch('sister_concern_id')->with('employee', 'items.type')
+                ->whereReportBranch('sister_concern_id')
                 ->where('target_role', 'SR')
                 ->where('date', $date);
 
@@ -149,13 +149,13 @@ class ReportController extends Controller
     {
         abort_if(!auth()->user()->hasPermissionTo('sr_visits_report'), 403, 'Unauthorized');
         $visits = [];
-        $srs = Employee::where('sister_concern_id', auth()->user()->activeConcernId())
+        $srs = Employee::whereReportBranch('sister_concern_id')
             ->srs()
             ->get();
         
         if ($request->start_date != '' && $request->end_date != '') {
             $query = SrVisit::with(['sr', 'supplier'])
-                ->where('sister_concern_id', auth()->user()->activeConcernId())
+                ->whereReportBranch('sister_concern_id')
                 ->whereBetween('date', [
                     Carbon::parse($request->start_date)->format('Y-m-d'),
                     Carbon::parse($request->end_date)->format('Y-m-d')
@@ -176,13 +176,13 @@ class ReportController extends Controller
     public function srSocialEngagementsReport(Request $request)
     {
         $engagements = [];
-        $srs = Employee::where('sister_concern_id', auth()->user()->activeConcernId())
+        $srs = Employee::whereReportBranch('sister_concern_id')
             ->srs()
             ->get();
 
         if ($request->start_date != '' && $request->end_date != '') {
             $query = \App\Models\SrManagement\SrSocialEngagement::with(['sr', 'user'])
-                ->where('sister_concern_id', auth()->user()->activeConcernId())
+                ->whereReportBranch('sister_concern_id')
                 ->whereBetween('date', [
                     Carbon::parse($request->start_date)->format('Y-m-d'),
                     Carbon::parse($request->end_date)->format('Y-m-d')
@@ -206,14 +206,14 @@ class ReportController extends Controller
     {
         abort_if(!auth()->user()->hasPermissionTo('sr_leads_report'), 403, 'Unauthorized');
         $leads = [];
-        $srs = Employee::where('sister_concern_id', auth()->user()->activeConcernId())
+        $srs = Employee::whereReportBranch('sister_concern_id')
             ->srs()
             ->get();
 
 
         if ($request->start_date != '' && $request->end_date != '') {
             $query = Lead::with(['sr', 'crmClient', 'user'])
-                ->where('sister_concern_id', auth()->user()->activeConcernId())
+                ->whereReportBranch('sister_concern_id')
                 ->whereNotNull('sr_id')
                 ->whereBetween('date', [
                     Carbon::parse($request->start_date)->format('Y-m-d'),

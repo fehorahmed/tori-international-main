@@ -31,7 +31,7 @@ class ReportController extends Controller
         $firstDateOfMonth = $currentDate->startOfMonth()->format('d-m-Y');
         $lastDateOfMonth = $currentDate->endOfMonth()->format('d-m-Y');
         $accounts = AccountHead::where(function ($q) {
-            $q->whereNull('sister_concern_id')->orWhere('sister_concern_id', auth()->user()->activeConcernId()); })->where('payment_mode', '>', 0)->get();
+            $q->whereNull('sister_concern_id')->orWhereReportBranch('sister_concern_id'); })->where('payment_mode', '>', 0)->get();
 
         $selectAccount = null;
         $openingBalance = 0;
@@ -45,7 +45,7 @@ class ReportController extends Controller
                 ->whereIn('transaction_type', [TransactionType::$DEBIT, TransactionType::$CREDIT])
                 ->whereBetween('date', [$start, $end]);
 
-            $query->where('sister_concern_id', auth()->user()->activeConcernId());
+            $query->whereReportBranch('sister_concern_id');
 
             $transactions = $query->with('voucher')
                 ->orderBy('voucher_no_group_sl')
@@ -59,14 +59,14 @@ class ReportController extends Controller
                 ->where('transaction_type', TransactionType::$DEBIT)
                 ->whereDate('date', '<=', $previousDay);
 
-            $totalReceivedQuery->where('sister_concern_id', auth()->user()->activeConcernId());
+            $totalReceivedQuery->whereReportBranch('sister_concern_id');
             $totalReceived = $totalReceivedQuery->sum('amount');
 
             $totalPaymentQuery = Transaction::where('account_head_id', $request->payment_mode)
                 ->where('transaction_type', TransactionType::$CREDIT)
                 ->whereDate('date', '<=', $previousDay);
 
-            $totalPaymentQuery->where('sister_concern_id', auth()->user()->activeConcernId());
+            $totalPaymentQuery->whereReportBranch('sister_concern_id');
             $totalPayment = $totalPaymentQuery->sum('amount');
 
             $openingBalance = $totalReceived - $totalPayment;
@@ -147,7 +147,7 @@ class ReportController extends Controller
         $firstDateOfMonth = $currentDate->startOfMonth()->format('d-m-Y');
         $lastDateOfMonth = $currentDate->endOfMonth()->format('d-m-Y');
         $accounts = AccountHead::where(function ($q) {
-            $q->whereNull('sister_concern_id')->orWhere('sister_concern_id', auth()->user()->activeConcernId()); })->where('payment_mode', '>', 0)->get();
+            $q->whereNull('sister_concern_id')->orWhereReportBranch('sister_concern_id'); })->where('payment_mode', '>', 0)->get();
 
         $selectAccount = null;
         $openingBalance = 0;
@@ -160,7 +160,7 @@ class ReportController extends Controller
                 ->whereIn('transaction_type', [TransactionType::$DEBIT, TransactionType::$CREDIT])
                 ->whereBetween('date', [$start, $end]);
 
-            $query->where('sister_concern_id', auth()->user()->activeConcernId());
+            $query->whereReportBranch('sister_concern_id');
 
             $transactions = $query->with('voucher')
                 ->orderBy('voucher_no_group_sl')
@@ -174,14 +174,14 @@ class ReportController extends Controller
                 ->where('transaction_type', TransactionType::$DEBIT)
                 ->whereDate('date', '<=', $previousDay);
 
-            $totalReceivedQuery->where('sister_concern_id', auth()->user()->activeConcernId());
+            $totalReceivedQuery->whereReportBranch('sister_concern_id');
             $totalReceived = $totalReceivedQuery->sum('amount');
 
             $totalPaymentQuery = Transaction::where('account_head_id', $request->payment_mode)
                 ->where('transaction_type', TransactionType::$CREDIT)
                 ->whereDate('date', '<=', $previousDay);
 
-            $totalPaymentQuery->where('sister_concern_id', auth()->user()->activeConcernId());
+            $totalPaymentQuery->whereReportBranch('sister_concern_id');
             $totalPayment = $totalPaymentQuery->sum('amount');
 
             $openingBalance = $totalReceived - $totalPayment;
@@ -237,7 +237,7 @@ class ReportController extends Controller
                 ->where('other_deduct', 0)
                 ->where('except_edit', 0);
 
-            $query->where('sister_concern_id', auth()->user()->activeConcernId());
+            $query->whereReportBranch('sister_concern_id');
 
             $logs = $query->orderBy('date')
                 ->get();
@@ -269,7 +269,7 @@ class ReportController extends Controller
             }
             $query->with([
                 'openingTransactions' => function ($query) use ($previousDay, $request) {
-                    $query->where('sister_concern_id', auth()->user()->activeConcernId());
+                    $query->whereReportBranch('sister_concern_id');
 
                     $query->whereDate('date', '<=', $previousDay)
                         ->select(DB::raw('account_head_id,
@@ -278,7 +278,7 @@ class ReportController extends Controller
                         ->groupBy('account_head_id');
                 },
                 'transactions' => function ($query) use ($startDate, $endDate, $request) {
-                    $query->where('sister_concern_id', auth()->user()->activeConcernId());
+                    $query->whereReportBranch('sister_concern_id');
 
                     $query->whereBetween('date', [$startDate, $endDate])
                         ->orderBy('date')
@@ -342,7 +342,7 @@ class ReportController extends Controller
                 ->with([
                     'openingTransactions' => function ($query) use ($previousDay, $request) {
 
-                        $query->where('sister_concern_id', auth()->user()->activeConcernId());
+                        $query->whereReportBranch('sister_concern_id');
 
                         $query->whereDate('date', '<=', $previousDay)
                             ->select(DB::raw('account_head_id,
@@ -353,7 +353,7 @@ class ReportController extends Controller
                 ])
                 ->with([
                     'transactions' => function ($query) use ($start, $end, $request) {
-                        $query->where('sister_concern_id', auth()->user()->activeConcernId());
+                        $query->whereReportBranch('sister_concern_id');
 
                         $query->whereBetween('date', [$start, $end])
                             ->select(DB::raw('account_head_id,
@@ -499,7 +499,7 @@ class ReportController extends Controller
     public function interCompanyLedger(Request $request)
     {
         $branches = SisterConcern::where('status', 1)
-            ->where('id', '!=', auth()->user()->activeConcernId())
+            ->when(\App\Support\ReportBranch::id() !== null, fn ($q) => $q->where('id', '!=', \App\Support\ReportBranch::id()))
             ->get();
 
         $transactions = collect();
@@ -535,20 +535,20 @@ class ReportController extends Controller
                 $previousDay = date('Y-m-d', strtotime('-1 day', strtotime($start)));
 
                 $prevReceivableDebit = Transaction::where('account_head_id', $receivableHead->id ?? 0)
-                    ->where('sister_concern_id', auth()->user()->activeConcernId())
+                    ->whereReportBranch('sister_concern_id')
                     ->where('transaction_type', TransactionType::$DEBIT)
                     ->whereDate('date', '<=', $previousDay)->sum('amount');
                 $prevReceivableCredit = Transaction::where('account_head_id', $receivableHead->id ?? 0)
-                    ->where('sister_concern_id', auth()->user()->activeConcernId())
+                    ->whereReportBranch('sister_concern_id')
                     ->where('transaction_type', TransactionType::$CREDIT)
                     ->whereDate('date', '<=', $previousDay)->sum('amount');
 
                 $prevPayableCredit = Transaction::where('account_head_id', $payableHead->id ?? 0)
-                    ->where('sister_concern_id', auth()->user()->activeConcernId())
+                    ->whereReportBranch('sister_concern_id')
                     ->where('transaction_type', TransactionType::$CREDIT)
                     ->whereDate('date', '<=', $previousDay)->sum('amount');
                 $prevPayableDebit = Transaction::where('account_head_id', $payableHead->id ?? 0)
-                    ->where('sister_concern_id', auth()->user()->activeConcernId())
+                    ->whereReportBranch('sister_concern_id')
                     ->where('transaction_type', TransactionType::$DEBIT)
                     ->whereDate('date', '<=', $previousDay)->sum('amount');
 
@@ -556,7 +556,7 @@ class ReportController extends Controller
                 $openingBalance = ($prevReceivableDebit - $prevReceivableCredit) - ($prevPayableCredit - $prevPayableDebit);
 
                 $transactions = Transaction::whereIn('account_head_id', $headIds)
-                    ->where('sister_concern_id', auth()->user()->activeConcernId())
+                    ->whereReportBranch('sister_concern_id')
                     ->whereBetween('date', [$start, $end])
                     ->with('voucher')
                     ->orderBy('date')
@@ -588,9 +588,12 @@ class ReportController extends Controller
         }
         $activeBranch = auth()->user()->activeConcernId();
         $requestedBranch = $validated['branch_id'] ?? null;
-        // Branch users cannot widen their scope by editing the report URL.
-        abort_if($activeBranch !== null && $requestedBranch !== null && (int) $activeBranch !== (int) $requestedBranch, 403);
-        $branchId = $activeBranch !== null ? (int) $activeBranch : ($requestedBranch !== null ? (int) $requestedBranch : null);
+        if (! \App\Support\ReportBranch::allowed()) {
+            abort_if($requestedBranch !== null && (int) $activeBranch !== (int) $requestedBranch, 403);
+        } elseif (! $request->has('report_branch_id') && $requestedBranch !== null) {
+            $request->merge(['report_branch_id' => $requestedBranch]);
+        }
+        $branchId = \App\Support\ReportBranch::id($request);
         $category = $validated['category'] ?? 'all';
         return compact('startDate', 'endDate', 'branchId', 'category');
     }

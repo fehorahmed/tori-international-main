@@ -40,6 +40,7 @@
             <!-- /.card-header -->
             <!-- form start -->
             <form action="{{ $reportRoute }}" method="GET" target="_blank">
+                    @include('layouts.partial.__report_branch_filter')
                 <div class="card-body">
                     <div class="row">
                         @if(request()->routeIs('fixed-assets.reports.register') || request()->routeIs('fixed-assets.reports.depreciation') || request()->routeIs('fixed-assets.reports.addition_disposal'))
@@ -72,16 +73,16 @@
 
                         <div class="col-12 col-md-2">
                             <div class="form-group">
-                                <label for="start_date">Start Date</label>
-                                <input autocomplete="off" type="text" value="{{ request('start_date') }}"
+                                <label for="start_date">Start Date <small class="text-muted font-weight-normal">(Default Today)</small></label>
+                                <input autocomplete="off" type="text" value="{{ old('start_date', request('start_date', now()->format('d-m-Y'))) }}"
                                        name="start_date" class="form-control date-picker" id="start_date"
                                        placeholder="Start Date">
                             </div>
                         </div>
                         <div class="col-12 col-md-2">
                             <div class="form-group">
-                                <label for="end_date">End Date</label>
-                                <input autocomplete="off" type="text" value="{{ request('end_date') }}"
+                                <label for="end_date">End Date <small class="text-muted font-weight-normal">(Default Today)</small></label>
+                                <input autocomplete="off" type="text" value="{{ old('end_date', request('end_date', now()->format('d-m-Y'))) }}"
                                        name="end_date" class="form-control date-picker" id="end_date"
                                        placeholder="End Date">
                             </div>

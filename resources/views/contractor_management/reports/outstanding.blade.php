@@ -10,6 +10,7 @@
                 </div>
                 <div class="card-body">
                     <form target="_blank" action="{{ route('contractor_management.reports.outstanding') }}" method="GET">
+                    @include('layouts.partial.__report_branch_filter')
                         <div class="row justify-content-center">
                             <div class="col-md-3 mt-2 text-center">
                                 <button type="submit" name="search" value="1" class="btn btn-info btn-block bg-gradient-info">Generate Report</button>

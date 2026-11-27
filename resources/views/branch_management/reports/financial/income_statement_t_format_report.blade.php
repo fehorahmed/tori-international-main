@@ -165,7 +165,7 @@
                                                 @if(isset($exp['is_bold']) && $exp['is_bold'])
                                                     <b>{{ $exp['name'] }}</b>
                                                 @elseif(isset($exp['id']))
-                                                    <a href="{{ route('branch_report.trial_balance',['start_date'=>request('start_date'),'end_date'=>request('end_date'),'account_group_id'=>$exp['id'],'sister_concern'=>request('sister_concern'),'search'=>'Search']) }}">{{ $exp['name'] }}</a>
+                                                    <a href="{{ route('branch_report.trial_balance',['start_date'=>request('start_date'),'end_date'=>request('end_date'),'account_group_id'=>$exp['id'],'report_branch_id' => request('report_branch_id', \App\Support\ReportBranch::id() ?? 'all'),'search'=>'Search']) }}">{{ $exp['name'] }}</a>
                                                 @else
                                                     {{ $exp['name'] }}
                                                 @endif
@@ -195,7 +195,7 @@
                                                 @if(isset($inc['is_bold']) && $inc['is_bold'])
                                                     <b>{{ $inc['name'] }}</b>
                                                 @elseif(isset($inc['id']))
-                                                    <a href="{{ route('branch_report.trial_balance',['start_date'=>request('start_date'),'end_date'=>request('end_date'),'account_group_id'=>$inc['id'],'sister_concern'=>request('sister_concern'),'search'=>'Search']) }}">{{ $inc['name'] }}</a>
+                                                    <a href="{{ route('branch_report.trial_balance',['start_date'=>request('start_date'),'end_date'=>request('end_date'),'account_group_id'=>$inc['id'],'report_branch_id' => request('report_branch_id', \App\Support\ReportBranch::id() ?? 'all'),'search'=>'Search']) }}">{{ $inc['name'] }}</a>
                                                 @else
                                                     {{ $inc['name'] }}
                                                 @endif

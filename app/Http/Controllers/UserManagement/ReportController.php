@@ -10,7 +10,7 @@ class ReportController extends Controller
 {
     public function userReport()
     {
-        $users = User::where('sister_concern_id', auth()->user()->activeConcernId())->get();
+        $users = User::whereReportBranch('sister_concern_id')->get();
         return view('user_management.reports.user', compact('users'));
     }
 }

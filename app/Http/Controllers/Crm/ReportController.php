@@ -21,7 +21,7 @@ class ReportController extends Controller
         if ($request->start_date != '' && $request->end_date != '') {
             $query = Lead::with('crmClient.division', 'crmClient.district', 'crmClient.upazila', 'crmClient.union');
 
-            $query->where('sister_concern_id', auth()->user()->activeConcernId());
+            $query->whereReportBranch('sister_concern_id');
 
 
 
@@ -51,7 +51,7 @@ class ReportController extends Controller
 
 
         
-        $userIds = Lead::where('sister_concern_id', auth()->user()->activeConcernId())->pluck('user_id')->unique();
+        $userIds = Lead::whereReportBranch('sister_concern_id')->pluck('user_id')->unique();
         $users = \App\Models\User::whereIn('id', $userIds)->orderBy('name')->get();
         $customerTypes = \App\Models\Crm\CustomerType::where('status', 1)->get();
         $markets = \App\Models\Crm\Market::where('status', 1)->get();

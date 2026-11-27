@@ -32,13 +32,13 @@ class StockTransferReportController extends Controller
             // Apply Direction Filter
             $activeScId = auth()->user()->activeConcernId();
             if ($request->filled('direction') && $request->direction == 'received') {
-                $query->where('to_sister_concern_id', $activeScId);
+                $query->whereReportBranch('to_sister_concern_id');
                 // Filter sender branch
                 if ($request->filled('sister_concern')) {
                     $query->where('from_sister_concern_id', $request->sister_concern);
                 }
             } else { // default to 'sent'
-                $query->where('from_sister_concern_id', $activeScId);
+                $query->whereReportBranch('from_sister_concern_id');
                 // Filter receiver branch
                 if ($request->filled('sister_concern')) {
                     $query->where('to_sister_concern_id', $request->sister_concern);
@@ -52,7 +52,7 @@ class StockTransferReportController extends Controller
 
             // Restrict Branch Managers to see only their concern's transfers
             $user = auth()->user();
-            if ($user->role === 'Branch_Manager' && $user->sister_concern_id) {
+            if (! \App\Support\ReportBranch::allowed() && $user->role === 'Branch_Manager' && $user->sister_concern_id) {
                 $query->where(function($q) use ($user) {
                     $q->where('from_sister_concern_id', $user->sister_concern_id)
                       ->orWhere('to_sister_concern_id', $user->sister_concern_id);
@@ -88,12 +88,12 @@ class StockTransferReportController extends Controller
             // Apply Direction Filter
             $activeScId = auth()->user()->activeConcernId();
             if ($request->filled('direction') && $request->direction == 'received') {
-                $query->where('to_sister_concern_id', $activeScId);
+                $query->whereReportBranch('to_sister_concern_id');
                 if ($request->filled('sister_concern')) {
                     $query->where('from_sister_concern_id', $request->sister_concern);
                 }
             } else { // default to 'sent'
-                $query->where('from_sister_concern_id', $activeScId);
+                $query->whereReportBranch('from_sister_concern_id');
                 if ($request->filled('sister_concern')) {
                     $query->where('to_sister_concern_id', $request->sister_concern);
                 }
@@ -111,7 +111,7 @@ class StockTransferReportController extends Controller
 
             // Restrict Branch Managers
             $user = auth()->user();
-            if ($user->role === 'Branch_Manager' && $user->sister_concern_id) {
+            if (! \App\Support\ReportBranch::allowed() && $user->role === 'Branch_Manager' && $user->sister_concern_id) {
                 $query->where(function($q) use ($user) {
                     $q->where('from_sister_concern_id', $user->sister_concern_id)
                       ->orWhere('to_sister_concern_id', $user->sister_concern_id);

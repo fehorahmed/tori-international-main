@@ -10,17 +10,18 @@
                 </div>
                 <div class="card-body">
                     <form target="_blank" action="{{ route('contractor_management.reports.bill_summary') }}" method="GET">
+                    @include('layouts.partial.__report_branch_filter')
                         <div class="row">
                             <div class="col-md-4 offset-md-2">
                                 <div class="form-group">
-                                    <label>Start Date <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control date-picker" name="start_date" value="{{ date('d-m-Y', strtotime(auth()->user()->business_date ?? date('Y-m-d'))) }}" required autocomplete="off">
+                                    <label>Start Date <span class="text-danger">*</span> <small class="text-muted font-weight-normal">(Default Today)</small></label>
+                                    <input type="text" class="form-control date-picker" name="start_date" value="{{ old('start_date', request('start_date', now()->format('d-m-Y'))) }}" required autocomplete="off">
                                 </div>
                             </div>
                             <div class="col-md-4">
                                 <div class="form-group">
-                                    <label>End Date <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control date-picker" name="end_date" value="{{ date('d-m-Y', strtotime(auth()->user()->business_date ?? date('Y-m-d'))) }}" required autocomplete="off">
+                                    <label>End Date <span class="text-danger">*</span> <small class="text-muted font-weight-normal">(Default Today)</small></label>
+                                    <input type="text" class="form-control date-picker" name="end_date" value="{{ old('end_date', request('end_date', now()->format('d-m-Y'))) }}" required autocomplete="off">
                                 </div>
                             </div>
                         </div>

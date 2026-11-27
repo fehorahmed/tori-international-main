@@ -18,7 +18,7 @@ class ReportController extends Controller
 
         if ($request->has('search')) {
             $query = DpsAccount::with(['customer', 'scheme'])
-                ->where('origin_sister_concern_id', auth()->user()->activeConcernId())
+                ->whereReportBranch('origin_sister_concern_id')
                 ->where('status', 'Active');
 
             if ($request->scheme_id) $query->where('scheme_id', $request->scheme_id);
@@ -36,7 +36,7 @@ class ReportController extends Controller
 
         if ($request->has('search')) {
             $accounts = DpsAccount::with(['customer', 'scheme'])
-                ->where('origin_sister_concern_id', auth()->user()->activeConcernId())
+                ->whereReportBranch('origin_sister_concern_id')
                 ->where('status', 'Matured')
                 ->orderBy('maturity_date', 'desc')->get();
             return view('shomriddhi_dps.reports.matured_accounts_report', compact('accounts'));
@@ -51,7 +51,7 @@ class ReportController extends Controller
 
         if ($request->has('search')) {
             $query = DpsAccount::with(['customer', 'scheme'])
-                ->where('origin_sister_concern_id', auth()->user()->activeConcernId())
+                ->whereReportBranch('origin_sister_concern_id')
                 ->whereIn('status', ['Closed']);
 
             if ($request->start_date) {
@@ -84,7 +84,7 @@ class ReportController extends Controller
 
         if ($request->has('search')) {
             $accounts = DpsAccount::with(['customer', 'scheme'])
-                ->where('origin_sister_concern_id', auth()->user()->activeConcernId())
+                ->whereReportBranch('origin_sister_concern_id')
                 ->where('status', 'Defaulted')
                 ->orderBy('id', 'desc')->get();
             return view('shomriddhi_dps.reports.defaulted_accounts_report', compact('accounts'));
@@ -100,7 +100,7 @@ class ReportController extends Controller
         if ($request->has('search')) {
             $query = DpsTransaction::with('dpsAccount.customer')
                 ->join('dps_accounts', 'dps_transactions.dps_account_id', '=', 'dps_accounts.id')
-                ->where('dps_accounts.origin_sister_concern_id', auth()->user()->activeConcernId())
+                ->whereReportBranch('dps_accounts.origin_sister_concern_id')
                 ->select('dps_transactions.*');
 
             if ($request->type)       $query->where('dps_transactions.type', $request->type);
@@ -131,7 +131,7 @@ class ReportController extends Controller
     public function ledger(Request $request)
     {
         $accounts   = DpsAccount::with('customer')
-            ->where('origin_sister_concern_id', auth()->user()->activeConcernId())
+            ->whereReportBranch('origin_sister_concern_id')
             ->get();
 
         $dpsAccount   = null;
@@ -140,7 +140,7 @@ class ReportController extends Controller
         if ($request->account_id) {
             $dpsAccount = DpsAccount::with(['customer', 'scheme'])
                 ->where('id', $request->account_id)
-                ->where('origin_sister_concern_id', auth()->user()->activeConcernId())
+                ->whereReportBranch('origin_sister_concern_id')
                 ->first();
 
             if ($dpsAccount) {
@@ -161,9 +161,9 @@ class ReportController extends Controller
         if ($request->has('search')) {
             $scId = auth()->user()->activeConcernId();
 
-            $schemes = DpsScheme::withCount(['accounts as active_count' => fn($q) => $q->where('origin_sister_concern_id', $scId)->where('status', 'Active')])
-                ->withSum(['accounts as total_deposited' => fn($q) => $q->where('origin_sister_concern_id', $scId)->where('status', 'Active')], 'total_deposited')
-                ->withSum(['accounts as total_payable' => fn($q) => $q->where('origin_sister_concern_id', $scId)->where('status', 'Active')], 'payable_at_maturity')
+            $schemes = DpsScheme::withCount(['accounts as active_count' => fn($q) => $q->whereReportBranch('origin_sister_concern_id')->where('status', 'Active')])
+                ->withSum(['accounts as total_deposited' => fn($q) => $q->whereReportBranch('origin_sister_concern_id')->where('status', 'Active')], 'total_deposited')
+                ->withSum(['accounts as total_payable' => fn($q) => $q->whereReportBranch('origin_sister_concern_id')->where('status', 'Active')], 'payable_at_maturity')
                 ->get();
 
             return view('shomriddhi_dps.reports.scheme_summary_report', compact('schemes'));

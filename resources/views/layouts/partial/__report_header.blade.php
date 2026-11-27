@@ -27,3 +27,6 @@
         </div>
     </div>
 @endisset
+@if(auth()->check() && (str_contains(request()->route()?->getActionName() ?? '', 'ReportController') || str_contains(request()->route()?->getActionName() ?? '', 'PartyLedgerController')))
+<p class="text-center mt-2 mb-1"><strong>Report Branch:</strong> {{ \App\Support\ReportBranch::label() }}</p>
+@endif

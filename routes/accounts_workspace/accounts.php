@@ -38,6 +38,8 @@ Route::middleware('permission:accounts_reports')->group(function () {
 
 Route::middleware('auth')->group(function () {
 
+    Route::get('report/customer-ledger', [\App\Http\Controllers\Account\PartyLedgerController::class, 'customer'])->name('report.accounts_customer_ledger')->middleware('permission:ledger');
+    Route::get('report/supplier-ledger', [\App\Http\Controllers\Account\PartyLedgerController::class, 'supplier'])->name('report.accounts_supplier_ledger')->middleware('permission:ledger');
     Route::get('report/ledger', [ReportController::class, 'ledger'])->name('report.ledger')->middleware('permission:ledger');
     Route::get('report/trial-balance', [ReportController::class, 'trialBalance'])->name('report.trial_balance')->middleware('permission:trial_balance');
     Route::get('report/income-statement', [ReportController::class, 'incomeStatement'])->name('report.income_statement')->middleware('permission:income_statement');

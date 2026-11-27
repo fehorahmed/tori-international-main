@@ -15,7 +15,7 @@ class ReportController extends Controller
     public function stockReport(Request $request) {
         $products = Product::where('status', 1)->get();
         $categories = Category::where('status', 1)->get();
-        $warehouses = Warehouse::where('sister_concern_id', auth()->user()->activeConcernId())->where('status', 1)->get();
+        $warehouses = Warehouse::whereReportBranch('sister_concern_id')->where('status', 1)->get();
 
         if ($request->has('search')) {
             $selectedWarehouseId = $request->warehouse;
@@ -23,7 +23,7 @@ class ReportController extends Controller
                 $selectedWarehouseId = $warehouses->first()->id;
             }
 
-            $query = Inventory::where('sister_concern_id', auth()->user()->activeConcernId())->with('product');
+            $query = Inventory::whereReportBranch('sister_concern_id')->with('product');
 
             if (!empty($selectedWarehouseId)) {
                 $query->where('warehouse_id', $selectedWarehouseId);
@@ -57,7 +57,7 @@ class ReportController extends Controller
     public function batchStockReport(Request $request) {
         $products = Product::where('status', 1)->get();
         $categories = Category::where('status', 1)->get();
-        $warehouses = Warehouse::where('sister_concern_id', auth()->user()->activeConcernId())->where('status', 1)->get();
+        $warehouses = Warehouse::whereReportBranch('sister_concern_id')->where('status', 1)->get();
 
         if ($request->has('search')) {
             $selectedWarehouseId = $request->warehouse;
@@ -65,7 +65,7 @@ class ReportController extends Controller
                 $selectedWarehouseId = $warehouses->first()->id;
             }
 
-            $query = Inventory::where('sister_concern_id', auth()->user()->activeConcernId())->with('product', 'warehouse');
+            $query = Inventory::whereReportBranch('sister_concern_id')->with('product', 'warehouse');
 
             if (!empty($selectedWarehouseId)) {
                 $query->where('warehouse_id', $selectedWarehouseId);
@@ -96,7 +96,7 @@ class ReportController extends Controller
     public function stockValuationReport(Request $request) {
         $products = Product::where('status', 1)->get();
         $categories = Category::where('status', 1)->get();
-        $warehouses = Warehouse::where('sister_concern_id', auth()->user()->activeConcernId())->where('status', 1)->get();
+        $warehouses = Warehouse::whereReportBranch('sister_concern_id')->where('status', 1)->get();
 
         if ($request->has('search')) {
             $selectedWarehouseId = $request->warehouse;
@@ -104,7 +104,7 @@ class ReportController extends Controller
                 $selectedWarehouseId = $warehouses->first()->id;
             }
 
-            $query = Inventory::where('sister_concern_id', auth()->user()->activeConcernId())->with('product.productCategory');
+            $query = Inventory::whereReportBranch('sister_concern_id')->with('product.productCategory');
 
             if (!empty($selectedWarehouseId)) {
                 $query->where('warehouse_id', $selectedWarehouseId);
@@ -141,7 +141,7 @@ class ReportController extends Controller
     public function batchStockValuationReport(Request $request) {
         $products = Product::where('status', 1)->get();
         $categories = Category::where('status', 1)->get();
-        $warehouses = Warehouse::where('sister_concern_id', auth()->user()->activeConcernId())->where('status', 1)->get();
+        $warehouses = Warehouse::whereReportBranch('sister_concern_id')->where('status', 1)->get();
 
         if ($request->has('search')) {
             $selectedWarehouseId = $request->warehouse;
@@ -149,7 +149,7 @@ class ReportController extends Controller
                 $selectedWarehouseId = $warehouses->first()->id;
             }
 
-            $query = Inventory::where('sister_concern_id', auth()->user()->activeConcernId())->with('product.productCategory', 'warehouse');
+            $query = Inventory::whereReportBranch('sister_concern_id')->with('product.productCategory', 'warehouse');
 
             if (!empty($selectedWarehouseId)) {
                 $query->where('warehouse_id', $selectedWarehouseId);
@@ -206,13 +206,13 @@ class ReportController extends Controller
             ];
 
             // Calculate Opening Balance (Before start_date)
-            $openingIn = \App\Models\Inventory\InventoryLog::where('sister_concern_id', auth()->user()->activeConcernId())
+            $openingIn = \App\Models\Inventory\InventoryLog::whereReportBranch('sister_concern_id')
                 ->where('product_id', $product->id)
                 ->where('date', '<', $startDate)
                 ->whereIn('type', $inTypes)
                 ->sum('quantity');
 
-            $openingOut = \App\Models\Inventory\InventoryLog::where('sister_concern_id', auth()->user()->activeConcernId())
+            $openingOut = \App\Models\Inventory\InventoryLog::whereReportBranch('sister_concern_id')
                 ->where('product_id', $product->id)
                 ->where('date', '<', $startDate)
                 ->whereNotIn('type', $inTypes)
@@ -221,7 +221,7 @@ class ReportController extends Controller
             $openingBalance = $openingIn - $openingOut;
 
             // Get Logs for the period
-            $logs = \App\Models\Inventory\InventoryLog::where('sister_concern_id', auth()->user()->activeConcernId())
+            $logs = \App\Models\Inventory\InventoryLog::whereReportBranch('sister_concern_id')
                 ->where('product_id', $product->id)
                 ->whereBetween('date', [$startDate, $endDate])
                 ->with(['purchaseOrder', 'saleOrder', 'supplier', 'warehouse', 'stockTransfer'])

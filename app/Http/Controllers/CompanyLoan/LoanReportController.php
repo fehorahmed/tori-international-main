@@ -17,8 +17,8 @@ class LoanReportController extends Controller
     {
         abort_if(!auth()->user()->hasPermissionTo('company_loan_report_statement'), 403, 'Unauthorized');
         $loans = CompanyLoan::where(function($q) {
-            $q->where('lender_concern_id', auth()->user()->activeConcernId())
-              ->orWhere('borrower_concern_id', auth()->user()->activeConcernId());
+            $q->whereReportBranch('lender_concern_id')
+              ->orWhereReportBranch('borrower_concern_id');
         })->get();
 
         $selectedLoan = null;
@@ -26,22 +26,23 @@ class LoanReportController extends Controller
 
         if ($request->loan_id) {
             $selectedLoan = CompanyLoan::where(function($q) {
-                $q->where('lender_concern_id', auth()->user()->activeConcernId())
-                  ->orWhere('borrower_concern_id', auth()->user()->activeConcernId());
+                $q->whereReportBranch('lender_concern_id')
+                  ->orWhereReportBranch('borrower_concern_id');
             })->with('lender', 'borrower')->find($request->loan_id);
 
             if (!$selectedLoan) {
                 return redirect()->route('company_loan.reports.statement')->with('error', 'Unauthorized access or loan not found.');
             }
 
-            $isLender = (auth()->user()->activeConcernId() == $selectedLoan->lender_concern_id);
+            $scope = \App\Support\ReportBranch::id();
+            $isLender = ($scope === null || $scope == $selectedLoan->lender_concern_id);
             
             // Filter by the specific Principal Account Head
             $principalHeadId = $isLender ? $selectedLoan->lender_account_head_id : $selectedLoan->borrower_account_head_id;
 
             $transactions = Transaction::where('company_loan_id', $request->loan_id)
-                ->where('sister_concern_id', auth()->user()->activeConcernId())
-                ->where('account_head_id', $principalHeadId)
+                ->whereReportBranch('sister_concern_id')
+                ->whereIn('account_head_id', $scope === null ? [$selectedLoan->lender_account_head_id, $selectedLoan->borrower_account_head_id] : [$principalHeadId])
                 ->with('voucher', 'accountHead')
                 ->orderBy('date')
                 ->orderBy('id')
@@ -54,7 +55,7 @@ class LoanReportController extends Controller
     public function loanReceivableSummary(Request $request)
     {
         abort_if(!auth()->user()->hasPermissionTo('company_loan_report_receivable'), 403, 'Unauthorized');
-        $sisterConcerns = SisterConcern::where('id', auth()->user()->activeConcernId())->get();
+        $sisterConcerns = SisterConcern::whereReportBranch('id')->get();
         $scId = auth()->user()->activeConcernId();
         $summary = [];
 
@@ -63,7 +64,7 @@ class LoanReportController extends Controller
             $end = Carbon::parse($request->end_date)->format('Y-m-d');
 
             $summary = CompanyLoan::with('lender', 'borrower', 'installments')
-                ->where('lender_concern_id', $scId)
+                ->whereReportBranch('lender_concern_id')
                 ->whereBetween('start_date', [$start, $end])
                 ->get();
         }
@@ -74,7 +75,7 @@ class LoanReportController extends Controller
     public function loanPayableSummary(Request $request)
     {
         abort_if(!auth()->user()->hasPermissionTo('company_loan_report_payable'), 403, 'Unauthorized');
-        $sisterConcerns = SisterConcern::where('id', auth()->user()->activeConcernId())->get();
+        $sisterConcerns = SisterConcern::whereReportBranch('id')->get();
         $scId = auth()->user()->activeConcernId();
         $summary = [];
 
@@ -83,7 +84,7 @@ class LoanReportController extends Controller
             $end = Carbon::parse($request->end_date)->format('Y-m-d');
 
             $summary = CompanyLoan::with('lender', 'borrower', 'installments')
-                ->where('borrower_concern_id', $scId)
+                ->whereReportBranch('borrower_concern_id')
                 ->whereBetween('start_date', [$start, $end])
                 ->get();
         }
@@ -98,11 +99,11 @@ class LoanReportController extends Controller
             ->where('status', 1) // Pending
             ->where('due_date', '<=', now()->format('Y-m-d'));
 
-        $sisterConcerns = SisterConcern::where('id', auth()->user()->activeConcernId())->get();
+        $sisterConcerns = SisterConcern::whereReportBranch('id')->get();
         
         $query->whereHas('loan', function($q) {
-            $q->where('lender_concern_id', auth()->user()->activeConcernId())
-              ->orWhere('borrower_concern_id', auth()->user()->activeConcernId());
+            $q->whereReportBranch('lender_concern_id')
+              ->orWhereReportBranch('borrower_concern_id');
         });
 
         $installments = $query->orderBy('due_date')->get();

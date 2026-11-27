@@ -50,7 +50,7 @@ class ReportController extends Controller
             abort(403, 'Unauthorized');
         }
 
-        $srs = Employee::where('sister_concern_id', auth()->user()->activeConcernId())
+        $srs = Employee::whereReportBranch('sister_concern_id')
             ->where('type', RoleType::$SR)
             ->orderBy('name')
             ->get();
@@ -63,7 +63,7 @@ class ReportController extends Controller
         $reportData = [];
 
         if ($request->has('date') || $request->has('sr_id')) {
-            $query = RoutePlan::where('sister_concern_id', auth()->user()->activeConcernId())
+            $query = RoutePlan::whereReportBranch('sister_concern_id')
                 ->where('day_of_week', $dayOfWeek);
 
             if ($selectedSrId) {
@@ -79,7 +79,7 @@ class ReportController extends Controller
                     ->count();
 
                 // Unique shop visits by this SR on this date, on this specific market
-                $inRouteVisits = SrVisit::where('sister_concern_id', auth()->user()->activeConcernId())
+                $inRouteVisits = SrVisit::whereReportBranch('sister_concern_id')
                     ->where('sr_id', $plan->sr_id)
                     ->whereDate('date', $parsedDate)
                     ->whereHas('supplier', function($q) use ($plan) {
@@ -89,7 +89,7 @@ class ReportController extends Controller
                     ->count('supplier_id');
 
                 // Visits by this SR on this date on OTHER markets (Out of Route)
-                $outOfRouteVisits = SrVisit::where('sister_concern_id', auth()->user()->activeConcernId())
+                $outOfRouteVisits = SrVisit::whereReportBranch('sister_concern_id')
                     ->where('sr_id', $plan->sr_id)
                     ->whereDate('date', $parsedDate)
                     ->whereHas('supplier', function($q) use ($plan) {
@@ -123,14 +123,14 @@ class ReportController extends Controller
             abort(403, 'Unauthorized');
         }
 
-        $srs = Employee::where('sister_concern_id', auth()->user()->activeConcernId())
+        $srs = Employee::whereReportBranch('sister_concern_id')
             ->where('type', RoleType::$SR)
             ->orderBy('name')
             ->get();
 
         $selectedSrId = $request->sr_id;
 
-        $query = Employee::where('sister_concern_id', auth()->user()->activeConcernId())
+        $query = Employee::whereReportBranch('sister_concern_id')
             ->where('type', RoleType::$SR)
             ->whereHas('routePlans')
             ->with(['routePlans.market.upazila'])

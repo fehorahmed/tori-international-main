@@ -56,7 +56,7 @@
             <div class="card card-default">
                 <div class="card-header">
                     <a role="button" onclick="getprint('printArea')" class="btn btn-info bg-gradient-info btn-sm"><i class="fa fa-print"></i></a>
-                    <a href="{{ route('report.daily_excel_convert',['guest_type'=>request('guest_type')]) }}" class="btn btn-info bg-gradient-info btn-sm"><i class="fa fa-file-excel"></i></a>
+                    <a href="{{ route('report.daily_excel_convert', ['report_branch_id' => \App\Support\ReportBranch::id() ?? 'all', 'guest_type'=>request('guest_type')]) }}" class="btn btn-info bg-gradient-info btn-sm"><i class="fa fa-file-excel"></i></a>
                 </div>
                 <div class="card-body">
                     <div class="table-responsive-md" id="printArea">

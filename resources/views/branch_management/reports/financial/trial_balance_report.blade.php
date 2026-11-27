@@ -128,7 +128,7 @@
                                 <tr>
                                     <td>{{ $loop->iteration }}</td>
                                     <td>{{ $accountHead->code }}</td>
-                                    <td class="text-left"><a href="{{ route('branch_report.ledger',['start_date'=>request('start_date'),'end_date'=>request('end_date'),'account_head_id'=>$accountHead->id,'sister_concern'=>request('sister_concern'), 'search'=>'Search']) }}">{{ $accountHead->name }}</a></td>
+                                    <td class="text-left"><a href="{{ route('branch_report.ledger',['start_date'=>request('start_date'),'end_date'=>request('end_date'),'account_head_id'=>$accountHead->id,'report_branch_id' => request('report_branch_id', \App\Support\ReportBranch::id() ?? 'all'), 'search'=>'Search']) }}">{{ $accountHead->name }}</a></td>
                                     <td class="text-right">{{ number_format($debit,2) }}</td>
                                     <td class="text-right">{{ number_format(abs($credit),2) }}</td>
                                     <td class="text-right">{{ number_format(abs($balance),2)  }}</td>

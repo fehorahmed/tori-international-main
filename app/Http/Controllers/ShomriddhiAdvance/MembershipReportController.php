@@ -25,8 +25,8 @@ class MembershipReportController extends Controller
         // Report permission is applied at the route. Agent and referral financial
         // reports additionally retain the corresponding admin-list restrictions.
         if (in_array($kind, ['agents', 'referrals'], true)) abort_unless(auth()->user()->role === 'Admin', 403);
-        $branch = SisterConcern::find(auth()->user()->activeConcernId());
-        abort_unless($branch, 422, 'Select a branch before generating this report.');
+        $branchId = \App\Support\ReportBranch::id();
+        $branch = $branchId === null ? new SisterConcern(['name' => 'All Branches']) : SisterConcern::findOrFail($branchId);
         if ($kind === 'deposit_withdraw' && ! $request->has('status')) $request->merge(['status' => 'Approved']);
         $rules = ['start_date' => 'nullable|date_format:Y-m-d', 'end_date' => 'nullable|date_format:Y-m-d'];
         if ($request->filled('start_date')) $rules['end_date'] .= '|after_or_equal:start_date';
@@ -38,38 +38,37 @@ class MembershipReportController extends Controller
                 'bonus_kind' => 'nullable|in:referral,milestone', 'payment_status' => 'nullable|in:paid,pending'],
         };
         $filters = $request->validate($rules);
-        // There is deliberately no request branch override: the active branch is
-        // used for records and for every dropdown, including cross-branch attempts.
+        if (\App\Support\ReportBranch::allowed()) $filters['report_branch_id'] = $branchId ?? 'all';
         $title = ['members' => 'Member Report', 'agents' => 'Agent Report', 'referrals' => 'Referral Bonus Report', 'deposit_withdraw' => 'Deposit / Withdraw Report'][$kind];
         $dateLabel = ['members' => 'Joining Date', 'agents' => 'Transaction Date', 'referrals' => 'Bonus Earned Date', 'deposit_withdraw' => 'Transaction Date'][$kind];
         $options = [];
         if ($kind === 'members') {
             $options = [
-                'customer_id' => ['Member', Supplier::where('type', 'Customer')->where('origin_sister_concern_id', $branch->id)->orderBy('name')->get()->mapWithKeys(fn ($m) => [$m->id => implode(' / ', array_filter([$m->name, $m->member_no, $m->mobile_no]))])->all()],
+                'customer_id' => ['Member', Supplier::where('type', 'Customer')->whereReportBranch('origin_sister_concern_id', $branchId)->orderBy('name')->get()->mapWithKeys(fn ($m) => [$m->id => implode(' / ', array_filter([$m->name, $m->member_no, $m->mobile_no]))])->all()],
                 'group_id' => ['Group', ShomriddhiGroup::orderBy('code')->get()->mapWithKeys(fn ($g) => [$g->id => $g->code.' — '.$g->name_en])->all()],
                 'status' => ['Status', ['1' => 'Active', '0' => 'Inactive']],
                 'source' => ['Registration Source', ['app' => 'App', 'ecommerce' => 'Ecommerce', 'unknown' => 'Not recorded']],
             ];
         } elseif ($kind === 'agents') {
             $options = [
-                'agent_id' => ['Agent', MembershipAgent::with('customer')->whereHas('customer', fn ($q) => $q->where('origin_sister_concern_id', $branch->id))->orderBy('agent_code')->get()
+                'agent_id' => ['Agent', MembershipAgent::with('customer')->whereHas('customer', fn ($q) => $q->whereReportBranch('origin_sister_concern_id', $branchId))->orderBy('agent_code')->get()
                     ->mapWithKeys(fn ($a) => [$a->id => implode(' / ', array_filter([$a->customer?->name, $a->agent_code, $a->customer?->mobile_no]))])->all()],
                 'status' => ['Current Agent Status', ['Active' => 'Active', 'Suspended' => 'Suspended', 'Removed' => 'Removed / Regular Member']],
             ];
         } elseif ($kind === 'deposit_withdraw') {
             $members = Supplier::withTrashed()->where(fn ($q) => $q
-                ->whereExists(fn ($q) => $q->selectRaw('1')->from('shomriddhi_accounts as a')->whereColumn('a.customer_id', 'suppliers.id')->where('a.origin_sister_concern_id', $branch->id))
-                ->orWhereIn('id', DB::table('membership_cashouts')->where('branch_id', $branch->id)->where('status', 'Completed')->select('customer_id')))
+                ->whereExists(fn ($q) => $q->selectRaw('1')->from('shomriddhi_accounts as a')->whereColumn('a.customer_id', 'suppliers.id')->whereReportBranch('a.origin_sister_concern_id', $branchId))
+                ->orWhereIn('id', DB::table('membership_cashouts')->whereReportBranch('branch_id', $branchId)->where('status', 'Completed')->select('customer_id')))
                 ->orderBy('name')->get()->mapWithKeys(fn ($m) => [$m->id => implode(' / ', array_filter([$m->name, $m->member_no, $m->mobile_no]))])->all();
             $options = ['customer_id' => ['Member', $members], 'type' => ['Type', ['deposit' => 'Deposit', 'withdraw' => 'Withdraw']],
                 'status' => ['Status', ['Approved' => 'Approved', 'Pending' => 'Pending', 'Rejected' => 'Rejected']],
                 'source' => ['Source', ['savings' => 'Savings Deposit / Withdraw', 'branch_cashout' => 'App Branch Cash-out']]];
         } else {
-            $memberIds = DB::table('membership_referral_rewards')->where('branch_id', $branch->id)->where('referrer_type', 'member')->pluck('referrer_id');
+            $memberIds = DB::table('membership_referral_rewards')->whereReportBranch('branch_id', $branchId)->where('referrer_type', 'member')->pluck('referrer_id');
             // Include members eligible for milestone-only history, including retired records.
-            $referrers = Supplier::withTrashed()->where(fn ($q) => $q->whereIn('id', $memberIds)->orWhere('origin_sister_concern_id', $branch->id))
+            $referrers = Supplier::withTrashed()->where(fn ($q) => $q->whereIn('id', $memberIds)->orWhereReportBranch('origin_sister_concern_id', $branchId))
                 ->orderBy('name')->get()->mapWithKeys(fn ($m) => ['member:'.$m->id => 'Member / '.$m->name.' / '.$m->member_no])->all();
-            $employeeIds = DB::table('membership_referral_rewards')->where('branch_id', $branch->id)->where('referrer_type', 'agent')->pluck('referrer_id');
+            $employeeIds = DB::table('membership_referral_rewards')->whereReportBranch('branch_id', $branchId)->where('referrer_type', 'agent')->pluck('referrer_id');
             foreach (User::withTrashed()->whereIn('id', $employeeIds)->orderBy('name')->get() as $employee) {
                 $referrers['agent:'.$employee->id] = 'Employee / '.$employee->name.' / '.$employee->username;
             }

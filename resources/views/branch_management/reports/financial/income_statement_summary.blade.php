@@ -111,7 +111,7 @@
                                     @endphp
                                     <tr>
                                         <td class="text-left">
-                                            <a href="{{ route('branch_report.income_statement',['start_date'=>request('start_date'),'end_date'=>request('end_date'),'sister_concern'=>$concern->id, 'search' => 'Search']) }}">{{ $concern->name }}</a>
+                                            <a href="{{ route('branch_report.income_statement', ['report_branch_id' => \App\Support\ReportBranch::id() ?? 'all', 'start_date'=>request('start_date'),'end_date'=>request('end_date'),'sister_concern'=>$concern->id, 'search' => 'Search']) }}">{{ $concern->name }}</a>
                                         </td>
                                         <td class="text-right">{{ number_format($totalExpense, 2) }}</td>
                                         <td class="text-right">{{ number_format($totalIncome, 2) }}</td>

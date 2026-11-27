@@ -23,6 +23,7 @@
     </style>
 @endsection
 @section('content')
+    @include('layouts.partial.__report_branch_toolbar')
     <div class="row">
         <div class="col-12">
             <div class="card card-default">

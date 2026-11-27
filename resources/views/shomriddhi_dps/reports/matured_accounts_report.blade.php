@@ -1,6 +1,7 @@
 @extends('layouts.print')
 @section('title', 'DPS Matured Accounts Report')
 @section('content')
+    @include('layouts.partial.__report_branch_toolbar')
 <div class="text-center mb-4">
     <h3 class="font-weight-bold">DPS Matured Accounts Report</h3>
     <p class="mb-0">Date: {{ date('d-M-Y h:i A') }}</p>

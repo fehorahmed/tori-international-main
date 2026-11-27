@@ -85,7 +85,7 @@
         ],
         'accounts' => [
             'accounts.dashboard', 'account-group.', 'account-head.', 'voucher.', 'cashbook',
-            'report.cash_or_bank_book', 'report.cash_or_bank_transaction_details', 'report.receipt_and_payment', 'report.ledger', 'report.trial_balance', 'report.income_statement', 'report.balance_sheet', 'report.inter_company_ledger', 'inter_company_settlements.', 'report.daily_transactions'
+            'report.cash_or_bank_book', 'report.cash_or_bank_transaction_details', 'report.receipt_and_payment', 'report.ledger', 'report.accounts_customer_ledger', 'report.accounts_supplier_ledger', 'report.trial_balance', 'report.income_statement', 'report.balance_sheet', 'report.inter_company_ledger', 'inter_company_settlements.', 'report.daily_transactions'
         ],
         'card_management' => [
             'card-management.'

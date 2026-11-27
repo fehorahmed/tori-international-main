@@ -12,14 +12,15 @@
 
             {{-- Filter Form --}}
             <form target="_blank" action="{{ route('shomriddhi-advance.reports.summary') }}" method="GET" class="mb-4">
+                    @include('layouts.partial.__report_branch_filter')
                 <div class="row align-items-end justify-content-center">
                     <div class="col-md-3">
-                        <label>Start Date</label>
-                        <input type="text" name="start_date" class="form-control date-picker" value="{{ request('start_date') }}">
+                        <label>Start Date <small class="text-muted font-weight-normal">(Default Today)</small></label>
+                        <input type="text" name="start_date" class="form-control date-picker" value="{{ old('start_date', request('start_date', now()->format('d-m-Y'))) }}">
                     </div>
                     <div class="col-md-3">
-                        <label>End Date</label>
-                        <input type="text" name="end_date" class="form-control date-picker" value="{{ request('end_date') }}">
+                        <label>End Date <small class="text-muted font-weight-normal">(Default Today)</small></label>
+                        <input type="text" name="end_date" class="form-control date-picker" value="{{ old('end_date', request('end_date', now()->format('d-m-Y'))) }}">
                     </div>
                     <div class="col-md-2">
                         <button type="submit" name="search" value="1" class="btn btn-success btn-block"><i class="fas fa-filter"></i> Generate</button>

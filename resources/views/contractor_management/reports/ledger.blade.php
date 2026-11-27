@@ -15,6 +15,7 @@
                 </div>
                 <div class="card-body">
                     <form target="_blank" action="{{ route('contractor_management.reports.ledger') }}" method="GET">
+                    @include('layouts.partial.__report_branch_filter')
                         <div class="row">
                             <div class="col-md-4">
                                 <div class="form-group {{ $errors->has('contractor_id') ? 'has-error' :'' }}">
@@ -33,8 +34,8 @@
                             
                             <div class="col-md-3">
                                 <div class="form-group {{ $errors->has('start_date') ? 'has-error' :'' }}">
-                                    <label for="start_date">Start Date <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control date-picker" id="start_date" name="start_date" value="{{ $start_date ?? date('d-m-Y', strtotime(auth()->user()->business_date ?? date('Y-m-d'))) }}" required autocomplete="off" placeholder="Enter Start Date">
+                                    <label for="start_date">Start Date <span class="text-danger">*</span> <small class="text-muted font-weight-normal">(Default Today)</small></label>
+                                    <input type="text" class="form-control date-picker" id="start_date" name="start_date" value="{{ old('start_date', request('start_date', now()->format('d-m-Y'))) }}" required autocomplete="off" placeholder="Enter Start Date">
                                     @error('start_date')
                                     <span class="help-block text-danger">{{ $message }}</span>
                                     @enderror
@@ -43,8 +44,8 @@
 
                             <div class="col-md-3">
                                 <div class="form-group {{ $errors->has('end_date') ? 'has-error' :'' }}">
-                                    <label for="end_date">End Date <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control date-picker" id="end_date" name="end_date" value="{{ $end_date ?? date('d-m-Y', strtotime(auth()->user()->business_date ?? date('Y-m-d'))) }}" required autocomplete="off" placeholder="Enter End Date">
+                                    <label for="end_date">End Date <span class="text-danger">*</span> <small class="text-muted font-weight-normal">(Default Today)</small></label>
+                                    <input type="text" class="form-control date-picker" id="end_date" name="end_date" value="{{ old('end_date', request('end_date', now()->format('d-m-Y'))) }}" required autocomplete="off" placeholder="Enter End Date">
                                     @error('end_date')
                                     <span class="help-block text-danger">{{ $message }}</span>
                                     @enderror

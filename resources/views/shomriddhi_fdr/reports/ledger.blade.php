@@ -10,6 +10,7 @@
         </div>
         <div class="card-body">
             <form target="_blank" action="{{ route('shomriddhi-fdr.reports.ledger') }}" method="GET" class="mb-4">
+                    @include('layouts.partial.__report_branch_filter')
                 <div class="row align-items-end">
                     <div class="col-md-5">
                         <label for="account_id">Select FDR Account <span class="text-danger">*</span></label>

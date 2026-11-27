@@ -77,7 +77,7 @@
                             <p class="mb-0 text-info" style="font-size: 1.1em;">
                                 Total Deposited Balance: <b>৳ {{ number_format($shomriddhiAccount->principal_balance ?? 0, 2) }}</b> | 
                                 Pending Accrued Interest: 
-                                <a href="{{ route('shomriddhi-advance.reports.daily_interest', ['status' => 'Pending', 'customer_id' => $customer->id, 'search' => 1]) }}" class="text-warning" style="text-decoration: underline;">
+                                <a href="{{ route('shomriddhi-advance.reports.daily_interest', ['report_branch_id' => \App\Support\ReportBranch::id() ?? 'all', 'status' => 'Pending', 'customer_id' => $customer->id, 'search' => 1]) }}" class="text-warning" style="text-decoration: underline;">
                                     <b>৳ {{ number_format($shomriddhiAccount->accrued_interest ?? 0, 4) }}</b>
                                 </a>
                             </p>

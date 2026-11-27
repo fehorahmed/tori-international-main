@@ -25,6 +25,7 @@
                 </div>
                 <div class="card-body">
                     <form action="{{ route('report.stock') }}" target="_blank">
+                    @include('layouts.partial.__report_branch_filter')
                         <div class="row">
                             <div class="col-md-3">
                                 <div class="form-group">

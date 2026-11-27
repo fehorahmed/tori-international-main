@@ -13,10 +13,10 @@ class ReportController extends Controller
 {
     public function loanLedger(Request $request)
     {
-        $loans = LoanAccount::with('customer')->get();
+        $loans = LoanAccount::whereReportBranch('origin_sister_concern_id')->with('customer')->get();
 
         if ($request->search) {
-            $selectedLoan = LoanAccount::with(['customer', 'installments', 'transactions' => function($q) {
+            $selectedLoan = LoanAccount::whereReportBranch('origin_sister_concern_id')->with(['customer', 'installments', 'transactions' => function($q) {
                 $q->orderBy('collection_date', 'asc');
             }])->findOrFail($request->loan_id);
             return view('shomriddhi_loan.reports.loan_ledger_report', compact('selectedLoan'));
@@ -31,7 +31,7 @@ class ReportController extends Controller
         $endDate = $request->end_date ? Carbon::parse($request->end_date) : Carbon::today()->endOfMonth();
 
         if ($request->search) {
-            $transactions = LoanTransaction::with(['loanAccount.customer', 'collectedBy'])
+            $transactions = LoanTransaction::whereHas('loanAccount', fn ($q) => $q->whereReportBranch('origin_sister_concern_id'))->with(['loanAccount.customer', 'collectedBy'])
                 ->whereBetween('collection_date', [$startDate->format('Y-m-d'), $endDate->format('Y-m-d')])
                 ->orderBy('collection_date', 'desc')
                 ->get();
@@ -48,7 +48,7 @@ class ReportController extends Controller
     {
         if ($request->search) {
             // Find unpaid or partial installments whose due_date is before today
-            $overdues = LoanInstallment::with('loanAccount.customer')
+            $overdues = LoanInstallment::whereHas('loanAccount', fn ($q) => $q->whereReportBranch('origin_sister_concern_id'))->with('loanAccount.customer')
                 ->whereIn('status', ['unpaid', 'partial', 'overdue'])
                 ->where('due_date', '<', date('Y-m-d'))
                 ->orderBy('due_date', 'asc')

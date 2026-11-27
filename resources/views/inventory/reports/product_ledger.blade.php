@@ -25,6 +25,7 @@
                 </div>
                 <div class="card-body">
                     <form action="{{ route('report.product_ledger') }}" target="_blank">
+                    @include('layouts.partial.__report_branch_filter')
                         <div class="row">
                             <div class="col-md-3">
                                 <div class="form-group {{ $errors->has('category') ? 'has-error' :'' }}">
@@ -56,8 +57,8 @@
                             </div>
                             <div class="col-md-2">
                                 <div class="form-group {{ $errors->has('start_date') ? 'has-error' :'' }}">
-                                    <label for="start_date">Start Date <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control date-picker" name="start_date" id="start_date" value="{{ request('start_date', date('01-m-Y')) }}" autocomplete="off" required>
+                                    <label for="start_date">Start Date <span class="text-danger">*</span> <small class="text-muted font-weight-normal">(Default Today)</small></label>
+                                    <input type="text" class="form-control date-picker" name="start_date" id="start_date" value="{{ old('start_date', request('start_date', now()->format('d-m-Y'))) }}" autocomplete="off" required>
                                     @error('start_date')
                                         <span class="help-block">{{ $message }}</span>
                                     @enderror
@@ -65,8 +66,8 @@
                             </div>
                             <div class="col-md-2">
                                 <div class="form-group {{ $errors->has('end_date') ? 'has-error' :'' }}">
-                                    <label for="end_date">End Date <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control date-picker" name="end_date" id="end_date" value="{{ request('end_date', date('t-m-Y')) }}" autocomplete="off" required>
+                                    <label for="end_date">End Date <span class="text-danger">*</span> <small class="text-muted font-weight-normal">(Default Today)</small></label>
+                                    <input type="text" class="form-control date-picker" name="end_date" id="end_date" value="{{ old('end_date', request('end_date', now()->format('d-m-Y'))) }}" autocomplete="off" required>
                                     @error('end_date')
                                         <span class="help-block">{{ $message }}</span>
                                     @enderror

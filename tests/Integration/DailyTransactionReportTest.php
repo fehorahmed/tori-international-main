@@ -30,6 +30,9 @@ class DailyTransactionReportTest extends TestCase
     {
         parent::setUp();
         $this->user = User::firstOrFail();
+        // Baseline is a branch user without the new cross-branch permission.
+        $this->user->syncRoles([]);
+        $this->user->syncPermissions([]);
         $this->branch = SisterConcern::firstOrFail()->id;
         $this->otherBranch = SisterConcern::where('id', '!=', $this->branch)->firstOrFail()->id;
         $this->actingAs($this->user);
@@ -174,6 +177,7 @@ class DailyTransactionReportTest extends TestCase
 
     public function test_global_user_can_select_all_or_a_single_branch(): void
     {
+        $this->user->givePermissionTo(\App\Support\ReportBranch::PERMISSION);
         $this->user->forceFill(['sister_concern_id' => null])->save();
         session()->forget('active_sister_concern_id');
         $this->entry('income', 2, '1.25');

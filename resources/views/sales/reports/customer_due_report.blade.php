@@ -22,6 +22,7 @@
     <div class="row">
         <div class="col-12">
             <form action="{{ route('report.customer_due') }}" method="GET" target="_blank">
+                    @include('layouts.partial.__report_branch_filter')
                 <div class="card card-default">
                     <div class="card-header">
                         <div class="row">

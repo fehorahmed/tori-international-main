@@ -42,7 +42,7 @@ class ReportController extends Controller
 
     public function employeeReport(Request $request)
     {
-        $query = Employee::where('sister_concern_id', auth()->user()->activeConcernId());
+        $query = Employee::whereReportBranch('sister_concern_id');
         
         if ($request->employee_status_id != '') {
             $query->where('employee_status_id', $request->employee_status_id);
@@ -55,7 +55,7 @@ class ReportController extends Controller
 
     public function liveAttendanceReport(Request $request)
     {
-        $employees = Employee::where('sister_concern_id', auth()->user()->activeConcernId())->get();
+        $employees = Employee::whereReportBranch('sister_concern_id')->get();
 
         $employee_attendances = [];
         if ($request->start_date != '' && $request->end_date != '') {
@@ -64,7 +64,7 @@ class ReportController extends Controller
             $endDate = Carbon::createFromFormat('d-m-Y', $request->end_date)->format('Y-m-d');
 
             $attendanceQuery = Employee::query();
-            $attendanceQuery->where('sister_concern_id', auth()->user()->activeConcernId());
+            $attendanceQuery->whereReportBranch('sister_concern_id');
 
             $attendanceQuery->with(['attendances' => function ($query) use ($startDate, $endDate) {
                 $query->whereDate('punch_time', '>=', $startDate)
@@ -321,7 +321,7 @@ class ReportController extends Controller
     {
         $report = [];
         $selectEmployee = null;
-        $employees = Employee::where('sister_concern_id',auth()->user()->activeConcernId())->get();
+        $employees = Employee::whereReportBranch('sister_concern_id')->get();
 //        $septemberStart = Carbon::create(2024, 9, 1, 0, 0, 0);
 //        $septemberEnd = Carbon::create(2024, 9, 30, 23, 59, 59);
 //
@@ -364,7 +364,7 @@ class ReportController extends Controller
             }]);
 
             if ($employeeId != '') {
-                $selectEmployee = Employee::find($employeeId);
+                $selectEmployee = Employee::whereReportBranch('sister_concern_id')->findOrFail($employeeId);
                 $attendanceQuery->where('id', $employeeId);
             }
 
@@ -440,7 +440,7 @@ class ReportController extends Controller
     {
         $report = [];
         $selectEmployee = null;
-        $employees = Employee::where('sister_concern_id', auth()->user()->activeConcernId())->get();
+        $employees = Employee::whereReportBranch('sister_concern_id')->get();
 
         $employeeId = $request->employee;
         // Default to branch business_date if no date is provided
@@ -453,10 +453,10 @@ class ReportController extends Controller
         }]);
 
         if ($employeeId != '') {
-            $selectEmployee = Employee::find($employeeId);
+            $selectEmployee = Employee::whereReportBranch('sister_concern_id')->findOrFail($employeeId);
             $attendanceQuery->where('id', $employeeId);
         } else {
-            $attendanceQuery->where('sister_concern_id', auth()->user()->activeConcernId());
+            $attendanceQuery->whereReportBranch('sister_concern_id');
         }
 
         $employeeRecords = $attendanceQuery->get();
@@ -583,7 +583,7 @@ class ReportController extends Controller
     }
     public function attendanceSummary(Request $request)
     {
-        $employees = Employee::where('sister_concern_id',auth()->user()->activeConcernId())->get();
+        $employees = Employee::whereReportBranch('sister_concern_id')->get();
         $employeeSummaries = [];
 
 
@@ -627,11 +627,11 @@ class ReportController extends Controller
         $date = $request->date ? Carbon::parse($request->date)->format('Y-m-d') : Carbon::today()->format('Y-m-d');
 
         // Resolve any still-pending reminders whose window has closed
-        \App\Models\Hrm\AttendanceReminderLog::where('status', 'pending')
+        \App\Models\Hrm\AttendanceReminderLog::whereHas('employee', fn ($q) => $q->whereReportBranch('sister_concern_id'))->where('status', 'pending')
             ->where('window_closes_at', '<', Carbon::now())
             ->update(['status' => 'missed']);
 
-        $logs = \App\Models\Hrm\AttendanceReminderLog::with('employee.designation')
+        $logs = \App\Models\Hrm\AttendanceReminderLog::whereHas('employee', fn ($q) => $q->whereReportBranch('sister_concern_id'))->with('employee.designation')
             ->whereDate('notified_at', $date)
             ->get()
             ->groupBy('employee_id');

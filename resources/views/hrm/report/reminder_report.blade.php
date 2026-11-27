@@ -73,6 +73,7 @@
                 <div class="card-body">
                     {{-- Filter Form --}}
                     <form action="{{ route('report.attendance-reminder') }}" class="form-horizontal no-print mb-4">
+                    @include('layouts.partial.__report_branch_filter')
                         <div class="row">
                             <div class="col-md-3">
                                 <div class="form-group">

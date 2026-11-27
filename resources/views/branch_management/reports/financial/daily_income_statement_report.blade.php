@@ -54,29 +54,29 @@
                             $expenses = [];
                             
                             if ($operatingRevenue) {
-                                $link = route('branch_report.trial_balance',['start_date'=>request('start_date'),'end_date'=>request('end_date'),'account_group_id'=>$operatingRevenue->id,'sister_concern'=>request('sister_concern')]);
+                                $link = route('branch_report.trial_balance',['start_date'=>request('start_date'),'end_date'=>request('end_date'),'account_group_id'=>$operatingRevenue->id,'report_branch_id' => request('report_branch_id', \App\Support\ReportBranch::id() ?? 'all')]);
                                 $incomes[] = ['name' => '<a href="'.$link.'">' . $operatingRevenue->name . '</a>', 'amount' => $operatingRevBal];
                             }
                             if ($otherIncome) {
-                                $link = route('branch_report.trial_balance',['start_date'=>request('start_date'),'end_date'=>request('end_date'),'account_group_id'=>$otherIncome->id,'sister_concern'=>request('sister_concern')]);
+                                $link = route('branch_report.trial_balance',['start_date'=>request('start_date'),'end_date'=>request('end_date'),'account_group_id'=>$otherIncome->id,'report_branch_id' => request('report_branch_id', \App\Support\ReportBranch::id() ?? 'all')]);
                                 $incomes[] = ['name' => '<a href="'.$link.'">' . $otherIncome->name . '</a>', 'amount' => $otherIncBal];
                             }
 
                             $expenses[] = ['name' => '<b>Actual Operating Expenses</b>', 'amount' => null, 'is_bold' => true];
                             if ($costOfGoodsSold) {
-                                $link = route('branch_report.trial_balance',['start_date'=>request('start_date'),'end_date'=>request('end_date'),'account_group_id'=>$costOfGoodsSold->id,'sister_concern'=>request('sister_concern')]);
+                                $link = route('branch_report.trial_balance',['start_date'=>request('start_date'),'end_date'=>request('end_date'),'account_group_id'=>$costOfGoodsSold->id,'report_branch_id' => request('report_branch_id', \App\Support\ReportBranch::id() ?? 'all')]);
                                 $expenses[] = ['name' => '&nbsp;&nbsp;&nbsp;&nbsp;<a href="'.$link.'">' . $costOfGoodsSold->name . '</a>', 'amount' => $cogsBal];
                             }
                             if ($operatingExpenses) {
-                                $link = route('branch_report.trial_balance',['start_date'=>request('start_date'),'end_date'=>request('end_date'),'account_group_id'=>$operatingExpenses->id,'sister_concern'=>request('sister_concern')]);
+                                $link = route('branch_report.trial_balance',['start_date'=>request('start_date'),'end_date'=>request('end_date'),'account_group_id'=>$operatingExpenses->id,'report_branch_id' => request('report_branch_id', \App\Support\ReportBranch::id() ?? 'all')]);
                                 $expenses[] = ['name' => '&nbsp;&nbsp;&nbsp;&nbsp;<a href="'.$link.'">' . $operatingExpenses->name . '</a>', 'amount' => $opExpBal];
                             }
                             if ($financialExpenses) {
-                                $link = route('branch_report.trial_balance',['start_date'=>request('start_date'),'end_date'=>request('end_date'),'account_group_id'=>$financialExpenses->id,'sister_concern'=>request('sister_concern')]);
+                                $link = route('branch_report.trial_balance',['start_date'=>request('start_date'),'end_date'=>request('end_date'),'account_group_id'=>$financialExpenses->id,'report_branch_id' => request('report_branch_id', \App\Support\ReportBranch::id() ?? 'all')]);
                                 $expenses[] = ['name' => '&nbsp;&nbsp;&nbsp;&nbsp;<a href="'.$link.'">' . $financialExpenses->name . '</a>', 'amount' => $finExpBal];
                             }
                             if ($taxExpenses) {
-                                $link = route('branch_report.trial_balance',['start_date'=>request('start_date'),'end_date'=>request('end_date'),'account_group_id'=>$taxExpenses->id,'sister_concern'=>request('sister_concern')]);
+                                $link = route('branch_report.trial_balance',['start_date'=>request('start_date'),'end_date'=>request('end_date'),'account_group_id'=>$taxExpenses->id,'report_branch_id' => request('report_branch_id', \App\Support\ReportBranch::id() ?? 'all')]);
                                 $expenses[] = ['name' => '&nbsp;&nbsp;&nbsp;&nbsp;<a href="'.$link.'">' . $taxExpenses->name . '</a>', 'amount' => $taxExpBal];
                             }
 

@@ -9,6 +9,7 @@
     </div>
     <div class="card-body">
         <form target="_blank" action="" method="GET">
+                    @include('layouts.partial.__report_branch_filter')
             <input type="hidden" name="search" value="1">
             <div class="row">
                 <div class="col-md-6">

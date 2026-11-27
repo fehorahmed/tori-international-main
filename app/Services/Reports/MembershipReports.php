@@ -22,9 +22,9 @@ class MembershipReports
     private function money($value): string { return number_format((float) $value, 2); }
     private function minor($value): int { return (int) round((float) $value * 100); }
 
-    public function members(int $branch, array $f): array
+    public function members(?int $branch, array $f): array
     {
-        $query = Supplier::where('type', 'Customer')->where('origin_sister_concern_id', $branch)->with('shomriddhiGroup');
+        $query = Supplier::where('type', 'Customer')->whereReportBranch('origin_sister_concern_id', $branch)->with('shomriddhiGroup');
         $this->dates($query, 'suppliers.created_at', $f);
         foreach (['customer_id' => 'id', 'group_id' => 'shomriddhi_group_id', 'status' => 'status'] as $filter => $column) {
             if (isset($f[$filter]) && $f[$filter] !== '') $query->where($column, $f[$filter]);
@@ -33,7 +33,7 @@ class MembershipReports
             $f['source'] === 'unknown' ? $query->whereNull('registration_source') : $query->where('registration_source', $f['source']);
         }
         $members = $query->orderBy('member_no')->orderBy('id')->get();
-        $accounts = ShomriddhiAccount::where('origin_sister_concern_id', $branch)->where('status', 'Active')->whereIn('customer_id', $members->pluck('id'))
+        $accounts = ShomriddhiAccount::whereReportBranch('origin_sister_concern_id', $branch)->where('status', 'Active')->whereIn('customer_id', $members->pluck('id'))
             ->select('customer_id')->selectRaw('SUM(principal_balance) AS principal, SUM(accrued_interest) AS accrued')->groupBy('customer_id')->get()->keyBy('customer_id');
         $kycs = CustomerKyc::whereIn('customer_id', $members->pluck('id'))->orderByDesc('id')->get()->unique('customer_id')->keyBy('customer_id');
         $principal = $accrued = $active = 0;
@@ -55,9 +55,9 @@ class MembershipReports
             'note' => 'Date range applies to member joining date. Savings and accrued interest show current active-account balances, not historical balances at the end date. Legacy registrations without a recorded source are shown as Not recorded.'];
     }
 
-    public function agents(int $branch, array $f): array
+    public function agents(?int $branch, array $f): array
     {
-        $query = MembershipAgent::with('customer')->whereHas('customer', fn ($q) => $q->where('origin_sister_concern_id', $branch));
+        $query = MembershipAgent::with('customer')->whereHas('customer', fn ($q) => $q->whereReportBranch('origin_sister_concern_id', $branch));
         if (! empty($f['agent_id'])) $query->whereKey($f['agent_id']);
         if (! empty($f['status'])) $query->where('status', $f['status']);
         $agents = $query->orderBy('agent_code')->get();
@@ -65,7 +65,7 @@ class MembershipReports
         $this->dates($transactions, 'completed_at', $f);
         $activity = $transactions->select('agent_id')->selectRaw("COUNT(*) AS transactions, SUM(CASE WHEN type = 'agent_cashin' THEN amount ELSE 0 END) AS cashin, SUM(CASE WHEN type = 'agent_cashout' THEN amount ELSE 0 END) AS cashout, SUM(customer_charge) AS charge_total, SUM(agent_commission) AS commission_total")
             ->groupBy('agent_id')->get()->keyBy('agent_id');
-        $accounts = ShomriddhiAccount::where('origin_sister_concern_id', $branch)->where('status', 'Active')->whereIn('customer_id', $agents->pluck('customer_id'))
+        $accounts = ShomriddhiAccount::whereReportBranch('origin_sister_concern_id', $branch)->where('status', 'Active')->whereIn('customer_id', $agents->pluck('customer_id'))
             ->select('customer_id')->selectRaw('SUM(principal_balance) AS principal')->groupBy('customer_id')->get()->keyBy('customer_id');
         $sums = ['cashin' => 0, 'cashout' => 0, 'charge_total' => 0, 'commission_total' => 0];
         $count = 0; $rows = [];
@@ -83,7 +83,7 @@ class MembershipReports
             'note' => 'Date range applies to completed agent transactions. Agent status and savings balance are current. Agents with no activity in the selected period are included with zero totals; removed agents retain their historical activity.'];
     }
 
-    public function deposit_withdraw(int $branch, array $f): array
+    public function deposit_withdraw(?int $branch, array $f): array
     {
         $records = [];
         $type = $f['type'] ?? null;
@@ -94,7 +94,7 @@ class MembershipReports
                 ->select('shomriddhi_transactions.*', 'v.voucher_no as posted_voucher_no', 'v.payment_purpose')
                 ->with(['customer' => fn ($q) => $q->withTrashed()])
                 ->whereIn('shomriddhi_transactions.type', ['deposit', 'withdraw'])->where('shomriddhi_transactions.is_opening_balance', 0)
-                ->whereExists(fn ($q) => $q->selectRaw('1')->from('shomriddhi_accounts as a')->whereColumn('a.customer_id', 'shomriddhi_transactions.customer_id')->where('a.origin_sister_concern_id', $branch))
+                ->whereExists(fn ($q) => $q->selectRaw('1')->from('shomriddhi_accounts as a')->whereColumn('a.customer_id', 'shomriddhi_transactions.customer_id')->whereReportBranch('a.origin_sister_concern_id', $branch))
                 // Cash-out source/payout/fee withdrawals are represented once below.
                 ->whereNotExists(fn ($q) => $q->selectRaw('1')->from('membership_cashouts as c')->where(fn ($q) => $q
                     ->whereColumn('c.voucher_id', 'shomriddhi_transactions.voucher_id')
@@ -115,8 +115,8 @@ class MembershipReports
         if (($f['source'] ?? '') !== 'savings' && $type !== 'deposit' && (! $status || $status === 'Approved')) {
             $q = DB::table('membership_cashouts as c')->leftJoin('vouchers as v', 'v.id', '=', 'c.voucher_id')
                 ->leftJoin('suppliers as m', 'm.id', '=', 'c.customer_id')->leftJoin('sister_concerns as b', 'b.id', '=', 'c.branch_id')
-                ->where('c.status', 'Completed')->where(fn ($q) => $q->where('c.branch_id', $branch)
-                    ->orWhereExists(fn ($q) => $q->selectRaw('1')->from('shomriddhi_accounts as a')->whereColumn('a.id', 'c.account_id')->where('a.origin_sister_concern_id', $branch)));
+                ->where('c.status', 'Completed')->where(fn ($q) => $q->whereReportBranch('c.branch_id', $branch)
+                    ->orWhereExists(fn ($q) => $q->selectRaw('1')->from('shomriddhi_accounts as a')->whereColumn('a.id', 'c.account_id')->whereReportBranch('a.origin_sister_concern_id', $branch)));
             if (! empty($f['customer_id'])) $q->where('c.customer_id', $f['customer_id']);
             if (! empty($f['start_date'])) $q->whereRaw('COALESCE(v.date, DATE(c.completed_at)) >= ?', [$f['start_date']]);
             if (! empty($f['end_date'])) $q->whereRaw('COALESCE(v.date, DATE(c.completed_at)) <= ?', [$f['end_date']]);
@@ -144,7 +144,7 @@ class MembershipReports
             'note' => 'Includes savings deposit/withdraw entries and completed app Branch Cash-out. Each cash-out is shown once including its charge; its linked savings/charge entries are not counted again. Cross-branch cash-outs appear for the savings-owning branch and the paying branch; this is not a consolidated company cash book. Cash paid = total withdraw minus included cash-out charge. Only Approved rows affect totals. Pending/Rejected admin entries are shown only when selected; uncompleted cash-out requests, deleted entries, opening balances and interest capitalization are excluded.'];
     }
 
-    public function referrals(int $branch, array $f): array
+    public function referrals(?int $branch, array $f): array
     {
         $rows = []; $points = $cash = $paid = 0;
         $referrer = ! empty($f['referrer_key']) ? explode(':', $f['referrer_key']) : null;
@@ -153,7 +153,7 @@ class MembershipReports
                 ->leftJoin('suppliers as c', 'c.id', '=', 'r.customer_id')
                 ->leftJoin('suppliers as m', fn ($q) => $q->on('m.id', '=', 'b.referrer_id')->where('b.referrer_type', 'member'))
                 ->leftJoin('users as u', fn ($q) => $q->on('u.id', '=', 'b.referrer_id')->where('b.referrer_type', 'agent'))
-                ->where('b.branch_id', $branch);
+                ->whereReportBranch('b.branch_id', $branch);
             $this->dates($q, 'b.created_at', $f);
             if ($referrer) $q->where('b.referrer_type', $referrer[0])->where('b.referrer_id', $referrer[1]);
             if (! empty($f['referrer_type'])) $q->where('b.referrer_type', $f['referrer_type']);
@@ -176,7 +176,7 @@ class MembershipReports
         if (($f['bonus_kind'] ?? '') !== 'referral' && ($f['referrer_type'] ?? '') !== 'agent' && (! $referrer || $referrer[0] === 'member')) {
             $q = DB::table('membership_milestone_bonuses as b')->leftJoin('suppliers as m', 'm.id', '=', 'b.customer_id')
                 ->leftJoin('shomriddhi_accounts as a', 'a.id', '=', 'b.account_id')->leftJoin('vouchers as v', 'v.id', '=', 'b.voucher_id')
-                ->whereRaw('COALESCE(v.sister_concern_id, a.origin_sister_concern_id, m.origin_sister_concern_id) = ?', [$branch]);
+                ->when($branch !== null, fn ($q) => $q->whereRaw('COALESCE(v.sister_concern_id, a.origin_sister_concern_id, m.origin_sister_concern_id) = ?', [$branch]));
             $this->dates($q, 'b.created_at', $f);
             if ($referrer) $q->where('b.customer_id', $referrer[1]);
             if (($f['payment_status'] ?? '') === 'paid') $q->whereNotNull('b.paid_at');

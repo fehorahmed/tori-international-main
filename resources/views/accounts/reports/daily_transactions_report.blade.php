@@ -8,7 +8,7 @@
 </head>
 <body>
 <div class="container-fluid report-container">
-    <div class="extra-remove mb-3"><a href="{{ route('report.daily_transactions', ['start_date' => $startDate, 'end_date' => $endDate, 'branch_id' => $branchId, 'category' => $category]) }}" class="btn btn-secondary btn-sm">Change Filters</a></div>
+    <div class="extra-remove mb-3"><a href="{{ route('report.daily_transactions', ['start_date' => $startDate, 'end_date' => $endDate, 'report_branch_id' => $branchId ?? 'all', 'category' => $category]) }}" class="btn btn-secondary btn-sm">Change Filters</a></div>
     @include('layouts.partial.__export_buttons', ['printAreaId' => 'printArea', 'fileName' => 'Daily_Transactions_'.$startDate.'_'.$endDate])
     <div id="printArea">
         @include('layouts.partial.__report_header')
@@ -31,7 +31,7 @@
                     <tbody>
                         @forelse($rows as $row)
                         <tr>
-                            <td><a href="{{ route('report.daily_transactions.details', ['start_date' => $startDate, 'end_date' => $endDate, 'branch_id' => $branchId, 'category' => $section, 'account_head_id' => $row['id']]) }}">{{ $row['code'] ? $row['code'].' — ' : '' }}{{ $row['name'] }}</a></td>
+                            <td><a href="{{ route('report.daily_transactions.details', ['start_date' => $startDate, 'end_date' => $endDate, 'report_branch_id' => $branchId ?? 'all', 'category' => $section, 'account_head_id' => $row['id']]) }}">{{ $row['code'] ? $row['code'].' — ' : '' }}{{ $row['name'] }}</a></td>
                             <td class="text-right">{{ $row['count'] }}</td><td class="text-right">{{ number_format($row['debit'], 2) }}</td><td class="text-right">{{ number_format($row['credit'], 2) }}</td>
                             @if(in_array($section, ['income', 'expense']))<td class="text-right">{{ number_format($row['net'], 2) }}</td>@endif
                         </tr>

@@ -18,8 +18,8 @@ class ReportController extends Controller
             abort(403, 'Unauthorized');
         }
 
-        $query = SisterConcern::query();
-        if(auth()->user()->role == RoleType::$AREA_MANAGER) {
+        $query = SisterConcern::whereReportBranch('id');
+        if(! \App\Support\ReportBranch::allowed() && auth()->user()->role == RoleType::$AREA_MANAGER) {
             $query->where('area_manager_id', auth()->user()->employee_id); 
         }
 
@@ -35,7 +35,8 @@ class ReportController extends Controller
             abort(403, 'Unauthorized');
         }
 
-        $query = Employee::with('sisterConcern', 'designation', 'department')->orderBy('name');
+        $request->merge(['sister_concern_id' => \App\Support\ReportBranch::id()]);
+        $query = Employee::with('sisterConcern', 'designation', 'department')->whereReportBranch('sister_concern_id')->orderBy('name');
 
         if ($request->sister_concern_id != '') {
             $query->where('sister_concern_id', $request->sister_concern_id);
@@ -49,7 +50,7 @@ class ReportController extends Controller
             $query->where('designation_id', $request->designation_id);
         }
 
-        if(auth()->user()->role == RoleType::$AREA_MANAGER) {
+        if(! \App\Support\ReportBranch::allowed() && auth()->user()->role == RoleType::$AREA_MANAGER) {
             $branchIds = SisterConcern::where('area_manager_id', auth()->user()->employee_id)->pluck('id');
             $query->whereIn('sister_concern_id', $branchIds);
         }
@@ -57,7 +58,7 @@ class ReportController extends Controller
         $employees = $query->get();
 
         $queryBranches = SisterConcern::orderBy('name');
-        if(auth()->user()->role == RoleType::$AREA_MANAGER) {
+        if(! \App\Support\ReportBranch::allowed() && auth()->user()->role == RoleType::$AREA_MANAGER) {
             $queryBranches->where('area_manager_id', auth()->user()->employee_id);
         }
         $sisterConcerns = $queryBranches->get();

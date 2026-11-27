@@ -25,7 +25,7 @@ class ReportController extends Controller
         $pageTitle = 'Card Payment Collection Report';
 
         $query = Card::with(['cardable', 'creator'])
-            ->where('origin_sister_concern_id', auth()->user()->activeConcernId())
+            ->whereReportBranch('origin_sister_concern_id')
             ->where('cardable_type', Supplier::class)
             ->where('payment_status', 'Received');
 
@@ -52,7 +52,7 @@ class ReportController extends Controller
         $pageTitle = 'Member Card Status Summary';
         
         $statusCounts = Card::where('cardable_type', Supplier::class)
-            ->where('origin_sister_concern_id', auth()->user()->activeConcernId())
+            ->whereReportBranch('origin_sister_concern_id')
             ->select('status', DB::raw('count(*) as total'))
             ->groupBy('status')
             ->pluck('total', 'status')
@@ -76,7 +76,7 @@ class ReportController extends Controller
         $pageTitle = 'Member Card Print History';
 
         $query = CardPrintLog::with(['card.cardable', 'printer'])
-            ->where('card_print_logs.origin_sister_concern_id', auth()->user()->activeConcernId())
+            ->whereReportBranch('card_print_logs.origin_sister_concern_id')
             ->whereHas('card', function($q) {
                 $q->where('cardable_type', Supplier::class);
             });
@@ -98,7 +98,7 @@ class ReportController extends Controller
         $pageTitle = 'Lost/Damaged Member Cards';
 
         $query = Card::where('cardable_type', Supplier::class)
-            ->where('origin_sister_concern_id', auth()->user()->activeConcernId())
+            ->whereReportBranch('origin_sister_concern_id')
             ->whereIn('status', ['Lost', 'Damaged'])
             ->with(['cardable']);
 
@@ -124,7 +124,7 @@ class ReportController extends Controller
         $pageTitle = 'Employee Card Status Summary';
         
         $statusCounts = Card::where('cardable_type', Employee::class)
-            ->where('origin_sister_concern_id', auth()->user()->activeConcernId())
+            ->whereReportBranch('origin_sister_concern_id')
             ->select('status', DB::raw('count(*) as total'))
             ->groupBy('status')
             ->pluck('total', 'status')
@@ -148,7 +148,7 @@ class ReportController extends Controller
         $pageTitle = 'Employee Card Print History';
 
         $query = CardPrintLog::with(['card.cardable', 'printer'])
-            ->where('card_print_logs.origin_sister_concern_id', auth()->user()->activeConcernId())
+            ->whereReportBranch('card_print_logs.origin_sister_concern_id')
             ->whereHas('card', function($q) {
                 $q->where('cardable_type', Employee::class);
             });
@@ -170,7 +170,7 @@ class ReportController extends Controller
         $pageTitle = 'Lost/Damaged Employee Cards';
 
         $query = Card::where('cardable_type', Employee::class)
-            ->where('origin_sister_concern_id', auth()->user()->activeConcernId())
+            ->whereReportBranch('origin_sister_concern_id')
             ->whereIn('status', ['Lost', 'Damaged'])
             ->with(['cardable', 'cardable.department']);
 

@@ -9,6 +9,7 @@
                 </div>
                 <div class="card-body">
                     <form action="{{ route('company_loan.reports.statement') }}" method="GET">
+                    @include('layouts.partial.__report_branch_filter')
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="form-group">
@@ -73,7 +74,7 @@
                             <tbody>
                                 @php 
                                     $balance = 0; 
-                                    $isLender = (auth()->user()->activeConcernId() == $selectedLoan->lender_concern_id);
+                                    $isLender = (\App\Support\ReportBranch::id() === null || \App\Support\ReportBranch::id() == $selectedLoan->lender_concern_id);
                                 @endphp
                                 @foreach($transactions as $transaction)
                                     @php 

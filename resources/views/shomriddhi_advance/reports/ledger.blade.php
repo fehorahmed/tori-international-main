@@ -10,6 +10,7 @@
         </div>
         <div class="card-body">
             <form target="_blank" action="{{ route('shomriddhi-advance.reports.ledger') }}" method="GET" class="mb-4">
+                    @include('layouts.partial.__report_branch_filter')
                 <div class="row mb-3">
                     <div class="col-md-2">
                         <div class="form-group">
@@ -71,12 +72,12 @@
                         </select>
                     </div>
                     <div class="col-md-3">
-                        <label for="start_date">Start Date</label>
-                        <input type="text" name="start_date" id="start_date" class="form-control date-picker" value="{{ request('start_date') ?? date('d-m-Y',strtotime(auth()->user()->business_date)) }}">
+                        <label for="start_date">Start Date <small class="text-muted font-weight-normal">(Default Today)</small></label>
+                        <input type="text" name="start_date" id="start_date" class="form-control date-picker" value="{{ old('start_date', request('start_date', now()->format('d-m-Y'))) }}">
                     </div>
                     <div class="col-md-3">
-                        <label for="end_date">End Date</label>
-                        <input type="text" name="end_date" id="end_date" class="form-control date-picker" value="{{ request('end_date') ?? date('d-m-Y',strtotime(auth()->user()->business_date)) }}">
+                        <label for="end_date">End Date <small class="text-muted font-weight-normal">(Default Today)</small></label>
+                        <input type="text" name="end_date" id="end_date" class="form-control date-picker" value="{{ old('end_date', request('end_date', now()->format('d-m-Y'))) }}">
                     </div>
                     <div class="col-md-2">
                         <button type="submit" class="btn btn-primary btn-block"><i class="fas fa-search"></i> Generate</button>

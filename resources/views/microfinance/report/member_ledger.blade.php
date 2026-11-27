@@ -9,6 +9,7 @@
                 </div>
                 <div class="card-body">
                     <form target="_blank" action="{{ route('microfinance.report.member-ledger') }}" method="get" class="row">
+                    @include('layouts.partial.__report_branch_filter')
                         <div class="col-md-4">
                             <div class="form-group">
                                 <label>Select Member: <span class="text-danger">*</span></label>

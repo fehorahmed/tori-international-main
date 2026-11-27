@@ -30,22 +30,23 @@
                     <h3 class="card-title">Data Filter</h3>
                 </div>
                 <form action="{{ route('card-management.reports.member.lost_damaged') }}">
+                    @include('layouts.partial.__report_branch_filter')
                     <div class="card-body">
                         <div class="row">
                             <div class="col-md-3">
                                 <div class="form-group">
-                                    <label for="start_date">Start Date</label>
+                                    <label for="start_date">Start Date <small class="text-muted font-weight-normal">(Default Today)</small></label>
                                     <input required type="text" id="start_date" autocomplete="off"
                                            name="start_date" class="form-control date-picker"
-                                           placeholder="Enter Start Date" value="{{ request('start_date') }}">
+                                           placeholder="Enter Start Date" value="{{ old('start_date', request('start_date', now()->format('d-m-Y'))) }}">
                                 </div>
                             </div>
                             <div class="col-md-3">
                                 <div class="form-group">
-                                    <label for="end_date">End Date</label>
+                                    <label for="end_date">End Date <small class="text-muted font-weight-normal">(Default Today)</small></label>
                                     <input required type="text" id="end_date" autocomplete="off"
                                            name="end_date" class="form-control date-picker"
-                                           placeholder="Enter End Date" value="{{ request('end_date') }}">
+                                           placeholder="Enter End Date" value="{{ old('end_date', request('end_date', now()->format('d-m-Y'))) }}">
                                 </div>
                             </div>
                             <div class="col-md-2">
