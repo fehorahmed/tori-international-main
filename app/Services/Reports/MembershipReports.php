@@ -91,7 +91,7 @@ class MembershipReports
         if (($f['source'] ?? '') !== 'branch_cashout') {
             $q = \App\Models\ShomriddhiAdvance\ShomriddhiTransaction::query()
                 ->leftJoin('vouchers as v', 'v.id', '=', 'shomriddhi_transactions.voucher_id')
-                ->select('shomriddhi_transactions.*', 'v.voucher_no as posted_voucher_no', 'v.payment_purpose')
+                ->select('shomriddhi_transactions.*', 'v.voucher_no as posted_voucher_no', 'v.payment_purpose', 'v.id as linked_voucher_id', 'v.deleted_at as voucher_deleted_at')
                 ->with(['customer' => fn ($q) => $q->withTrashed()])
                 ->whereIn('shomriddhi_transactions.type', ['deposit', 'withdraw'])->where('shomriddhi_transactions.is_opening_balance', 0)
                 ->whereExists(fn ($q) => $q->selectRaw('1')->from('shomriddhi_accounts as a')->whereColumn('a.customer_id', 'shomriddhi_transactions.customer_id')->whereReportBranch('a.origin_sister_concern_id', $branch))
@@ -109,7 +109,7 @@ class MembershipReports
             foreach ($q->orderBy('shomriddhi_transactions.date')->orderBy('shomriddhi_transactions.id')->get() as $tx) {
                 $records[] = ['date' => $tx->date, 'member' => $tx->customer?->name ?? 'Unavailable', 'member_no' => $tx->customer?->member_no,
                     'type' => $tx->type, 'source' => $purposes[$tx->payment_purpose] ?? 'Savings Deposit / Withdraw', 'reference' => $tx->posted_voucher_no ?? 'Entry #'.$tx->id,
-                    'status' => $tx->status, 'amount' => $this->minor($tx->amount), 'fee' => 0, 'branch' => '—', 'note' => $tx->note];
+                    'voucher_id' => $tx->voucher_deleted_at === null ? $tx->linked_voucher_id : null, 'status' => $tx->status, 'amount' => $this->minor($tx->amount), 'fee' => 0, 'branch' => '—', 'note' => $tx->note];
             }
         }
         if (($f['source'] ?? '') !== 'savings' && $type !== 'deposit' && (! $status || $status === 'Approved')) {
@@ -120,26 +120,30 @@ class MembershipReports
             if (! empty($f['customer_id'])) $q->where('c.customer_id', $f['customer_id']);
             if (! empty($f['start_date'])) $q->whereRaw('COALESCE(v.date, DATE(c.completed_at)) >= ?', [$f['start_date']]);
             if (! empty($f['end_date'])) $q->whereRaw('COALESCE(v.date, DATE(c.completed_at)) <= ?', [$f['end_date']]);
-            foreach ($q->select('c.*', 'm.name', 'm.member_no', 'b.name as payout_branch', 'v.voucher_no')->selectRaw('COALESCE(v.date, DATE(c.completed_at)) AS transaction_date')->get() as $cashout) {
+            foreach ($q->select('c.*', 'm.name', 'm.member_no', 'b.name as payout_branch', 'v.voucher_no', 'v.id as linked_voucher_id', 'v.deleted_at as voucher_deleted_at')->selectRaw('COALESCE(v.date, DATE(c.completed_at)) AS transaction_date')->get() as $cashout) {
                 $records[] = ['date' => $cashout->transaction_date, 'member' => $cashout->name ?? 'Unavailable', 'member_no' => $cashout->member_no,
-                    'type' => 'withdraw', 'source' => 'App Branch Cash-out', 'reference' => $cashout->reference, 'status' => 'Approved',
+                    'voucher_id' => $cashout->voucher_deleted_at === null ? $cashout->linked_voucher_id : null, 'type' => 'withdraw', 'source' => 'App Branch Cash-out', 'reference' => $cashout->reference, 'status' => 'Approved',
                     'amount' => $this->minor($cashout->amount) + $this->minor($cashout->fee), 'fee' => $this->minor($cashout->fee), 'branch' => $cashout->payout_branch, 'note' => $cashout->voucher_no];
             }
         }
         usort($records, fn ($a, $b) => strcmp($a['date'], $b['date']) ?: strcmp($a['reference'], $b['reference']));
-        $deposit = $withdraw = $charges = $approved = 0; $rows = [];
+        $deposit = $withdraw = $charges = $approved = 0; $rows = []; $voucherLinks = [];
         foreach ($records as $r) {
             if ($r['status'] === 'Approved') {
                 $approved++;
                 if ($r['type'] === 'deposit') $deposit += $r['amount']; else $withdraw += $r['amount'];
                 $charges += $r['fee'];
             }
+            if ($r['voucher_id']) {
+                $voucherLinks[count($rows)][4] = (int) $r['voucher_id'];
+                if ($r['source'] === 'App Branch Cash-out' && $r['note']) $voucherLinks[count($rows)][10] = (int) $r['voucher_id'];
+            }
             $rows[] = [$r['date'], $r['member_no'], $r['member'], $r['source'], $r['reference'], $r['status'],
                 $r['type'] === 'deposit' ? $this->money($r['amount'] / 100) : '—', $r['type'] === 'withdraw' ? $this->money($r['amount'] / 100) : '—',
                 $this->money($r['fee'] / 100), $r['branch'], $r['note']];
         }
         return ['columns' => ['Date', 'Member No', 'Member', 'Source', 'Reference / Voucher', 'Status', 'Deposit (Tk)', 'Total Withdraw (Tk)', 'Branch Cash-out Charge Included (Tk)', 'Cash-out Branch', 'Notes'],
-            'rows' => $rows, 'totals' => ['Entries' => count($rows), 'Approved Entries' => $approved, 'Approved Deposit (Tk)' => $this->money($deposit / 100),
+            'rows' => $rows, 'voucher_links' => $voucherLinks, 'totals' => ['Entries' => count($rows), 'Approved Entries' => $approved, 'Approved Deposit (Tk)' => $this->money($deposit / 100),
                 'Approved Withdraw (Tk)' => $this->money($withdraw / 100), 'Cash-out Charges Included (Tk)' => $this->money($charges / 100), 'Net Savings Movement (Tk)' => $this->money(($deposit - $withdraw) / 100)],
             'note' => 'Includes savings deposit/withdraw entries and completed app Branch Cash-out. Each cash-out is shown once including its charge; its linked savings/charge entries are not counted again. Cross-branch cash-outs appear for the savings-owning branch and the paying branch; this is not a consolidated company cash book. Cash paid = total withdraw minus included cash-out charge. Only Approved rows affect totals. Pending/Rejected admin entries are shown only when selected; uncompleted cash-out requests, deleted entries, opening balances and interest capitalization are excluded.'];
     }

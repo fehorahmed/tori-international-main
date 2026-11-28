@@ -22,19 +22,31 @@ class PartyLedgerReport
         // Primary trade accounts only. Savings, loan and other linked accounts
         // represent separate liabilities/assets and must not offset trade dues.
         $heads = AccountHead::withTrashed()->where('supplier_id', $party)->where('head_type', 'primary')->pluck('id');
+        return $this->entries($heads, $branch, $start, $end);
+    }
+
+    public function generateHead(int $head, ?int $branch, string $start, string $end): array
+    {
+        return $this->entries([$head], $branch, $start, $end);
+    }
+
+    private function entries($heads, ?int $branch, string $start, string $end): array
+    {
         $query = Transaction::whereIn('account_head_id', $heads)->whereReportBranch('sister_concern_id', $branch)->whereIn('transaction_type', [1, 2]);
         $opening = (clone $query)->where('date', '<', $start)->selectRaw('COALESCE(SUM(CASE WHEN transaction_type = 1 THEN amount ELSE -amount END), 0) AS balance')->value('balance');
         $balance = (int) round((float) $opening * 100);
         $opening = $balance;
         $debit = $credit = 0;
         $rows = [];
-        foreach ((clone $query)->whereBetween('date', [$start, $end])->with('payeeDepositorHead')->orderBy('date')->orderBy('voucher_no_group_sl')->orderBy('id')->get() as $entry) {
+        foreach ((clone $query)->whereBetween('date', [$start, $end])->with(['payeeDepositorHead', 'voucher'])->orderBy('date')->orderBy('voucher_no_group_sl')->orderBy('id')->get() as $entry) {
             $amount = (int) round((float) $entry->amount * 100);
             $dr = (int) $entry->transaction_type === 1 ? $amount : 0;
             $cr = (int) $entry->transaction_type === 2 ? $amount : 0;
             $debit += $dr; $credit += $cr; $balance += $dr - $cr;
-            $rows[] = ['date' => $entry->date, 'reference' => $entry->voucher_no ?: 'Entry #'.$entry->id,
-                'narration' => trim(implode(' — ', array_filter([$entry->payeeDepositorHead?->name, $entry->notes]))),
+            $narration = trim(implode(' — ', array_filter([$entry->payeeDepositorHead?->name, $entry->notes])));
+            if ($narration === '') $narration = $entry->voucher?->notes ?: ($entry->is_opening_balance ? 'Opening balance adjustment' : (\App\Enumeration\PaymentPurpose::names()[$entry->voucher?->payment_purpose] ?? 'Ledger posting'));
+            $rows[] = ['date' => $entry->date, 'voucher_id' => $entry->voucher?->id, 'reference' => $entry->voucher_no ?: 'Entry #'.$entry->id,
+                'narration' => $narration,
                 'debit' => $dr, 'credit' => $cr, 'balance' => $balance];
         }
         return compact('opening', 'rows', 'debit', 'credit', 'balance');

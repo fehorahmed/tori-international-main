@@ -38,7 +38,14 @@
                 <thead><tr><th>S/L</th>@foreach($report['columns'] as $column)<th>{{ $column }}</th>@endforeach</tr></thead>
                 <tbody>
                     @forelse($report['rows'] as $row)
-                    <tr><td>{{ $loop->iteration }}</td>@foreach($row as $cell)<td>{{ $cell ?? '—' }}</td>@endforeach</tr>
+                    @php($rowIndex = $loop->index)
+                    <tr><td>{{ $loop->iteration }}</td>
+                        @foreach($row as $columnIndex => $cell)
+                        <td>@if(isset($report['voucher_links'][$rowIndex][$columnIndex]))
+                            <a href="{{ route('voucher.details', ['voucher' => $report['voucher_links'][$rowIndex][$columnIndex]]) }}" target="_blank" rel="noopener">{{ $cell ?? '—' }}</a>
+                        @else{{ $cell ?? '—' }}@endif</td>
+                        @endforeach
+                    </tr>
                     @empty
                     <tr><td colspan="{{ count($report['columns']) + 1 }}" class="text-center">No records found for this selection.</td></tr>
                     @endforelse

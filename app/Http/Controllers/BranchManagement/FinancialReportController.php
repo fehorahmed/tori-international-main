@@ -120,64 +120,56 @@ class FinancialReportController extends Controller
 
     public function ledger(Request $request)
     {
-        $request->merge(['sister_concern' => \App\Support\ReportBranch::id()]);
-        $startDate = date('Y-m-d', strtotime($request->start_date));
-        $endDate = date('Y-m-d', strtotime($request->end_date));
-
-        $accountHeadsList = AccountHead::where('status',1)->orderBy('code')->get();
-        $accountHeads = [];
-        if ($request->start_date != '') {
-            $previousDay = date('Y-m-d', strtotime('-1 day', strtotime($request->start_date)));
-
-            $query = AccountHead::where('status',1);
-            if ($request->account_head != '') {
-                $query->where('id', $request->account_head);
+        $branchId = \App\Support\ReportBranch::id($request);
+        $branch = $branchId === null ? new SisterConcern(['name' => 'All Branches']) : SisterConcern::findOrFail($branchId);
+        $headsQuery = AccountHead::withTrashed()->where(fn ($q) => $q->whereNull('sister_concern_id')
+            ->orWhereReportBranch('sister_concern_id', $branchId)
+            ->orWhereHas('transactions', fn ($q) => $q->whereReportBranch('sister_concern_id', $branchId)));
+        $accountHeadsList = (clone $headsQuery)->orderBy('code')->orderBy('id')->get();
+        if (! $request->has('search') && ! $request->filled('account_head_id')) {
+            return view('branch_management.reports.financial.ledger', compact('accountHeadsList'));
+        }
+        if (! $request->filled('account_head_id') && $request->filled('account_head')) $request->merge(['account_head_id' => $request->input('account_head')]);
+        $filters = $request->validate(['account_head_id' => 'nullable|integer|min:1', 'start_date' => 'required|date_format:d-m-Y',
+            'end_date' => 'required|date_format:d-m-Y|after_or_equal:start_date']);
+        if (\App\Support\ReportBranch::allowed()) $filters['report_branch_id'] = $branchId ?? 'all';
+        if (! empty($filters['account_head_id'])) {
+            $headsQuery->whereKey($filters['account_head_id']);
+            if (! (clone $headsQuery)->exists()) throw \Illuminate\Validation\ValidationException::withMessages(['account_head_id' => 'Select a valid account head for this branch.']);
+        }
+        $start = Carbon::createFromFormat('d-m-Y', $filters['start_date'])->toDateString();
+        $end = Carbon::createFromFormat('d-m-Y', $filters['end_date'])->toDateString();
+        $statements = [];
+        $branches = $branchId === null ? SisterConcern::orderBy('code')->orderBy('id')->get() : collect([$branch]);
+        $heads = $headsQuery->orderBy('code')->orderBy('id')->get();
+        $activity = \App\Models\Account\Transaction::whereIn('account_head_id', $heads->pluck('id'))
+            ->whereReportBranch('sister_concern_id', $branchId)->where('date', '<=', $end)->whereIn('transaction_type', [1, 2])
+            ->select('sister_concern_id', 'account_head_id')->distinct()->get()->groupBy('sister_concern_id');
+        foreach ($branches as $statementBranch) {
+            $activeHeads = array_fill_keys(($activity->get($statementBranch->id) ?? collect())->pluck('account_head_id')->all(), true);
+            foreach ($heads as $head) {
+                if (! isset($activeHeads[$head->id]) && ! ($branchId !== null && ! empty($filters['account_head_id']))) continue;
+                $report = app(\App\Services\Reports\PartyLedgerReport::class)->generateHead($head->id, $statementBranch->id, $start, $end);
+                if (($branchId !== null && ! empty($filters['account_head_id'])) || $report['rows'] || $report['opening'] !== 0) {
+                    $statements[] = ['head' => $head, 'report' => $report, 'branch' => $statementBranch];
+                }
             }
-            if ($request->account_head_id != '') {
-                $query->where('id', $request->account_head_id);
-            }
-            $query->with([
-                'openingTransactions' => function ($query) use ($previousDay,$request) {
-                    if ($request->sister_concern) {
-                        $query->where('sister_concern_id', $request->sister_concern);
-                    }
-
-                    $query->whereDate('date', '<=', $previousDay)
-                        ->select(DB::raw('account_head_id,
-                            SUM(CASE WHEN transaction_type IN (1) THEN amount ELSE 0 END) AS previous_debit,
-                            SUM(CASE WHEN transaction_type IN (2) THEN amount ELSE 0 END) AS previous_credit'))
-                        ->groupBy('account_head_id');
-                }, 'transactions' => function ($query) use ($startDate, $endDate,$request) {
-                    if ($request->sister_concern) {
-                        $query->where('sister_concern_id', $request->sister_concern);
-                    }
-
-                    $query->whereBetween('date', [$startDate, $endDate])
-                        ->orderBy('date')
-                        ->orderBy('voucher_no_group_sl');
-                },
-            ]);
-
-            $accountHeads = $query->orderBy('code')
-                ->get();
         }
+        $pages = app(\App\Services\Reports\LedgerStatementPages::class)->make($statements);
+        return view('branch_management.reports.financial.ledger_report', compact('branch', 'filters', 'statements', 'pages'));
+    }
 
-        $currentMonth = date('m');
-        if ($currentMonth < 7) {
-            $currentYear = date('Y') - 1;
-            $currentDate = date('01-07-' . $currentYear);
-        } else {
-            $currentDate = date('01-07-Y');
-        }
-
-        $sister_concerns = SisterConcern::whereReportBranch('id')->get();
-        if ($request->has('search') || $request->has('account_head_id')) {
-            return view('branch_management.reports.financial.ledger_report', compact('accountHeads',
-                'currentDate', 'accountHeadsList', 'sister_concerns'));
-        }
-
-        return view('branch_management.reports.financial.ledger', compact('accountHeads',
-            'currentDate', 'accountHeadsList', 'sister_concerns'));
+    public function branchLedger(Request $request)
+    {
+        $branchId = \App\Support\ReportBranch::id($request);
+        if (! $request->has('search')) return view('branch_management.reports.financial.branch_ledger');
+        $filters = $request->validate(['start_date' => 'required|date_format:d-m-Y', 'end_date' => 'required|date_format:d-m-Y|after_or_equal:start_date']);
+        if (\App\Support\ReportBranch::allowed()) $filters['report_branch_id'] = $branchId ?? 'all';
+        $start = Carbon::createFromFormat('d-m-Y', $filters['start_date'])->toDateString();
+        $end = Carbon::createFromFormat('d-m-Y', $filters['end_date'])->toDateString();
+        $result = app(\App\Services\Reports\BranchTransactionLedgerReport::class)->generate($branchId, $start, $end);
+        $pages = app(\App\Services\Reports\LedgerStatementPages::class)->make($result['statements']);
+        return view('branch_management.reports.financial.branch_ledger_report', compact('filters', 'result', 'pages'));
     }
 
     public function trialBalance(Request $request)

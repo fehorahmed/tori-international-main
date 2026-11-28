@@ -110,6 +110,15 @@ class MembershipReportsTest extends TestCase
         $this->assertSame('200.00', $data['totals']['Approved Deposit (Tk)']);
         $this->assertSame('105.00', $data['totals']['Approved Withdraw (Tk)']);
         $this->assertSame('5.00', $data['totals']['Cash-out Charges Included (Tk)']);
+        $cashoutIndex = collect($data['rows'])->search(fn ($row) => $row[3] === 'App Branch Cash-out');
+        $this->assertSame($voucherIds[0], $data['voucher_links'][$cashoutIndex][4]);
+        $this->assertSame($voucherIds[0], $data['voucher_links'][$cashoutIndex][10]);
+        $this->withoutMiddleware();
+        view()->share('errors', new ViewErrorBag);
+        $this->get(route('shomriddhi-advance.reports.deposit_withdraw', $f + ['search' => 1]))
+            ->assertOk()->assertSee('href="'.route('voucher.details', ['voucher' => $voucherIds[0]]).'"', false)
+            ->assertSee('target="_blank"', false);
+
         $this->assertCount(1, $this->report()->deposit_withdraw($this->branch, $f + ['source' => 'branch_cashout'])['rows']);
         $this->assertCount(2, $this->report()->deposit_withdraw($this->branch, $f + ['type' => 'deposit'])['rows']);
         $this->assertCount(1, $this->report()->deposit_withdraw($this->branch, $f + ['status' => 'Pending'])['rows']);

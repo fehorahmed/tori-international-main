@@ -1,97 +1,23 @@
 @extends('layouts.app')
-@section('title','Ledger Report')
-@section('style')
-    <style>
-        .table-bordered td, .table-bordered th {
-            border: 1px solid #000 !important;
-            vertical-align: middle;
-            text-align: center;
-            padding: 0.2rem !important;
-        }
-        .table-bordered td, .table-bordered th {
-            font-size: 18px !important;
-        }
-        td a:hover{
-            color: #000 !important;
-            text-decoration: underline;
-        }
-        @media print{
-            .table-bordered td, .table-bordered th {
-                font-size: 20px !important;
-            }
-           td a{
-                color: #000 !important;
-                text-decoration: none !important;
-            }
-        }
-
-    </style>
-@endsection
+@section('title', 'Branch General Ledger')
 @section('content')
-    @if(request('account_head_id') == '')
-    <div class="row">
-        <!-- left column -->
-        <div class="col-md-12">
-            <!-- jquery validation -->
-            <div class="card card-outline card-default">
-                <div class="card-header">
-                    <h3 class="card-title">Data Filter</h3>
-                </div>
-                <!-- /.card-header -->
-                <!-- form start -->
-                <form target="_blank" action="{{ route('branch_report.ledger') }}">
-                    @include('layouts.partial.__report_branch_filter')
-                    <div class="card-body">
-                        <div class="row">
-                            <div class="col-12 col-md-3">
-                                <div class="form-group">
-                                    {{-- Branch selector is provided by __report_branch_filter. --}}
-                                </div>
-                            </div>
-                            <div class="col-md-2">
-                                <div class="form-group">
-                                    <label for="start_date">Start Date <span
-                                            class="text-danger">*</span> <small class="text-muted font-weight-normal">(Default Today)</small></label>
-                                    <input required type="text" id="start_date" autocomplete="off"
-                                           name="start_date" class="form-control date-picker"
-                                           placeholder="Enter Start Date" value="{{ old('start_date', request('start_date', now()->format('d-m-Y'))) }}">
-                                </div>
-                            </div>
-                            <div class="col-md-2">
-                                <div class="form-group">
-                                    <label for="end_date">End Date <span
-                                            class="text-danger">*</span> <small class="text-muted font-weight-normal">(Default Today)</small></label>
-                                    <input required type="text" id="end_date" autocomplete="off"
-                                           name="end_date" class="form-control date-picker"
-                                           placeholder="Enter Start Date" value="{{ old('end_date', request('end_date', now()->format('d-m-Y'))) }}">
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="form-group">
-                                    <label for="account_head">Account Head <span
-                                            class="text-danger">*</span></label>
-                                    <select name="account_head" id="account_head" class="form-control select2">
-                                        <option value="">All Account Head</option>
-                                        @foreach($accountHeadsList as $accountHeadList)
-                                        <option {{ request('account_head') == $accountHeadList->id ? 'selected' : '' }} value="{{ $accountHeadList->id }}">{{ $accountHeadList->name }} - {{ $accountHeadList->code }}</option>
-                                        @endforeach
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="col-md-2">
-                                <div class="form-group">
-                                    <label>&nbsp;</label>
-                                    <input type="submit" name="search" class="btn btn-info bg-gradient-info form-control" value="Search">
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                </form>
+<div class="card card-outline card-primary">
+    <div class="card-header"><h3 class="card-title">Branch General Ledger — Data Filter</h3></div>
+    <form method="GET" action="{{ route('branch_report.ledger') }}" target="_blank">
+        @include('layouts.partial.__report_branch_filter')
+        <div class="card-body"><div class="row">
+            <div class="col-md-4 form-group"><label for="account_head_id">Account Head</label>
+                <select id="account_head_id" name="account_head_id" class="form-control select2"><option value="">All Account Heads</option>
+                    @foreach($accountHeadsList as $head)<option value="{{ $head->id }}" @selected(old('account_head_id', request('account_head_id', request('account_head'))) == $head->id)>{{ $head->code }} — {{ $head->name }}</option>@endforeach
+                </select>@error('account_head_id')<div class="text-danger">{{ $message }}</div>@enderror
             </div>
-            <!-- /.card -->
-        </div>
-        <!--/.col (left) -->
-    </div>
-    @endif
+            @foreach(['start_date' => 'From Date', 'end_date' => 'To Date'] as $name => $label)
+            <div class="col-md-3 form-group"><label for="{{ $name }}">{{ $label }} <span class="text-danger">*</span> <small class="text-muted font-weight-normal">(Default Today)</small></label>
+                <input id="{{ $name }}" name="{{ $name }}" type="text" class="form-control date-picker" autocomplete="off" value="{{ old($name, request($name, now()->format('d-m-Y'))) }}" required>
+                @error($name)<div class="text-danger">{{ $message }}</div>@enderror
+            </div>@endforeach
+        </div></div>
+        <div class="card-footer"><button name="search" value="1" class="btn btn-primary">Generate Report</button> <a href="{{ route('branch_report.ledger') }}" class="btn btn-secondary">Reset</a></div>
+    </form>
+</div>
 @endsection

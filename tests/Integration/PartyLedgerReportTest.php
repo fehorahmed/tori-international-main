@@ -71,6 +71,58 @@ class PartyLedgerReportTest extends TestCase
         $this->assertCount(0, $next['rows']);
         $this->assertSame(-7525, $next['balance']);
     }
+    public function test_branch_ledger_statement_uses_account_head_opening_and_running_balance(): void
+    {
+        $this->entry(1, '100.25', ['date' => '2088-04-14']);
+        $this->entry(1, '20.20');
+        $this->entry(2, '150.55');
+        $this->entry(1, '999', ['sister_concern_id' => $this->other]);
+        $this->withoutMiddleware();
+        view()->share('errors', new ViewErrorBag);
+        $url = route('branch_report.ledger');
+        $this->get($url)->assertOk()->assertSee('Account Head')->assertSee('Default Today');
+        $filters = ['search' => 1, 'account_head_id' => $this->head->id, 'report_branch_id' => $this->branch,
+            'start_date' => '15-04-2088', 'end_date' => '15-04-2088'];
+        $response = $this->get($url.'?'.http_build_query($filters))->assertOk()->assertSee('Opening Balance')->assertSee('Closing Balance')
+            ->assertSee('100.25 Dr')->assertSee('30.10 Cr')->assertSee('&lt;script&gt;ledger&lt;/script&gt;', false);
+        $statements = $response->viewData('statements');
+        $this->assertCount(1, $statements);
+        $this->assertSame(10025, $statements[0]['report']['opening']);
+        $this->assertSame(-3010, $statements[0]['report']['balance']);
+        $this->assertCount(2, $statements[0]['report']['rows']);
+        $this->getJson($url.'?'.http_build_query(array_replace($filters, ['end_date' => '14-04-2088'])))->assertUnprocessable();
+        $this->getJson($url.'?'.http_build_query(array_replace($filters, ['account_head_id' => 99999999])))->assertUnprocessable();
+        $this->getJson($url.'?search=1')->assertUnprocessable()->assertJsonValidationErrors(['start_date', 'end_date']);
+        $this->assertFileExists(base_path('backups/branch-ledger/2026-11-28/FinancialReportController.php'));
+        $this->assertFileExists(base_path('backups/branch-ledger/2026-11-28/ledger.blade.php'));
+        $this->assertFileExists(base_path('backups/branch-ledger/2026-11-28/ledger_report.blade.php'));
+    }
+
+    public function test_all_branch_ledger_separates_balances_and_carries_them_across_pages(): void
+    {
+        $this->user->givePermissionTo(\App\Support\ReportBranch::PERMISSION);
+        $this->head->update(['nature' => 'Debit']);
+        for ($i = 0; $i < 20; $i++) $this->entry(1, '1.25');
+        $this->entry(1, '2.50', ['sister_concern_id' => $this->other]);
+        $this->withoutMiddleware();
+        view()->share('errors', new ViewErrorBag);
+        $response = $this->get(route('branch_report.ledger', ['search' => 1, 'account_head_id' => $this->head->id, 'report_branch_id' => 'all',
+            'start_date' => '15-04-2088', 'end_date' => '15-04-2088']))->assertOk()->assertSee('Branch General Ledger')->assertSee('Nature: Debit')
+            ->assertSee('Balance Brought Forward')->assertSee('Balance Carried Forward')->assertSee('Page 3 of 3')->assertSee('25.00 Dr')->assertSee('2.50 Dr');
+        $statements = collect($response->viewData('statements'))->keyBy(fn ($s) => $s['branch']->id);
+        $this->assertCount(2, $statements);
+        $this->assertSame(2500, $statements[$this->branch]['report']['balance']);
+        $this->assertSame(250, $statements[$this->other]['report']['balance']);
+        $pages = collect($response->viewData('pages'))->where('branch.id', $this->branch)->values();
+        $this->assertCount(2, $pages);
+        $this->assertSame(2250, $pages[0]['closing']);
+        $this->assertSame($pages[0]['closing'], $pages[1]['opening']);
+        $this->assertSame(2500, $pages[1]['closing']);
+        $this->assertFalse($pages[0]['last']);
+        $this->assertTrue($pages[1]['last']);
+        $this->assertCount(20, array_merge($pages[0]['rows'], $pages[1]['rows']));
+    }
+
     public function test_filters_validation_statement_rendering_and_party_scope(): void
     {
         $this->withoutMiddleware();
