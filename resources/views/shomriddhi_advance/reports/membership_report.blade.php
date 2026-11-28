@@ -41,7 +41,9 @@
                     @php($rowIndex = $loop->index)
                     <tr><td>{{ $loop->iteration }}</td>
                         @foreach($row as $columnIndex => $cell)
-                        <td>@if(isset($report['voucher_links'][$rowIndex][$columnIndex]))
+                        <td>@if(isset($report['detail_links'][$rowIndex][$columnIndex]))
+                            <a href="{{ $report['detail_links'][$rowIndex][$columnIndex] }}" target="_blank" rel="noopener">{{ $cell ?? '—' }}</a>
+                        @elseif(isset($report['voucher_links'][$rowIndex][$columnIndex]))
                             <a href="{{ route('voucher.details', ['voucher' => $report['voucher_links'][$rowIndex][$columnIndex]]) }}" target="_blank" rel="noopener">{{ $cell ?? '—' }}</a>
                         @else{{ $cell ?? '—' }}@endif</td>
                         @endforeach

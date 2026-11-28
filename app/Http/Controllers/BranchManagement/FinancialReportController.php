@@ -167,9 +167,25 @@ class FinancialReportController extends Controller
         if (\App\Support\ReportBranch::allowed()) $filters['report_branch_id'] = $branchId ?? 'all';
         $start = Carbon::createFromFormat('d-m-Y', $filters['start_date'])->toDateString();
         $end = Carbon::createFromFormat('d-m-Y', $filters['end_date'])->toDateString();
+        $result = app(\App\Services\Reports\BranchTransactionLedgerReport::class)->summary($branchId, $start, $end);
+        return view('branch_management.reports.financial.branch_ledger_summary', compact('filters', 'result'));
+    }
+
+    public function branchLedgerDetails(Request $request, int $branchId)
+    {
+        abort_unless(\App\Support\ReportBranch::allowed() || (int) auth()->user()->activeConcernId() === $branchId, 403, 'Unauthorized');
+        $summaryScope = \App\Support\ReportBranch::id($request);
+        // The path fixes the branch; query parameters cannot widen this drilldown.
+        $request->merge(['report_branch_id' => $branchId]);
+        $filters = $request->validate(['start_date' => 'required|date_format:d-m-Y', 'end_date' => 'required|date_format:d-m-Y|after_or_equal:start_date']);
+        $summaryFilters = $filters;
+        if (\App\Support\ReportBranch::allowed()) $summaryFilters['report_branch_id'] = $summaryScope ?? 'all';
+        $filters['report_branch_id'] = $branchId;
+        $start = Carbon::createFromFormat('d-m-Y', $filters['start_date'])->toDateString();
+        $end = Carbon::createFromFormat('d-m-Y', $filters['end_date'])->toDateString();
         $result = app(\App\Services\Reports\BranchTransactionLedgerReport::class)->generate($branchId, $start, $end);
         $pages = app(\App\Services\Reports\LedgerStatementPages::class)->make($result['statements']);
-        return view('branch_management.reports.financial.branch_ledger_report', compact('filters', 'result', 'pages'));
+        return view('branch_management.reports.financial.branch_ledger_report', compact('filters', 'summaryFilters', 'result', 'pages'));
     }
 
     public function trialBalance(Request $request)

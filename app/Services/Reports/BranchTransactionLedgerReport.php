@@ -8,6 +8,37 @@ use App\Models\BranchManagement\SisterConcern;
 
 class BranchTransactionLedgerReport
 {
+    public function summary(?int $branch, string $start, string $end): array
+    {
+        $aggregates = Transaction::whereReportBranch('sister_concern_id', $branch)->whereIn('transaction_type', [1, 2])->where('date', '<=', $end)
+            ->select('sister_concern_id')
+            ->selectRaw('SUM(CASE WHEN date < ? THEN CASE WHEN transaction_type = 1 THEN amount ELSE -amount END ELSE 0 END) AS opening', [$start])
+            ->selectRaw('SUM(CASE WHEN date >= ? AND transaction_type = 1 THEN amount ELSE 0 END) AS debit', [$start])
+            ->selectRaw('SUM(CASE WHEN date >= ? AND transaction_type = 2 THEN amount ELSE 0 END) AS credit', [$start])
+            ->selectRaw('SUM(CASE WHEN date >= ? THEN 1 ELSE 0 END) AS entries', [$start])
+            ->groupBy('sister_concern_id')->get()->keyBy(fn ($r) => (string) $r->sister_concern_id);
+        $branches = SisterConcern::whereReportBranch('id', $branch)->orderBy('code')->orderBy('id')->get();
+        // Keep legacy postings visible even if their branch record no longer exists.
+        foreach ($aggregates as $id => $aggregate) {
+            if (! $branches->contains('id', $id)) {
+                $missing = new SisterConcern(); $missing->id = $id ?: null;
+                $missing->name = $id === '' ? 'Unassigned Branch' : 'Branch #'.$id;
+                $branches->push($missing);
+            }
+        }
+        $rows = []; $opening = $debit = $credit = $balance = $count = 0;
+        foreach ($branches as $b) {
+            $stats = $aggregates->get((string) $b->id);
+            $o = (int) round((float) ($stats?->opening ?? 0) * 100);
+            $d = (int) round((float) ($stats?->debit ?? 0) * 100);
+            $c = (int) round((float) ($stats?->credit ?? 0) * 100);
+            $entries = (int) ($stats?->entries ?? 0);
+            $rows[] = ['branch' => $b, 'opening' => $o, 'debit' => $d, 'credit' => $c, 'balance' => $o + $d - $c, 'count' => $entries];
+            $opening += $o; $debit += $d; $credit += $c; $balance += $o + $d - $c; $count += $entries;
+        }
+        return compact('rows', 'opening', 'debit', 'credit', 'balance', 'count');
+    }
+
     public function generate(?int $branch, string $start, string $end): array
     {
         // All journal lines, once each. Do not join voucher counter-entries back

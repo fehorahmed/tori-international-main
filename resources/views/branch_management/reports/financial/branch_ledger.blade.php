@@ -5,7 +5,7 @@
     <div class="card-header"><h3 class="card-title">Branch Ledger — Data Filter</h3></div>
     <form method="GET" action="{{ route('branch_report.branch_ledger') }}" target="_blank">
         @include('layouts.partial.__report_branch_filter')
-        <div class="card-body"><p class="text-muted">All account postings for the selected branch and date range. Dates default to Today.</p><div class="row">
+        <div class="card-body"><p class="text-muted">Branch-wise total Debit, Credit and Balance across all account postings. Click a branch in the summary for its detailed ledger. Dates default to Today.</p><div class="row">
             @foreach(['start_date' => 'From Date', 'end_date' => 'To Date'] as $name => $label)
             <div class="col-md-3 form-group"><label for="{{ $name }}">{{ $label }} <span class="text-danger">*</span> <small class="text-muted font-weight-normal">(Default Today)</small></label>
                 <input id="{{ $name }}" name="{{ $name }}" type="text" class="form-control date-picker" autocomplete="off" value="{{ old($name, request($name, now()->format('d-m-Y'))) }}" required>

@@ -12,7 +12,7 @@ body{background:#eef1f5;color:#182230}.report-wrap{max-width:1120px;margin:22px 
 </head>
 <body>
 <div class="report-wrap">
-<div class="extra-remove mb-3"><a class="btn btn-secondary btn-sm" href="{{ route('branch_report.branch_ledger', $filters) }}">Change Filters</a></div>
+<div class="extra-remove mb-3"><a class="btn btn-secondary btn-sm" href="{{ route('branch_report.branch_ledger', ['search' => 1] + $summaryFilters) }}">Back to Branch Summary</a></div>
 @include('layouts.partial.__export_buttons', ['printAreaId' => 'printArea', 'fileName' => 'Branch_Ledger_'.now()->format('Y_m_d')])
 <div id="printArea">
 @php($balanceLabel = fn ($cents) => number_format(abs($cents) / 100, 2).($cents > 0 ? ' Dr' : ($cents < 0 ? ' Cr' : '')))

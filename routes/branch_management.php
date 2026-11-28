@@ -19,6 +19,7 @@ Route::middleware(['check_head_office','permission:branch_management'])->group(f
         // Financial Reports
         Route::get('branch/report/cash-and-bank-book', [FinancialReportController::class, 'cashBankBook'])->name('branch_report.cash_or_bank_book');
         Route::get('branch/report/receipt-and-payment', [FinancialReportController::class, 'receiptAndPayment'])->name('branch_report.receipt_and_payment');
+        Route::get('branch/report/branch-ledger/{branchId}/details', [FinancialReportController::class, 'branchLedgerDetails'])->whereNumber('branchId')->name('branch_report.branch_ledger.details');
         Route::get('branch/report/branch-ledger', [FinancialReportController::class, 'branchLedger'])->name('branch_report.branch_ledger');
         Route::get('branch/report/ledger', [FinancialReportController::class, 'ledger'])->name('branch_report.ledger');
         Route::get('branch/report/trial-balance', [FinancialReportController::class, 'trialBalance'])->name('branch_report.trial_balance');

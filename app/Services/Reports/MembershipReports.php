@@ -25,7 +25,7 @@ class MembershipReports
     public function members(?int $branch, array $f): array
     {
         $query = Supplier::where('type', 'Customer')->whereReportBranch('origin_sister_concern_id', $branch)->with('shomriddhiGroup');
-        $this->dates($query, 'suppliers.created_at', $f);
+        // Date range now applies to savings activity, not member registration.
         foreach (['customer_id' => 'id', 'group_id' => 'shomriddhi_group_id', 'status' => 'status'] as $filter => $column) {
             if (isset($f[$filter]) && $f[$filter] !== '') $query->where($column, $f[$filter]);
         }
@@ -36,10 +36,15 @@ class MembershipReports
         $accounts = ShomriddhiAccount::whereReportBranch('origin_sister_concern_id', $branch)->where('status', 'Active')->whereIn('customer_id', $members->pluck('id'))
             ->select('customer_id')->selectRaw('SUM(principal_balance) AS principal, SUM(accrued_interest) AS accrued')->groupBy('customer_id')->get()->keyBy('customer_id');
         $kycs = CustomerKyc::whereIn('customer_id', $members->pluck('id'))->orderByDesc('id')->get()->unique('customer_id')->keyBy('customer_id');
+        $savingsTotals = app(MemberSavingsLedgerReport::class)->totals($members->pluck('id'), $f);
+        $detailLinks = []; $depositTotal = $withdrawTotal = 0;
         $principal = $accrued = $active = 0;
         $rows = [];
         foreach ($members as $member) {
             $account = $accounts->get($member->id);
+            $savings = $savingsTotals[$member->id];
+            $depositTotal += $this->minor($savings['deposit']); $withdrawTotal += $this->minor($savings['withdraw']);
+            $detailLinks[count($rows)][2] = route('shomriddhi-advance.reports.members.details', ['recordId' => $member->id] + $f);
             $principal += $this->minor($account?->principal ?? 0);
             $accrued += $this->minor($account?->accrued ?? 0);
             $active += (int) ($member->status == 1);
@@ -48,11 +53,11 @@ class MembershipReports
             $rows[] = [$member->created_at?->format('Y-m-d'), $member->member_no ?? '—', $member->name, $member->mobile_no,
                 $member->shomriddhiGroup ? $member->shomriddhiGroup->code.' — '.$member->shomriddhiGroup->name_en : '—',
                 $member->registration_source ? ucfirst($member->registration_source) : 'Not recorded', $member->status == 1 ? 'Active' : 'Inactive', $kycStatus,
-                $this->money($account?->principal), $this->money($account?->accrued)];
+                $this->money($account?->principal), $this->money($account?->accrued), $this->money($savings['deposit']), $this->money($savings['withdraw']), $this->money($savings['balance'])];
         }
-        return ['columns' => ['Joined', 'Member No', 'Name', 'Mobile', 'Group', 'Registration Source', 'Status', 'KYC', 'Current Savings (Tk)', 'Current Accrued Interest (Tk)'],
-            'rows' => $rows, 'totals' => ['Members' => count($rows), 'Active Members' => $active, 'Current Savings (Tk)' => $this->money($principal / 100), 'Current Accrued Interest (Tk)' => $this->money($accrued / 100)],
-            'note' => 'Date range applies to member joining date. Savings and accrued interest show current active-account balances, not historical balances at the end date. Legacy registrations without a recorded source are shown as Not recorded.'];
+        return ['columns' => ['Joined', 'Member No', 'Name', 'Mobile', 'Group', 'Registration Source', 'Status', 'KYC', 'Current Savings (Tk)', 'Current Accrued Interest (Tk)', 'Total Deposit (Tk)', 'Total Withdraw (Tk)', 'Closing Ledger Balance (Tk)'],
+            'rows' => $rows, 'detail_links' => $detailLinks, 'totals' => ['Total Deposit (Tk)' => $this->money($depositTotal / 100), 'Total Withdraw (Tk)' => $this->money($withdrawTotal / 100), 'Members' => count($rows), 'Active Members' => $active, 'Current Savings (Tk)' => $this->money($principal / 100), 'Current Accrued Interest (Tk)' => $this->money($accrued / 100)],
+            'note' => 'Date range applies to approved savings transactions. Deposit includes capitalized interest and opening postings; closing ledger balance uses recorded history through the end date. Click a name for matching transaction details. Savings and accrued interest show current active-account balances, not historical balances at the end date. Legacy registrations without a recorded source are shown as Not recorded.'];
     }
 
     public function agents(?int $branch, array $f): array
@@ -67,20 +72,25 @@ class MembershipReports
             ->groupBy('agent_id')->get()->keyBy('agent_id');
         $accounts = ShomriddhiAccount::whereReportBranch('origin_sister_concern_id', $branch)->where('status', 'Active')->whereIn('customer_id', $agents->pluck('customer_id'))
             ->select('customer_id')->selectRaw('SUM(principal_balance) AS principal')->groupBy('customer_id')->get()->keyBy('customer_id');
+        $savingsTotals = app(MemberSavingsLedgerReport::class)->totals($agents->pluck('customer_id'), $f);
+        $detailLinks = []; $depositTotal = $withdrawTotal = 0;
         $sums = ['cashin' => 0, 'cashout' => 0, 'charge_total' => 0, 'commission_total' => 0];
         $count = 0; $rows = [];
         foreach ($agents as $agent) {
             $stats = $activity->get($agent->id);
+            $savings = $savingsTotals[$agent->customer_id];
+            $depositTotal += $this->minor($savings['deposit']); $withdrawTotal += $this->minor($savings['withdraw']);
+            $detailLinks[count($rows)][2] = route('shomriddhi-advance.reports.agents.details', ['recordId' => $agent->id] + $f);
             foreach ($sums as $key => &$sum) $sum += $this->minor($stats?->$key ?? 0);
             unset($sum);
             $count += (int) ($stats?->transactions ?? 0);
             $rows[] = [$agent->agent_code, $agent->customer?->member_no, $agent->customer?->name, $agent->customer?->mobile_no, $agent->status,
                 $stats?->transactions ?? 0, $this->money($stats?->cashin), $this->money($stats?->cashout), $this->money($stats?->charge_total), $this->money($stats?->commission_total),
-                $this->money($accounts->get($agent->customer_id)?->principal)];
+                $this->money($accounts->get($agent->customer_id)?->principal), $this->money($savings['deposit']), $this->money($savings['withdraw']), $this->money($savings['balance'])];
         }
-        return ['columns' => ['Agent Code', 'Member No', 'Agent Name', 'Mobile', 'Current Status', 'Transactions', 'Member Cash-in (Tk)', 'Agent Cash-out (Tk)', 'Customer Charges (Tk)', 'Agent Commission (Tk)', 'Current Savings (Tk)'],
-            'rows' => $rows, 'totals' => ['Agents' => count($rows), 'Transactions' => $count, 'Cash-in (Tk)' => $this->money($sums['cashin'] / 100), 'Cash-out (Tk)' => $this->money($sums['cashout'] / 100), 'Customer Charges (Tk)' => $this->money($sums['charge_total'] / 100), 'Commission (Tk)' => $this->money($sums['commission_total'] / 100)],
-            'note' => 'Date range applies to completed agent transactions. Agent status and savings balance are current. Agents with no activity in the selected period are included with zero totals; removed agents retain their historical activity.'];
+        return ['columns' => ['Agent Code', 'Member No', 'Agent Name', 'Mobile', 'Current Status', 'Transactions', 'Member Cash-in (Tk)', 'Agent Cash-out (Tk)', 'Customer Charges (Tk)', 'Agent Commission (Tk)', 'Current Savings (Tk)', 'Total Deposit (Tk)', 'Total Withdraw (Tk)', 'Closing Ledger Balance (Tk)'],
+            'rows' => $rows, 'detail_links' => $detailLinks, 'totals' => ['Total Deposit (Tk)' => $this->money($depositTotal / 100), 'Total Withdraw (Tk)' => $this->money($withdrawTotal / 100), 'Agents' => count($rows), 'Transactions' => $count, 'Cash-in (Tk)' => $this->money($sums['cashin'] / 100), 'Cash-out (Tk)' => $this->money($sums['cashout'] / 100), 'Customer Charges (Tk)' => $this->money($sums['charge_total'] / 100), 'Commission (Tk)' => $this->money($sums['commission_total'] / 100)],
+            'note' => 'Date range applies to completed agent activity and approved savings entries. Total Deposit/Withdraw and ledger balance refer to the agent’s own savings; operational Cash-in/Cash-out columns refer to customer service turnover. Click a name for the agent’s own savings transaction details. Agent status and savings balance are current. Agents with no activity in the selected period are included with zero totals; removed agents retain their historical activity.'];
     }
 
     public function deposit_withdraw(?int $branch, array $f): array

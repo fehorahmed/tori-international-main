@@ -55,7 +55,7 @@
             </a>
         </li>
         <li class="nav-item">
-            <a href="{{ route('branch_report.branch_ledger') }}" class="nav-link {{ $currentRoute == 'branch_report.branch_ledger' ? 'active' : '' }}">
+            <a href="{{ route('branch_report.branch_ledger') }}" class="nav-link {{ request()->routeIs('branch_report.branch_ledger*') ? 'active' : '' }}">
                 <i class="nav-icon fas fa-list-alt"></i><p>Branch Ledger</p>
             </a>
         </li>

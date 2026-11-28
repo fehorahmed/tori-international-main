@@ -107,7 +107,8 @@ class ReceiptPaymentController extends Controller
         }
 
         abort_if(!auth()->user()->hasPermissionTo($permission), 403, 'Unauthorized');
-        abort_if($voucher->sister_concern_id != auth()->user()->activeConcernId(), 403, 'Unauthorized');
+        // Cross-branch read/print follows report scope permission; edit/post rules stay unchanged.
+        abort_if(! \App\Support\ReportBranch::allowed() && $voucher->sister_concern_id != auth()->user()->activeConcernId(), 403, 'Unauthorized');
 
         $voucherType = $voucher->voucher_type;
         $voucher->amount_in_word = DecimalToWords::convert($voucher->amount, 'Taka',
@@ -150,7 +151,8 @@ class ReceiptPaymentController extends Controller
         }
 
         abort_if(!auth()->user()->hasPermissionTo($permission), 403, 'Unauthorized');
-        abort_if($voucher->sister_concern_id != auth()->user()->activeConcernId(), 403, 'Unauthorized');
+        // Cross-branch read/print follows report scope permission; edit/post rules stay unchanged.
+        abort_if(! \App\Support\ReportBranch::allowed() && $voucher->sister_concern_id != auth()->user()->activeConcernId(), 403, 'Unauthorized');
 
         $voucherType = $voucher->voucher_type;
         $voucher->amount_in_word = DecimalToWords::convert($voucher->amount, 'Taka',

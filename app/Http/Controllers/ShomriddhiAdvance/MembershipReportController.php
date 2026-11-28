@@ -20,6 +20,32 @@ class MembershipReportController extends Controller
 
     public function deposit_withdraw(Request $request) { return $this->report($request, 'deposit_withdraw'); }
 
+    public function memberDetails(Request $request, int $recordId) { return $this->savingsDetails($request, $recordId, 'members'); }
+    public function agentDetails(Request $request, int $recordId) { return $this->savingsDetails($request, $recordId, 'agents'); }
+
+    private function savingsDetails(Request $request, int $recordId, string $kind)
+    {
+        if ($kind === 'agents') abort_unless(auth()->user()->role === 'Admin', 403);
+        $branchId = \App\Support\ReportBranch::id($request);
+        $branch = $branchId === null ? new SisterConcern(['name' => 'All Branches']) : SisterConcern::findOrFail($branchId);
+        if ($kind === 'agents') {
+            $agent = MembershipAgent::whereHas('customer', fn ($q) => $q->whereReportBranch('origin_sister_concern_id', $branchId))->findOrFail($recordId);
+            $customer = $agent->customer;
+        } else {
+            $customer = Supplier::where('type', 'Customer')->whereReportBranch('origin_sister_concern_id', $branchId)->findOrFail($recordId);
+        }
+        $rules = ['start_date' => 'nullable|date_format:Y-m-d', 'end_date' => 'nullable|date_format:Y-m-d'];
+        if ($request->filled('start_date')) $rules['end_date'] .= '|after_or_equal:start_date';
+        $filters = $request->validate($rules);
+        if (\App\Support\ReportBranch::allowed()) $filters['report_branch_id'] = $branchId ?? 'all';
+        $title = ($kind === 'agents' ? 'Agent' : 'Member').' Transactions — '.$customer->name;
+        $dateLabel = 'Transaction Date'; $options = [];
+        $filterLabels = ['Member No' => $customer->member_no ?? '—', 'Mobile' => $customer->mobile_no ?? '—'];
+        $report = app(\App\Services\Reports\MemberSavingsLedgerReport::class)->details($customer->id, $filters);
+        $report['totals']['Current Savings (Tk)'] = number_format(\App\Models\ShomriddhiAdvance\ShomriddhiAccount::where('customer_id', $customer->id)->whereReportBranch('origin_sister_concern_id', $branchId)->where('status', 'Active')->sum('principal_balance'), 2);
+        return view('shomriddhi_advance.reports.membership_report', compact('kind', 'title', 'dateLabel', 'branch', 'options', 'filters', 'filterLabels', 'report'));
+    }
+
     private function report(Request $request, string $kind)
     {
         // Report permission is applied at the route. Agent and referral financial
@@ -40,7 +66,7 @@ class MembershipReportController extends Controller
         $filters = $request->validate($rules);
         if (\App\Support\ReportBranch::allowed()) $filters['report_branch_id'] = $branchId ?? 'all';
         $title = ['members' => 'Member Report', 'agents' => 'Agent Report', 'referrals' => 'Referral Bonus Report', 'deposit_withdraw' => 'Deposit / Withdraw Report'][$kind];
-        $dateLabel = ['members' => 'Joining Date', 'agents' => 'Transaction Date', 'referrals' => 'Bonus Earned Date', 'deposit_withdraw' => 'Transaction Date'][$kind];
+        $dateLabel = ['members' => 'Transaction Date', 'agents' => 'Transaction Date', 'referrals' => 'Bonus Earned Date', 'deposit_withdraw' => 'Transaction Date'][$kind];
         $options = [];
         if ($kind === 'members') {
             $options = [

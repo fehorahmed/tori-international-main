@@ -68,6 +68,15 @@ class BranchTransactionLedgerReportTest extends TestCase
         $this->assertSame(7, $all['count']);
         $this->assertSame(15500, $all['debit']); $this->assertSame(15500, $all['credit']);
         $this->assertCount(2, $all['statements']);
+        $summary = app(BranchTransactionLedgerReport::class)->summary(null, '2088-04-15', '2088-04-15');
+        $this->assertSame($all['debit'], $summary['debit']);
+        $this->assertSame($all['credit'], $summary['credit']);
+        $this->assertSame($all['count'], $summary['count']);
+        foreach ($all['statements'] as $statement) {
+            $row = collect($summary['rows'])->first(fn ($r) => $r['branch']->id === $statement['branch']->id);
+            foreach (['opening', 'debit', 'credit', 'balance'] as $field) $this->assertSame($statement['report'][$field], $row[$field]);
+        }
+
     }
     public function test_report_dates_permission_scope_links_and_validation(): void
     {
@@ -78,14 +87,25 @@ class BranchTransactionLedgerReportTest extends TestCase
         $url = route('branch_report.branch_ledger');
         $this->get($url)->assertOk()->assertSee('Default Today')->assertSee(now()->format('d-m-Y'))->assertDontSee('name="report_branch_id"', false);
         $f = ['search' => 1, 'start_date' => '15-04-2088', 'end_date' => '15-04-2088', 'report_branch_id' => 'all'];
-        $response = $this->get($url.'?'.http_build_query($f))->assertOk()->assertSee('Branch Ledger')->assertSee('App charge income')
+        $response = $this->get($url.'?'.http_build_query($f))->assertOk()->assertSee('Branch Ledger Summary')->assertSee('Total Debit')->assertSee('Total Credit');
+        $this->assertCount(1, $response->viewData('result')['rows']);
+        $detailUrl = route('branch_report.branch_ledger.details', ['branchId' => $this->branch] + $response->viewData('filters'));
+        $response->assertSee('href="'.e($detailUrl).'"', false);
+        $detail = $this->get($detailUrl)->assertOk()->assertSee('App charge income')
             ->assertSee('&lt;script&gt;Branch ledger&lt;/script&gt;', false)->assertSee('href="'.route('voucher.details', ['voucher' => $this->voucher->id]).'"', false);
+        $this->assertSame($response->viewData('result')['debit'], $detail->viewData('result')['debit']);
+        $this->assertSame($response->viewData('result')['credit'], $detail->viewData('result')['credit']);
+        $this->get(route('branch_report.branch_ledger.details', ['branchId' => $this->other] + $f))->assertForbidden();
         $this->assertSame(2, $response->viewData('result')['count']);
         $this->user->givePermissionTo(ReportBranch::PERMISSION);
         $this->get($url)->assertOk()->assertSee('name="report_branch_id"', false)->assertSee('All Branches');
         $this->assertSame(3, $this->get($url.'?'.http_build_query($f))->assertOk()->viewData('result')['count']);
         $other = $this->get($url.'?'.http_build_query(array_replace($f, ['report_branch_id' => $this->other])))->assertOk();
         $this->assertSame(1, $other->viewData('result')['count']);
+        $otherDetail = $this->get(route('branch_report.branch_ledger.details', ['branchId' => $this->other] + $f))->assertOk();
+        $this->assertSame($other->viewData('result')['debit'], $otherDetail->viewData('result')['debit']);
+        $this->assertSame(1, $otherDetail->viewData('result')['count']);
+
         $this->assertSame($this->branch, $this->user->activeConcernId());
         $this->getJson($url.'?'.http_build_query(array_replace($f, ['end_date' => '14-04-2088'])))->assertUnprocessable();
         $this->getJson($url.'?search=1')->assertUnprocessable()->assertJsonValidationErrors(['start_date', 'end_date']);

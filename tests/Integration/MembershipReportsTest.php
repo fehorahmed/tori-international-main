@@ -42,7 +42,7 @@ class MembershipReportsTest extends TestCase
 
     private function report(): MembershipReports { return app(MembershipReports::class); }
 
-    public function test_member_report_filters_joining_date_and_current_balances_without_duplicate_members(): void
+    public function test_member_report_lists_members_with_activity_dates_and_current_balances_without_duplicates(): void
     {
         ShomriddhiAccount::create(['customer_id' => $this->member->id, 'origin_sister_concern_id' => $this->branch, 'principal_balance' => '100.25', 'accrued_interest' => '2.50']);
         ShomriddhiAccount::create(['customer_id' => $this->member->id, 'origin_sister_concern_id' => $this->branch, 'principal_balance' => '200.50', 'accrued_interest' => '1.25']);
@@ -59,7 +59,7 @@ class MembershipReportsTest extends TestCase
         $this->assertCount(0, $this->report()->members($this->other, $filters)['rows']);
         $this->assertCount(0, $this->report()->members($this->branch, array_replace($filters, ['source' => 'ecommerce']))['rows']);
         $this->assertCount(0, $this->report()->members($this->branch, array_replace($filters, ['status' => '0']))['rows']);
-        $this->assertCount(0, $this->report()->members($this->branch, array_replace($filters, ['start_date' => '2026-02-16', 'end_date' => '2026-02-16']))['rows']);
+        $this->assertCount(1, $this->report()->members($this->branch, array_replace($filters, ['start_date' => '2026-02-16', 'end_date' => '2026-02-16']))['rows']);
     }
 
     public function test_agent_report_separates_principal_charges_commission_and_keeps_removed_agent_history(): void
@@ -130,6 +130,42 @@ class MembershipReportsTest extends TestCase
         $this->assertSame('105.00', $this->report()->deposit_withdraw(null, $f)['totals']['Approved Withdraw (Tk)']);
         DB::table('membership_cashouts')->where('id', $id)->update(['status' => 'Pending']);
         $this->assertCount(0, $this->report()->deposit_withdraw($this->branch, $f + ['source' => 'branch_cashout'])['rows']);
+    }
+
+    public function test_member_and_agent_savings_totals_link_to_matching_transaction_details(): void
+    {
+        $account = ShomriddhiAccount::create(['customer_id' => $this->member->id, 'origin_sister_concern_id' => $this->branch, 'principal_balance' => 175]);
+        $agent = MembershipAgent::create(['customer_id' => $this->member->id, 'agent_code' => 'RPT-'.Str::random(12), 'status' => 'Active', 'approved_by' => $this->admin->id, 'approved_at' => now()]);
+        foreach ([['deposit', 100, 'Approved', '2026-02-14'], ['deposit', 50, 'Approved', '2026-02-15'], ['withdraw', 20, 'Approved', '2026-02-15'],
+            ['deposit', 999, 'Pending', '2026-02-15'], ['deposit', 999, 'Rejected', '2026-02-15'], ['deposit', 999, 'Approved', '2026-02-16']] as [$type, $amount, $status, $date]) {
+            \App\Models\ShomriddhiAdvance\ShomriddhiTransaction::create(['customer_id' => $this->member->id, 'type' => $type, 'amount' => $amount,
+                'status' => $status, 'date' => $date, 'created_by' => $this->admin->id, 'note' => 'Savings <entry>']);
+        }
+        $this->withoutMiddleware(); view()->share('errors', new ViewErrorBag);
+        foreach (['members' => $this->member->id, 'agents' => $agent->id] as $kind => $id) {
+            $f = ['search' => 1, 'start_date' => '2026-02-15', 'end_date' => '2026-02-15', $kind === 'members' ? 'customer_id' : 'agent_id' => $id];
+            $response = $this->get(route('shomriddhi-advance.reports.'.$kind, $f))->assertOk()->assertSee('Total Deposit (Tk)')->assertSee('Total Withdraw (Tk)');
+            $report = $response->viewData('report');
+            $this->assertSame('50.00', $report['totals']['Total Deposit (Tk)']);
+            $this->assertSame('20.00', $report['totals']['Total Withdraw (Tk)']);
+            $target = $report['detail_links'][0][2];
+            $response->assertSee(e($target), false);
+            $detail = $this->get($target)->assertOk()->assertSee('Savings &lt;entry&gt;', false);
+            $details = $detail->viewData('report');
+            $this->assertSame('100.00', $details['totals']['Opening Balance (Tk)']);
+            $this->assertSame('130.00', $details['totals']['Closing Ledger Balance (Tk)']);
+            $this->assertSame('175.00', $details['totals']['Current Savings (Tk)']);
+            $this->assertSame($report['totals']['Total Deposit (Tk)'], $details['totals']['Total Deposit (Tk)']);
+            $this->assertSame($report['totals']['Total Withdraw (Tk)'], $details['totals']['Total Withdraw (Tk)']);
+            $this->assertCount(3, $details['rows']);
+        }
+        $foreign = Supplier::create(['name' => 'Other scope member', 'type' => 'Customer', 'status' => 1, 'origin_sister_concern_id' => $this->other]);
+        $this->admin->syncRoles([]); $this->admin->syncPermissions([]);
+        $this->get(route('shomriddhi-advance.reports.members.details', ['recordId' => $foreign->id, 'report_branch_id' => 'all']))->assertNotFound();
+        $this->admin->givePermissionTo(\App\Support\ReportBranch::PERMISSION);
+        $this->get(route('shomriddhi-advance.reports.members.details', ['recordId' => $foreign->id, 'report_branch_id' => 'all']))->assertOk();
+        $this->admin->update(['role' => 'Staff']);
+        $this->get(route('shomriddhi-advance.reports.agents.details', ['recordId' => $agent->id]))->assertForbidden();
     }
 
     private function reward(string $type, int $points, string $amount, ?string $paidAt, int $branch, string $date): void
